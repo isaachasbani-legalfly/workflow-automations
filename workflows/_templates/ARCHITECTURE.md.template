@@ -1,0 +1,155 @@
+# [Workflow Name] - Architecture
+
+## Overview
+
+**Purpose**: Brief description of what this workflow does and why it exists.
+
+**Trigger**: How the workflow is triggered (webhook, scheduled, event, manual)
+
+**Outcome**: What the workflow accomplishes
+
+## Requirements
+
+- [ ] Requirement 1
+- [ ] Requirement 2
+- [ ] Requirement 3
+
+## Workflow Diagram
+
+```mermaid
+graph LR
+    A[Trigger] --> B[Process]
+    B --> C[Action]
+    C --> D[End]
+```
+
+## Nodes Breakdown
+
+### 1. [Trigger Node Name] (n8n-nodes-base.webhook)
+- **Purpose**: Describes what this node does
+- **Configuration**:
+  - Path: `/webhook/example`
+  - HTTP Method: POST
+  - Authentication: None
+- **Input**: What it receives
+- **Output**: What it produces
+
+### 2. [Processing Node Name] (n8n-nodes-base.set)
+- **Purpose**: Transform or extract data
+- **Configuration**:
+  - Field 1: `{{ $json.fieldname }}`
+  - Field 2: static value
+- **Input**: Data from previous node
+- **Output**: Transformed data
+
+### 3. [Action Node Name] (n8n-nodes-base.slack)
+- **Purpose**: Send notification or take action
+- **Configuration**:
+  - Channel: `#general`
+  - Message: `{{ $json.message }}`
+- **Input**: Data from previous node
+- **Output**: Confirmation or error
+
+## Data Flow
+
+Step-by-step description of how data flows through the workflow:
+
+1. **Trigger**: Webhook receives incoming request
+2. **Processing**: Extract and transform data
+3. **Action**: Send notification or update external system
+4. **Completion**: Workflow finishes or continues to next step
+
+## Error Handling
+
+**Strategy**: How errors are handled and recovered from
+
+- **API Errors**: Retry 3 times with exponential backoff (2s, 4s, 8s)
+- **Validation Errors**: Log error and send alert to admin
+- **Timeout Errors**: Return 500 to caller and retry async
+
+**Error Output**: Where errors are sent (logging, email, Slack channel)
+
+## Dependencies
+
+### Credentials Required
+- **Service Name**: What scopes/permissions are needed
+  - Example: Slack OAuth2 API with `im:history`, `im:read`, `chat:write`
+  - Example: HubSpot API with read access to deals and contacts
+
+### External Services
+- **Service URL**: https://example.com
+- **Authentication**: API key, OAuth, etc.
+- **Rate Limits**: If applicable
+
+### Environment Variables
+- `ENVIRONMENT_VAR_NAME`: Description of what it contains
+
+## Testing Strategy
+
+### Unit Tests
+1. Test step: Send test request with data
+2. Expected: Response matches expected format
+3. Verification: Check logs for success
+
+### Integration Tests
+1. Create test data in source system (HubSpot, Slack, etc.)
+2. Trigger workflow manually or wait for scheduled trigger
+3. Verify output in target system (Slack message, updated record, etc.)
+
+### Error Cases
+- Test with invalid data → Verify error handling
+- Test with missing credentials → Verify graceful failure
+- Test with API timeout → Verify retry logic
+
+## Deployment Plan
+
+### Pre-Deployment Checklist
+- [ ] All credentials configured in n8n
+- [ ] Test data prepared
+- [ ] Team notified of changes
+- [ ] Rollback plan documented
+
+### Deployment Steps
+1. Validate workflow structure
+2. Deploy workflow to n8n
+3. Enable workflow (set active: true)
+4. Run test with sample data
+5. Monitor for first 24 hours
+
+### Post-Deployment Validation
+- [ ] Workflow is active in n8n
+- [ ] Executions are showing successful status
+- [ ] No errors in execution logs
+- [ ] Output data matches expected format
+
+### Rollback Plan
+If issues occur:
+1. Disable workflow in n8n UI
+2. Investigate error logs
+3. Fix issues and redeploy
+4. Re-enable workflow
+
+## Trade-offs & Architectural Decisions
+
+### Decision 1: [Option Chosen]
+- **Why**: Reasoning for this choice
+- **Alternative**: What could have been chosen
+- **Trade-off**: What was sacrificed for this choice
+- **Future**: Can this be revisited?
+
+### Decision 2: [Option Chosen]
+- **Why**: Reasoning for this choice
+- **Alternative**: What could have been chosen
+- **Trade-off**: What was sacrificed for this choice
+- **Future**: Can this be revisited?
+
+## Estimated Complexity
+
+- **Setup Time**: 10-15 minutes
+- **Complexity Level**: Simple / Medium / Complex
+- **Node Count**: 3-5 nodes
+- **Validation Difficulty**: Straightforward / Moderate / Complex
+
+## Version History
+
+- **v1.0.0** (2026-02-15): Initial architecture design

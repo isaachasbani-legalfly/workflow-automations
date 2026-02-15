@@ -1,0 +1,55 @@
+# Changelog
+
+All notable changes to this workflow will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.0] - 2026-02-15
+
+### Added
+- Initial workflow deployment
+- [List of features added]
+
+### Configuration
+- Trigger: [Trigger type and configuration]
+- Nodes: [List of main processing nodes]
+
+### Deployment
+- Workflow ID: [workflow-id]
+- n8n URL: https://legalfly.app.n8n.cloud/workflow/[workflow-id]
+- Status: Active
+
+---
+
+## Version Notes
+
+Use the following format for future changes:
+
+### [X.Y.Z] - YYYY-MM-DD
+
+#### Added
+- New features or capabilities
+
+#### Changed
+- Changes to existing functionality
+
+#### Fixed
+- Bug fixes
+
+#### Removed
+- Removed functionality
+
+#### Deprecated
+- Functionality that will be removed in future versions
+
+#### Security
+- Security improvements or fixes
+
+---
+
+### Semantic Versioning
+
+- **MAJOR** (X.0.0): Breaking changes to workflow logic or output format
+- **MINOR** (0.Y.0): New features that don't break existing functionality
+- **PATCH** (0.0.Z): Bug fixes or minor improvements

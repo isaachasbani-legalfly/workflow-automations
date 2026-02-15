@@ -1,10 +1,103 @@
-# workflowdemo
+# n8n Workflow Automation Project
 
-The goal of this repo is to try out some tools that could be useful for process automations.
+Build and deploy n8n automations using **natural language** with Claude AI and n8n MCP tools.
 
-## Slack Help Auto-Reply Workflow
+## Quick Start
 
-A simple n8n workflow that listens for DMs containing "Help" and replies with an encouraging message.
+Create your first workflow in 10 minutes:
+
+```bash
+claude
+> "Create workflow: When [trigger], [action]"
+```
+
+Example:
+```bash
+> "Create workflow: When a new deal is created in HubSpot,
+   send a notification to Slack #sales with deal details"
+```
+
+Claude will:
+1. **Design** the workflow (ARCHITECTURE.md)
+2. **Get your approval**
+3. **Build and deploy** to n8n
+4. **Save all artifacts** to git
+
+See [docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md) for more examples.
+
+---
+
+## Documentation
+
+- **[docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md)** - Quick reference for creating workflows
+- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Detailed development workflow guide
+- **[workflows/README.md](workflows/README.md)** - Workflow structure and file reference
+- **[claude.md](claude.md)** - Complete n8n-MCP tool reference
+
+---
+
+## Project Structure
+
+```
+├── docs/                        # Documentation
+│   ├── QUICK_REFERENCE.md      # Quick reference guide
+│   └── DEVELOPMENT.md          # Development workflow
+├── workflows/                  # All n8n workflows
+│   ├── _templates/            # Reusable templates
+│   ├── README.md              # Workflow directory guide
+│   ├── slack-help-bot/        # Example: Slack help bot
+│   └── [workflow-name]/       # Your workflows
+├── .mcp.json                  # MCP configuration
+├── claude.md                  # n8n-MCP tool reference
+└── README.md                  # This file
+```
+
+---
+
+## Two-Phase Workflow Creation
+
+### Phase 1: Architecture (Design)
+You describe what you want, Claude designs it.
+
+```bash
+> "Create workflow: [your requirement]"
+```
+
+Claude generates:
+- **ARCHITECTURE.md** - Full design document
+- **architecture.mmd** - Visual diagram
+- **test-data/** - Sample test files
+
+✅ **Review and approve** before proceeding to Phase 2
+
+### Phase 2: Build (Implementation)
+Once approved, Claude builds and deploys automatically.
+
+**Output:**
+- **workflow.json** - n8n workflow (deployed)
+- **deployment.json** - Deployment metadata
+- **CHANGELOG.md** - Version history
+- Commit to git
+
+**Total time:** ~10 minutes from idea to live workflow
+
+---
+
+## Example Workflows
+
+### 1. Slack Help Auto-Reply Workflow
+
+A simple workflow that listens for "Help" in Slack DMs and replies with an encouraging message.
+
+**Status**: Currently active in n8n instance
+**Location**: `workflows/slack-help-bot/`
+
+To create this workflow with natural language:
+
+```bash
+> "Create workflow: Listen for 'Help' in Slack DMs
+   and reply with 'hang in there you'll make it'"
+```
 
 ### Workflow Diagram
 
@@ -17,74 +110,83 @@ flowchart LR
     B -- False --> D["No action"]
 ```
 
-### Prerequisites
+---
 
-- An n8n instance (this project uses https://legalfly.app.n8n.cloud)
-- A Slack workspace with a Slack App configured
+## Getting Started
 
-#### Slack App Setup
+### 1. Create Your First Workflow
 
-1. Go to https://api.slack.com/apps
-2. Click **Create New App** > **From scratch**
-3. Name it (e.g., `n8n-helper-bot`) and select your workspace
-4. Go to **OAuth & Permissions** and add these **Bot Token Scopes**:
-   - `im:history` — read DMs
-   - `im:read` — see DM channel info
-   - `chat:write` — send messages
-5. Click **Install to Workspace** and authorize
-6. Go to **Event Subscriptions**, enable events, and subscribe to the **`message.im`** bot event
-7. Save changes
+```bash
+claude
+> "Create workflow: [describe what you want]"
+```
 
-#### n8n Credentials
+### 2. Review the Architecture
 
-1. In n8n, go to **Settings > Credentials > Add Credential**
-2. Search for **Slack** and select **Slack OAuth2 API**
-3. Follow the OAuth2 flow to connect your Slack workspace
+Claude will present:
+- Overview and purpose
+- Visual diagram (Mermaid)
+- Node-by-node breakdown
+- Configuration requirements
+- Error handling strategy
 
-### Building the Workflow in n8n
+### 3. Approve or Request Changes
 
-#### Step 1: Create the workflow
+```bash
+> "Looks good, build it!"
+# or
+> "Can you change X to Y?"
+```
 
-1. Open your n8n instance
-2. Click **+ Add workflow**
-3. Name it **Slack Help Auto-Reply**
+### 4. Automated Deployment
 
-#### Step 2: Add the Slack Trigger node
+Claude will:
+- Build the workflow
+- Validate everything
+- Deploy to n8n
+- Save all artifacts
+- Commit to git
 
-1. Click the **+** button on the canvas
-2. Search for **Slack** and select **Slack Trigger**
-3. Configure:
-   - **Credential**: Select your Slack OAuth credential
-   - **Events**: Select **New Message Posted to Channel** (or the `message` event)
-   - **Channel**: Select your DM channel
+### 5. Test and Iterate
 
-#### Step 3: Add the IF node
+Once deployed, test the workflow:
+```bash
+> "Test the workflow with [sample data]"
+```
 
-1. Click **+** on the right side of the Slack Trigger node
-2. Search for **IF** and select it
-3. Configure the condition:
-   - **Value 1**: Click `fx` and enter `{{ $json.text }}`
-   - **Operation**: **is equal to**
-   - **Value 2**: `Help`
+Request updates:
+```bash
+> "Update the workflow: [change]"
+```
 
-#### Step 4: Add the Slack Send Message node
+---
 
-1. Click **+** on the **True** (green) output of the IF node
-2. Search for **Slack** and select **Slack** (the regular node, not the trigger)
-3. Configure:
-   - **Credential**: Select your Slack credential
-   - **Resource**: Message
-   - **Operation**: Send
-   - **Channel**: Click `fx` and enter `{{ $('Slack Trigger').item.json.channel }}`
-   - **Text**: `hang in there you'll make it`
+## Guides
 
-#### Step 5: Test
+### For First-Time Users
+Start with [docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md)
+- Command reference
+- Workflow examples
+- Common requests
 
-1. Click **Test Workflow** in the top-right
-2. Send **Help** as a DM to your bot in Slack
-3. Verify the bot replies with "hang in there you'll make it"
+### For Detailed Learning
+Read [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- Complete development workflow
+- Architecture review checklist
+- Best practices
+- Common patterns
+- Troubleshooting
 
-#### Step 6: Activate
+### For Workflow Structure
+See [workflows/README.md](workflows/README.md)
+- Directory organization
+- File reference
+- Naming conventions
+- Git strategy
 
-1. Toggle the **Active** switch in the top-right to enable the workflow
-2. The workflow will now run automatically on every DM
+### For n8n-MCP Reference
+Check [claude.md](claude.md)
+- Complete tool reference
+- Validation strategies
+- Connection syntax
+- Advanced patterns

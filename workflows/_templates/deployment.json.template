@@ -1,0 +1,28 @@
+{
+  "workflowId": "[auto-generated-by-n8n]",
+  "workflowName": "[Workflow Name]",
+  "n8nUrl": "https://legalfly.app.n8n.cloud/workflow/[workflow-id]",
+  "deployedAt": "[2026-02-15T14:00:00Z]",
+  "deployedBy": "[username]",
+  "version": "1.0.0",
+  "status": "active",
+  "nodes": [
+    {
+      "name": "[Node Name]",
+      "type": "n8n-nodes-base.slack",
+      "version": 1
+    }
+  ],
+  "credentials": [
+    {
+      "name": "[Credential Name]",
+      "type": "[credential-type]",
+      "id": "[credential-id]"
+    }
+  ],
+  "tags": ["tag1", "tag2"],
+  "description": "[Brief description of what the workflow does]",
+  "lastSync": "[2026-02-15T14:00:00Z]",
+  "executionCount": 0,
+  "successRate": 0
+}
