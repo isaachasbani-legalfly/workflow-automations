@@ -1,0 +1,49 @@
+{
+  "workflowName": "HubSpot Company Industry Categorization",
+  "version": "1.0.0",
+  "deploymentDate": "2026-02-15",
+  "status": "ready",
+  "environment": "development",
+  "description": "Automatically categorizes HubSpot companies into 15 internal industry categories using LinkedIn enrichment (Amplemarket API) as primary source, website metadata fetch as fallback, and Google Gemini 1.5-Pro for intelligent classification.",
+  "requiredIntegrations": [
+    {
+      "name": "HubSpot",
+      "credentialName": "hubspot",
+      "scope": ["company.creation", "company.read", "company.write"]
+    },
+    {
+      "name": "Slack",
+      "credentialName": "slack",
+      "scope": ["chat:write"]
+    },
+    {
+      "name": "Amplemarket API",
+      "credentialName": "amplemarket",
+      "type": "httpHeaderAuth",
+      "envVar": "AMPLEMARKET_API_KEY"
+    },
+    {
+      "name": "Google Gemini API",
+      "credentialName": "gemini",
+      "envVar": "GOOGLE_GEMINI_API_KEY"
+    }
+  ],
+  "environmentVariables": {
+    "HUBSPOT_PORTAL_ID": "142047914",
+    "SLACK_CHANNEL": "n8n-helper-test-bot"
+  },
+  "keyFeatures": [
+    "Demo form detection - skips categorization for companies added via form",
+    "Three-tier enrichment strategy: LinkedIn (primary) → Website (fallback) → Error alert",
+    "Gemini 1.5-Pro intelligent classification with 70% confidence threshold",
+    "Manual review routing for uncertain categorizations",
+    "Slack notifications for all outcomes (success, manual review, enrichment failed)",
+    "HubSpot integration with property update on categorization success"
+  ],
+  "testingNotes": [
+    "Test with demo form company to verify skip logic",
+    "Test with company that has LinkedIn presence",
+    "Test with company without LinkedIn but with website",
+    "Test with company that has no enrichment data"
+  ]
+}

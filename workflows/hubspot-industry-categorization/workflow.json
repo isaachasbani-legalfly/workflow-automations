@@ -1,0 +1,634 @@
+{
+  "name": "HubSpot Company Industry Categorization",
+  "nodes": [
+    {
+      "id": "1",
+      "name": "HubSpot Trigger",
+      "type": "n8n-nodes-base.hubspotTrigger",
+      "typeVersion": 1,
+      "position": [100, 100],
+      "parameters": {
+        "eventsUi": {
+          "eventValues": [
+            {
+              "event": "company.creation"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "hubspotDeveloperApi": "=hubspot"
+      }
+    },
+    {
+      "id": "2",
+      "name": "Check Demo Form",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [300, 100],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "condition": "isEmpty",
+              "value1": "={{ $json.properties.industry__form____contact_sync }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "3",
+      "name": "Get Company Details",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [500, 100],
+      "parameters": {
+        "resource": "company",
+        "operation": "get",
+        "companyId": {
+          "__rl": true,
+          "value": "={{ $json.objectId }}",
+          "mode": "id"
+        },
+        "additionalFields": {}
+      },
+      "credentials": {
+        "hubspotApi": "=hubspot"
+      }
+    },
+    {
+      "id": "4",
+      "name": "Prepare LinkedIn Call",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [700, 100],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "name": "companyId",
+              "type": "string",
+              "value": "={{ $json.id }}"
+            },
+            {
+              "name": "companyName",
+              "type": "string",
+              "value": "={{ $json.properties.name.value || 'Unknown' }}"
+            },
+            {
+              "name": "description",
+              "type": "string",
+              "value": "={{ ($json.properties.description || {}).value || '' }}"
+            },
+            {
+              "name": "aboutUs",
+              "type": "string",
+              "value": "={{ ($json.properties.about_us || {}).value || '' }}"
+            },
+            {
+              "name": "keywords",
+              "type": "string",
+              "value": "={{ ($json.properties.hs_keywords || {}).value || '' }}"
+            },
+            {
+              "name": "website",
+              "type": "string",
+              "value": "={{ ($json.properties.website || {}).value || '' }}"
+            },
+            {
+              "name": "linkedinUrl",
+              "type": "string",
+              "value": "={{ ($json.properties.linkedin_company_page || {}).value || '' }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "5",
+      "name": "Amplemarket LinkedIn Enrichment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 80],
+      "parameters": {
+        "url": "https://api.amplemarket.com/api/v2/companies/search",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": "={{ JSON.stringify({ linkedin_url: $json.linkedinUrl || $json.website }) }}",
+        "sendBody": true
+      },
+      "credentials": {
+        "httpHeaderAuth": "=amplemarket"
+      },
+      "retryOnFail": true,
+      "maxTries": 1
+    },
+    {
+      "id": "6",
+      "name": "LinkedIn Success Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1100, 80],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "condition": "notEmpty",
+              "value1": "={{ $json.company }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "7",
+      "name": "Extract LinkedIn Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1300, 20],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "name": "linkedinDescription",
+              "type": "string",
+              "value": "={{ ($json.company || {}).description || '' }}"
+            },
+            {
+              "name": "linkedinIndustry",
+              "type": "string",
+              "value": "={{ ($json.company || {}).industry || '' }}"
+            },
+            {
+              "name": "linkedinSpecialties",
+              "type": "string",
+              "value": "={{ (($json.company || {}).specialties || []).join(', ') || '' }}"
+            },
+            {
+              "name": "enrichmentSource",
+              "type": "string",
+              "value": "linkedin"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "8",
+      "name": "Website Metadata Fetch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1300, 140],
+      "parameters": {
+        "url": "={{ $json.website }}",
+        "method": "GET",
+        "headers": {
+          "User-Agent": "Mozilla/5.0"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 1
+    },
+    {
+      "id": "9",
+      "name": "Website Success Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1500, 140],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "condition": "notEmpty",
+              "value1": "={{ $json.body }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "10",
+      "name": "Extract Website Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1700, 80],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "name": "websiteDescription",
+              "type": "string",
+              "value": "={{ ($json.body.match(/<meta property=\"og:description\" content=\"([^\"]+)\"/i) || [])[1] || ($json.body.match(/<meta name=\"description\" content=\"([^\"]+)\"/i) || [])[1] || '' }}"
+            },
+            {
+              "name": "websiteTitle",
+              "type": "string",
+              "value": "={{ ($json.body.match(/<title>([^<]+)<\\/title>/i) || [])[1] || '' }}"
+            },
+            {
+              "name": "enrichmentSource",
+              "type": "string",
+              "value": "website"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "11",
+      "name": "Both Failed - Error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1700, 200],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "name": "enrichmentFailed",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "name": "errorMessage",
+              "type": "string",
+              "value": "Both LinkedIn and website enrichment failed"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "12",
+      "name": "Merge Enriched Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1900, 100],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "name": "enrichedData",
+              "type": "json",
+              "value": "={{ { companyName: $node['Prepare LinkedIn Call'].json.companyName, description: $node['Prepare LinkedIn Call'].json.description || '', aboutUs: $node['Prepare LinkedIn Call'].json.aboutUs || '', keywords: $node['Prepare LinkedIn Call'].json.keywords || '', linkedinDescription: ($json.linkedinDescription || $json.websiteDescription || ''), linkedinIndustry: ($json.linkedinIndustry || ''), linkedinSpecialties: ($json.linkedinSpecialties || ''), enrichmentSource: ($json.enrichmentSource || 'none') } }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "13",
+      "name": "Gemini Categorization",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [2100, 100],
+      "parameters": {
+        "modelName": "models/gemini-1.5-pro",
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 100
+        },
+        "messages": {
+          "messageValues": [
+            {
+              "content": "=You are an expert business industry classifier. Categorize this company into ONE of these 15 internal industry categories:\n1. Accounting\n2. Insurance\n3. Legal Services\n4. Technology\n5. Healthcare\n6. Public Sector\n7. Retail and Consumer Goods\n8. Consulting\n9. Construction\n10. Payroll and HR Services\n11. Banking\n12. Energy\n13. Financial Services\n14. Manufacturing\n15. Transportation\n\nCOMPANY DATA:\nName: {{ $json.enrichedData.companyName }}\nDescription: {{ $json.enrichedData.description }}\nAbout Us: {{ $json.enrichedData.aboutUs }}\nKeywords: {{ $json.enrichedData.keywords }}\nLinkedIn Data: {{ $json.enrichedData.linkedinDescription }}\nLinkedIn Industry: {{ $json.enrichedData.linkedinIndustry }}\nLinkedIn Specialties: {{ $json.enrichedData.linkedinSpecialties }}\n\nRULES:\n1. Analyze ALL available data\n2. Look for PRIMARY business keywords\n3. If company creates tech (software/SaaS) → Technology\n4. If company USES tech but does something else → Their actual industry\n5. If confidence < 70%, respond: \"MANUAL_REVIEW_REQUIRED\"\n\nRespond ONLY with the category name or \"MANUAL_REVIEW_REQUIRED\". No explanation.",
+              "role": "user"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "googleAiApi": "=gemini"
+      }
+    },
+    {
+      "id": "14",
+      "name": "Check Manual Review",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2300, 100],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "conditions": [
+            {
+              "condition": "contains",
+              "value1": "={{ $json.text }}",
+              "value2": "MANUAL_REVIEW_REQUIRED"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "15",
+      "name": "Parse Categorization Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2500, 50],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "name": "category",
+              "type": "string",
+              "value": "={{ ($json.text || '').trim() }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "16",
+      "name": "Update HubSpot with Category",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [2700, 30],
+      "parameters": {
+        "resource": "company",
+        "operation": "update",
+        "companyId": {
+          "__rl": true,
+          "value": "={{ $node['Prepare LinkedIn Call'].json.companyId }}",
+          "mode": "id"
+        },
+        "updateFields": {
+          "customProperties": [
+            {
+              "name": "industry_internal_sync",
+              "value": "={{ $node['Parse Categorization Result'].json.category }}"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "hubspotApi": "=hubspot"
+      }
+    },
+    {
+      "id": "17",
+      "name": "Send Success Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [2900, 30],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channel": "n8n-helper-test-bot",
+        "text": "=✅ **{{ $node['Prepare LinkedIn Call'].json.companyName }}** categorized as **{{ $node['Parse Categorization Result'].json.category }}**\n\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $node['Prepare LinkedIn Call'].json.companyId }}|View in HubSpot>"
+      },
+      "credentials": {
+        "slackApi": "=slack"
+      }
+    },
+    {
+      "id": "18",
+      "name": "Send Manual Review Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [2700, 150],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channel": "n8n-helper-test-bot",
+        "text": "=⚠️ **Manual Review Required** for **{{ $node['Prepare LinkedIn Call'].json.companyName }}**\n\nAvailable data:\n- Description: {{ $node['Prepare LinkedIn Call'].json.description }}\n- Keywords: {{ $node['Prepare LinkedIn Call'].json.keywords }}\n- Enrichment Source: {{ $json.enrichmentSource || 'Unknown' }}\n\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $node['Prepare LinkedIn Call'].json.companyId }}|View in HubSpot>"
+      },
+      "credentials": {
+        "slackApi": "=slack"
+      }
+    },
+    {
+      "id": "19",
+      "name": "Send Enrichment Failed Alert",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [2900, 250],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channel": "n8n-helper-test-bot",
+        "text": "=❌ **Enrichment Failed** for **{{ $node['Prepare LinkedIn Call'].json.companyName }}**\n\nBoth LinkedIn and website enrichment failed. Unable to categorize.\n\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $node['Prepare LinkedIn Call'].json.companyId }}|View in HubSpot>\n\nAction: Manual categorization required"
+      },
+      "credentials": {
+        "slackApi": "=slack"
+      }
+    }
+  ],
+  "connections": {
+    "HubSpot Trigger": {
+      "main": [
+        [
+          {
+            "node": "Check Demo Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Demo Form": {
+      "main": [
+        [
+          {
+            "node": "Get Company Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Company Details": {
+      "main": [
+        [
+          {
+            "node": "Prepare LinkedIn Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare LinkedIn Call": {
+      "main": [
+        [
+          {
+            "node": "Amplemarket LinkedIn Enrichment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amplemarket LinkedIn Enrichment": {
+      "main": [
+        [
+          {
+            "node": "LinkedIn Success Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LinkedIn Success Check": {
+      "main": [
+        [
+          {
+            "node": "Extract LinkedIn Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Website Metadata Fetch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract LinkedIn Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Enriched Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Website Metadata Fetch": {
+      "main": [
+        [
+          {
+            "node": "Website Success Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Website Success Check": {
+      "main": [
+        [
+          {
+            "node": "Extract Website Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Both Failed - Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Website Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Enriched Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Both Failed - Error": {
+      "main": [
+        [
+          {
+            "node": "Send Enrichment Failed Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Enriched Data": {
+      "main": [
+        [
+          {
+            "node": "Gemini Categorization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Categorization": {
+      "main": [
+        [
+          {
+            "node": "Check Manual Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Manual Review": {
+      "main": [
+        [
+          {
+            "node": "Parse Categorization Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Manual Review Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Categorization Result": {
+      "main": [
+        [
+          {
+            "node": "Update HubSpot with Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update HubSpot with Category": {
+      "main": [
+        [
+          {
+            "node": "Send Success Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

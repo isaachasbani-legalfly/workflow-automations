@@ -1,0 +1,59 @@
+flowchart TD
+    Start([Company Added to HubSpot])
+
+    Start --> Trigger["🔔 HubSpot Trigger<br/>company.creation event"]
+    Trigger --> CheckDemo{"Is from Demo Form?<br/>industry__form____contact_sync<br/>filled?"}
+
+    CheckDemo -->|YES - Demo Form| SkipFlow["⏭️ SKIP CATEGORIZATION<br/>User selected industry manually<br/>Don't override"]
+    CheckDemo -->|NO - Proceed| GetDetails["📋 Get Company Details<br/>name, description, website<br/>LinkedIn URL, keywords"]
+
+    GetDetails --> ExtractLinkedIn["📱 Extract LinkedIn URL<br/>from HubSpot company record"]
+    ExtractLinkedIn --> LinkedInAPI["🔗 Amplemarket API<br/>Fetch LinkedIn Company Data<br/>description, industry, specialties"]
+
+    LinkedInAPI --> LinkedInSuccess{LinkedIn<br/>Success?}
+    LinkedInSuccess -->|✅ YES| MergeLinkedIn["✅ Extract LinkedIn Data<br/>Company description & specialties"]
+    LinkedInSuccess -->|❌ FAILED| WebsiteAPI["🌐 Fallback: HTTP Request<br/>Fetch Website Metadata<br/>og:description, title, meta tags"]
+
+    WebsiteAPI --> WebsiteSuccess{Website<br/>Success?}
+    WebsiteSuccess -->|✅ YES| MergeWebsite["✅ Extract Website Data<br/>Meta description & content"]
+    WebsiteSuccess -->|❌ FAILED| BothFailed["❌ BOTH FAILED<br/>No enrichment data available"]
+
+    MergeLinkedIn --> PrepareData["📊 Prepare Data<br/>HubSpot + Enriched Data<br/>For AI categorization"]
+    MergeWebsite --> PrepareData
+
+    BothFailed --> SlackError["⚠️ Send Slack Alert<br/>#n8n-helper-test-bot<br/>Enrichment Failed - Manual Review"]
+
+    PrepareData --> Gemini["🤖 Gemini 1.5-Pro<br/>Intelligent Categorization<br/>Analyze all data → 15 categories"]
+
+    Gemini --> ValidateCat{Confidence<br/>≥ 70%?}
+
+    ValidateCat -->|✅ YES - High Confidence| Update["✏️ Update HubSpot<br/>Set industry_internal_sync<br/>property"]
+    ValidateCat -->|⚠️ NO - Uncertain| ManualReview["🚩 Flag for Manual Review<br/>Slack Alert Sent"]
+
+    Update --> NotifySuccess["💬 Send Slack Message<br/>#n8n-helper-test-bot<br/>✅ Category Success"]
+    ManualReview --> NotifyManual["💬 Send Slack Message<br/>#n8n-helper-test-bot<br/>⚠️ Manual Review Required"]
+
+    NotifySuccess --> Complete(["✅ Workflow Complete"])
+    NotifyManual --> Complete
+    SlackError --> Complete
+    SkipFlow --> Complete
+
+    style Start fill:#e1f5fe
+    style Trigger fill:#fff3e0
+    style CheckDemo fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style SkipFlow fill:#e8f5e9
+    style GetDetails fill:#f3e5f5
+    style LinkedInAPI fill:#e3f2fd
+    style WebsiteAPI fill:#e3f2fd
+    style BothFailed fill:#ffccbc,stroke:#d84315,stroke-width:2px
+    style MergeLinkedIn fill:#c8e6c9
+    style MergeWebsite fill:#c8e6c9
+    style PrepareData fill:#e8f5e9
+    style Gemini fill:#c7e9f4,stroke:#0277bd,stroke-width:3px
+    style ValidateCat fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Update fill:#c8e6c9
+    style ManualReview fill:#ffccbc
+    style NotifySuccess fill:#b3e5fc
+    style NotifyManual fill:#ffccbc
+    style SlackError fill:#ffccbc
+    style Complete fill:#a5d6a7
