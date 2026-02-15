@@ -6,7 +6,10 @@
       "name": "HubSpot Trigger",
       "type": "n8n-nodes-base.hubspotTrigger",
       "typeVersion": 1,
-      "position": [100, 100],
+      "position": [
+        100,
+        100
+      ],
       "parameters": {
         "eventsUi": {
           "eventValues": [
@@ -25,7 +28,10 @@
       "name": "Check Demo Form",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [300, 100],
+      "position": [
+        300,
+        100
+      ],
       "parameters": {
         "conditions": {
           "combinator": "and",
@@ -43,7 +49,10 @@
       "name": "Get Company Details",
       "type": "n8n-nodes-base.hubspot",
       "typeVersion": 2.2,
-      "position": [500, 100],
+      "position": [
+        500,
+        100
+      ],
       "parameters": {
         "resource": "company",
         "operation": "get",
@@ -63,7 +72,10 @@
       "name": "Prepare LinkedIn Call",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [700, 100],
+      "position": [
+        700,
+        100
+      ],
       "parameters": {
         "mode": "manual",
         "assignments": {
@@ -112,7 +124,10 @@
       "name": "Amplemarket LinkedIn Enrichment",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [900, 80],
+      "position": [
+        900,
+        80
+      ],
       "parameters": {
         "url": "https://api.amplemarket.com/api/v2/companies/search",
         "method": "POST",
@@ -135,7 +150,10 @@
       "name": "LinkedIn Success Check",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1100, 80],
+      "position": [
+        1100,
+        80
+      ],
       "parameters": {
         "conditions": {
           "combinator": "and",
@@ -153,7 +171,10 @@
       "name": "Extract LinkedIn Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1300, 20],
+      "position": [
+        1300,
+        20
+      ],
       "parameters": {
         "mode": "manual",
         "assignments": {
@@ -187,7 +208,10 @@
       "name": "Website Metadata Fetch",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [1300, 140],
+      "position": [
+        1300,
+        140
+      ],
       "parameters": {
         "url": "={{ $json.website }}",
         "method": "GET",
@@ -203,7 +227,10 @@
       "name": "Website Success Check",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1500, 140],
+      "position": [
+        1500,
+        140
+      ],
       "parameters": {
         "conditions": {
           "combinator": "and",
@@ -221,7 +248,10 @@
       "name": "Extract Website Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1700, 80],
+      "position": [
+        1700,
+        80
+      ],
       "parameters": {
         "mode": "manual",
         "assignments": {
@@ -250,7 +280,10 @@
       "name": "Both Failed - Error",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1700, 200],
+      "position": [
+        1700,
+        200
+      ],
       "parameters": {
         "mode": "manual",
         "assignments": {
@@ -274,7 +307,10 @@
       "name": "Merge Enriched Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1900, 100],
+      "position": [
+        1900,
+        100
+      ],
       "parameters": {
         "mode": "manual",
         "assignments": {
@@ -293,7 +329,10 @@
       "name": "Gemini Categorization",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [2100, 100],
+      "position": [
+        2100,
+        100
+      ],
       "parameters": {
         "modelName": "models/gemini-3-flash",
         "options": {
@@ -310,7 +349,7 @@
         }
       },
       "credentials": {
-        "googleAiApi": "=gemini"
+        "googleAiApi": "=Gemini"
       }
     },
     {
@@ -318,7 +357,10 @@
       "name": "Check Manual Review",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [2300, 100],
+      "position": [
+        2300,
+        100
+      ],
       "parameters": {
         "conditions": {
           "combinator": "and",
@@ -337,7 +379,10 @@
       "name": "Parse Categorization Result",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [2500, 50],
+      "position": [
+        2500,
+        50
+      ],
       "parameters": {
         "mode": "manual",
         "assignments": {
@@ -356,7 +401,10 @@
       "name": "Update HubSpot with Category",
       "type": "n8n-nodes-base.hubspot",
       "typeVersion": 2.2,
-      "position": [2700, 30],
+      "position": [
+        2700,
+        30
+      ],
       "parameters": {
         "resource": "company",
         "operation": "update",
@@ -383,16 +431,19 @@
       "name": "Send Success Slack",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [2900, 30],
+      "position": [
+        2900,
+        30
+      ],
       "parameters": {
         "resource": "message",
         "operation": "post",
         "select": "channel",
-        "channel": "n8n-helper-test-bot",
+        "channel": "D0ADELD95GR",
         "text": "=✅ **{{ $node['Prepare LinkedIn Call'].json.companyName }}** categorized as **{{ $node['Parse Categorization Result'].json.category }}**\n\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $node['Prepare LinkedIn Call'].json.companyId }}|View in HubSpot>"
       },
       "credentials": {
-        "slackApi": "=slack"
+        "slackApi": "=Slack"
       }
     },
     {
@@ -400,16 +451,19 @@
       "name": "Send Manual Review Slack",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [2700, 150],
+      "position": [
+        2700,
+        150
+      ],
       "parameters": {
         "resource": "message",
         "operation": "post",
         "select": "channel",
-        "channel": "n8n-helper-test-bot",
+        "channel": "D0ADELD95GR",
         "text": "=⚠️ **Manual Review Required** for **{{ $node['Prepare LinkedIn Call'].json.companyName }}**\n\nAvailable data:\n- Description: {{ $node['Prepare LinkedIn Call'].json.description }}\n- Keywords: {{ $node['Prepare LinkedIn Call'].json.keywords }}\n- Enrichment Source: {{ $json.enrichmentSource || 'Unknown' }}\n\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $node['Prepare LinkedIn Call'].json.companyId }}|View in HubSpot>"
       },
       "credentials": {
-        "slackApi": "=slack"
+        "slackApi": "=Slack"
       }
     },
     {
@@ -417,16 +471,19 @@
       "name": "Send Enrichment Failed Alert",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [2900, 250],
+      "position": [
+        2900,
+        250
+      ],
       "parameters": {
         "resource": "message",
         "operation": "post",
         "select": "channel",
-        "channel": "n8n-helper-test-bot",
+        "channel": "D0ADELD95GR",
         "text": "=❌ **Enrichment Failed** for **{{ $node['Prepare LinkedIn Call'].json.companyName }}**\n\nBoth LinkedIn and website enrichment failed. Unable to categorize.\n\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $node['Prepare LinkedIn Call'].json.companyId }}|View in HubSpot>\n\nAction: Manual categorization required"
       },
       "credentials": {
-        "slackApi": "=slack"
+        "slackApi": "=Slack"
       }
     }
   ],
