@@ -17,7 +17,7 @@
         }
       },
       "credentials": {
-        "hubspotDeveloperApi": "=hubspot"
+        "hubspotApi": "=hubspot"
       }
     },
     {
