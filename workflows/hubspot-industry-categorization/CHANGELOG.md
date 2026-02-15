@@ -5,7 +5,7 @@ All notable changes to the HubSpot Company Industry Categorization workflow will
 ## [1.0.0] - 2026-02-15
 
 ### Initial Release
-- **Feature**: Automatic company industry categorization using Gemini 1.5-Pro AI
+- **Feature**: Automatic company industry categorization using Google Gemini 3 Flash AI
 - **Trigger**: HubSpot company.creation webhook event
 - **Enrichment Strategy**:
   - Primary: Amplemarket API for LinkedIn company data (description, industry, specialties)

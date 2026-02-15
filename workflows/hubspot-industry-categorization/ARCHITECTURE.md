@@ -12,7 +12,7 @@
 - ✅ HubSpot account with company creation events
 - ✅ HubSpot custom property: `industry_internal_sync` (single-select with 15 options)
 - ✅ HubSpot field check: `industry__form____contact_sync` (to skip demo form submissions)
-- ✅ Google Gemini API key (Gemini 1.5-Pro for intelligent categorization)
+- ✅ Google Gemini API key (Gemini 3 Flash for intelligent categorization)
 - ✅ Amplemarket API key for LinkedIn company enrichment
 - ✅ Slack workspace with access to post to a channel
 - ✅ Internal industry categories defined and consistent
@@ -38,7 +38,7 @@ flowchart TD
     I --> K
     J --> Z
 
-    K --> L["🤖 Gemini 1.5-Pro<br/>Categorization<br/>(15 categories)"]
+    K --> L["🤖 Gemini 3 Flash<br/>Categorization<br/>(15 categories)"]
     L --> M{Valid Category?<br/>Confidence ≥70%}
     M -->|✅ YES| N["Update HubSpot<br/>industry_internal_sync"]
     M -->|⚠️ NO| O["Flag for Manual Review<br/>(Confidence < 70%)"]
@@ -153,7 +153,7 @@ flowchart TD
 - **Fallback Logic**: Use website data only if LinkedIn failed
 
 ### 7. AI Categorization (LangChain Google Gemini Chat Model)
-- **Purpose**: Use Gemini 1.5-Pro to intelligently categorize company into internal categories
+- **Purpose**: Use Gemini 3 Flash to intelligently categorize company into internal categories
 - **Configuration**:
   - Model: `gemini-1.5-pro` (most capable Gemini model for reasoning)
   - Temperature: 0.3 (deterministic, consistent results)
@@ -302,7 +302,7 @@ flowchart TD
 4. Do NOT update HubSpot or flag for categorization
 
 ### AI Categorization
-- Gemini 1.5-Pro analyzes Tier 1 + Tier 2 data
+- Gemini 3 Flash analyzes Tier 1 + Tier 2 data
 - Determines best fit among 15 categories
 - Validates confidence level (≥70% for auto-categorization)
 - Flags if confidence < 70% for manual review
@@ -363,7 +363,7 @@ flowchart TD
   - Status: ✅ Already configured in n8n
 
 - **Google Gemini API**
-  - Model Access: Gemini 1.5-Pro
+  - Model Access: Gemini 3 Flash
   - API Key with appropriate rate limits
   - Status: ⚠️ Need to configure in n8n (Google AI Studio)
 
@@ -478,8 +478,8 @@ If issues occur:
 
 ## Trade-offs & Architectural Decisions
 
-### Decision 1: Gemini 1.5-Pro for Categorization
-- **Chosen**: Gemini 1.5-Pro (smarter Gemini model)
+### Decision 1: Gemini 3 Flash for Categorization
+- **Chosen**: Gemini 3 Flash (smarter Gemini model)
 - **Alternative**: GPT-4o, GPT-4-turbo, Claude
 - **Rationale**: Capable reasoning for nuanced classification, cost-effective
 - **Trade-off**: Different model than GPT, but excellent for this task

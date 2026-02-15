@@ -295,7 +295,7 @@
       "typeVersion": 1,
       "position": [2100, 100],
       "parameters": {
-        "modelName": "models/gemini-1.5-pro",
+        "modelName": "models/gemini-3-flash",
         "options": {
           "temperature": 0.3,
           "maxTokens": 100

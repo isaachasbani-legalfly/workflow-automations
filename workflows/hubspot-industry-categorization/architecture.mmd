@@ -23,7 +23,7 @@ flowchart TD
 
     BothFailed --> SlackError["⚠️ Send Slack Alert<br/>#n8n-helper-test-bot<br/>Enrichment Failed - Manual Review"]
 
-    PrepareData --> Gemini["🤖 Gemini 1.5-Pro<br/>Intelligent Categorization<br/>Analyze all data → 15 categories"]
+    PrepareData --> Gemini["🤖 Gemini 3 Flash<br/>Intelligent Categorization<br/>Analyze all data → 15 categories"]
 
     Gemini --> ValidateCat{Confidence<br/>≥ 70%?}
 
