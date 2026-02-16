@@ -2,6 +2,22 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.2.8] - 2026-02-16
+
+### Fixed - "Others" label vs "Unknown" internal enum mismatch
+
+**Problem**: HubSpot `industry__internal_` property stores `"Unknown"` internally but displays it as `"Others"` in the UI. Gemini was being instructed to respond with `"Unknown"` (the internal value), which is confusing and inconsistent with what users see.
+
+**Fix**:
+- Updated `Prepare Gemini Input` prompt: 16th category now reads `"Others"` (matching HubSpot UI label)
+- Updated `Parse Gemini Response`: added mapping `if (category === 'Others') category = 'Unknown'` to convert Gemini's label back to the HubSpot enum value before the property update
+
+**Result**: Gemini works with human-readable labels; HubSpot receives the correct internal value.
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.2.7] - 2026-02-16
 
 ### Fixed - Replace LangChain Gemini sub-node with direct REST API call
