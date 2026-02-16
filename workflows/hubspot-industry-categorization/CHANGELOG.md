@@ -4,6 +4,36 @@ All notable changes to the HubSpot Company Industry Categorization workflow will
 
 ---
 
+## [3.3.4] - 2026-02-16
+
+### Fixed - Amplemarket API: wrong endpoint, method, and parameters
+
+**Error**: `404 - {"message":"no Route matched with those values"}`
+
+**Root cause**: The endpoint `/company/linkedin/enrichment` does not exist in the Amplemarket API. The correct endpoint per their documentation is `GET /companies/find` with `linkedin_url` as a **query parameter**, not a POST body.
+
+**Changes**:
+1. `Amplemarket LinkedIn API` node fully reconfigured:
+   - Method: `POST` → `GET`
+   - URL: `https://api.amplemarket.com/company/linkedin/enrichment` → `https://api.amplemarket.com/companies/find`
+   - Body removed; query param added: `linkedin_url={{ $json.linkedinUrl }}`
+
+2. `Check LinkedIn Data Retrieved` condition updated:
+   - Old: `$json.description || $json.company?.description` (fields from old endpoint)
+   - New: `$json.name || $json.domain` (fields present in `/companies/find` response)
+
+3. `Prepare Gemini Input - LinkedIn` field mappings updated for new response structure:
+   - `description` / `tagline` → description
+   - `industry` → industry
+   - `employee_count` / `employees_count` → company size
+   - `specialties` (array) → specialties
+   - `technologies` (array) → new field added
+   - `location` / `headquarters` → location
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.3.3] - 2026-02-16
 
 ### Changed - No-description fallback: LinkedIn URL check replaces domain check
