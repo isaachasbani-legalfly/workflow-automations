@@ -1,8 +1,11 @@
 {
-  "workflowName": "HubSpot Company Industry Categorization",
-  "version": "1.0.0",
-  "deploymentDate": "2026-02-15",
-  "status": "ready",
+  "workflowName": "HubSpot Company Industry Categorization v3.1",
+  "workflowId": "8DM3CwXLxOT3G8B7",
+  "n8nUrl": "https://legalfly.app.n8n.cloud/workflow/8DM3CwXLxOT3G8B7",
+  "version": "3.1.1",
+  "deploymentDate": "2026-02-16",
+  "lastFixedDate": "2026-02-16",
+  "status": "active",
   "environment": "development",
   "description": "Automatically categorizes HubSpot companies into 15 internal industry categories using LinkedIn enrichment (Amplemarket API) as primary source, website metadata fetch as fallback, and Google Gemini 1.5-Pro for intelligent classification.",
   "requiredIntegrations": [

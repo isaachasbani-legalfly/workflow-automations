@@ -2,6 +2,31 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.1.1] - 2026-02-16
+
+### Fixed - HTTP Request Node "Not Installed" Error
+
+**Root Cause**: The three HTTP Request nodes (`LinkedIn Enrichment`, `Website Scraping`, `Online Research`) were deployed with `typeVersion: 4.4`, which is not supported by the n8n cloud instance. This caused:
+- UI: "Install this node to use it" / "This node is not currently installed"
+- Runtime: `Cannot read properties of undefined (reading 'execute')`
+
+**Fix Applied (via n8n MCP)**:
+- Downgraded all three HTTP Request nodes from `typeVersion: 4.4` → `typeVersion: 4.2`
+- Cleaned up `LinkedIn Enrichment` body params: replaced `specifyBody: "json"` with `contentType: "json"` and `body` expression
+- Updated `Website Scraping` and `Online Research` expressions to use `$('Node Name').item.json` syntax
+
+**Nodes Fixed**:
+| Node | Change |
+|------|--------|
+| LinkedIn Enrichment | typeVersion 4.4 → 4.2, specifyBody → contentType |
+| Website Scraping | typeVersion 4.4 → 4.2 |
+| Online Research | typeVersion 4.4 → 4.2 |
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+**Deployed**: https://legalfly.app.n8n.cloud/workflow/8DM3CwXLxOT3G8B7
+
+---
+
 ## [1.0.0] - 2026-02-15
 
 ### Initial Release
