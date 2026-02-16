@@ -429,7 +429,7 @@
       "parameters": {
         "select": "channel",
         "channelId": {"mode": "id", "value": "D0ADELD95GR"},
-        "text": "=✅ *{{ $json.companyName }}* categorized as *{{ $json.category }}*\n\n🔍 Source: {{ $json.enrichmentSource }}\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $json.companyId }}|View in HubSpot>",
+        "text": "=`✅ *${$json.companyName}* categorized as *${$json.category}*\n\n🔍 Source: ${$json.enrichmentSource}\n🔗 <https://app.hubspot.com/contacts/142047914/company/${$json.companyId}|View in HubSpot>`",
         "otherOptions": {}
       },
       "id": "slack-success",
@@ -446,7 +446,7 @@
       "parameters": {
         "select": "channel",
         "channelId": {"mode": "id", "value": "D0ADELD95GR"},
-        "text": "=⚠️ *Manual Review Required* for *{{ $json.companyName }}*\n\n🔍 Source: {{ $json.enrichmentSource }}\n📊 Could not confidently categorize this company\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $json.companyId }}|View in HubSpot>",
+        "text": "=`⚠️ *Manual Review Required* for *${$json.companyName}*\n\n🔍 Source: ${$json.enrichmentSource}\n📊 Could not confidently categorize this company\n🔗 <https://app.hubspot.com/contacts/142047914/company/${$json.companyId}|View in HubSpot>`",
         "otherOptions": {}
       },
       "id": "slack-manual",
