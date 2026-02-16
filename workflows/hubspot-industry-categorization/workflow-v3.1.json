@@ -53,6 +53,29 @@
           "id": "5ww8XNGf4HTQu4UI",
           "name": "hubspot"
         }
+      },
+      "parameters": {
+        "authentication": "appToken",
+        "resource": "company",
+        "operation": "getRecentlyCreatedUpdated",
+        "limit": 10,
+        "filters": {
+          "filterGroupsUi": {
+            "filterGroupsValues": [
+              {
+                "filtersUi": {
+                  "filterValues": [
+                    {
+                      "propertyName": "industry__internal_",
+                      "operator": "NOT_HAS_PROPERTY"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "additionalFields": {}
       }
     },
     {
@@ -81,7 +104,7 @@
                 "type": "string",
                 "operation": "notEmpty"
               },
-              "leftValue": "={{ typeof $json.properties.industry__form____contact_sync === 'object' ? JSON.stringify($json.properties.industry__form____contact_sync) : ($json.properties.industry__form____contact_sync || '') }}",
+              "leftValue": "={{ $json.properties.industry__form____contact_sync || '' }}",
               "rightValue": ""
             }
           ],
@@ -274,7 +297,7 @@
                 "type": "string",
                 "operation": "contains"
               },
-              "leftValue": "={{ $json }}",
+              "leftValue": "={{ $json.data || '' }}",
               "rightValue": "description"
             }
           ]

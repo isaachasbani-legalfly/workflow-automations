@@ -2,6 +2,26 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.1.4] - 2026-02-16
+
+### Fixed - Three Additional Issues
+
+**1. Get Uncategorized Companies filter lost**
+- Partial update to the Normalize node inadvertently stripped the `industry__internal_` `NOT_HAS_PROPERTY` filter
+- Restored: workflow now only fetches companies without `industry__internal_` set
+
+**2. Check Demo Form leftValue simplified**
+- Removed the `typeof` ternary expression (unnecessary after Normalize guarantees strings)
+- New expression: `={{ $json.properties.industry__form____contact_sync || '' }}`
+
+**3. Check Website Success leftValue wrong type**
+- Was `={{ $json }}` — passes entire JSON object to string `contains` operator → "Wrong type: [object Object]" error
+- Fixed to `={{ $json.data || '' }}` — accesses the HTML body string from the HTTP response
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.1.3] - 2026-02-16
 
 ### Fixed - IF Node Object Type Error & Time Filter Change
