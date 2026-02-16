@@ -2,6 +2,23 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.2.9] - 2026-02-16
+
+### Fixed - Gemini model deprecated (gemini-1.5-flash → gemini-2.0-flash)
+
+**Error**: `404 - models/gemini-1.5-flash is not found for API version v1beta`
+
+**Root cause**: `gemini-1.5-flash` has been deprecated and removed from the v1beta endpoint.
+
+**Fix**: Updated Gemini Categorization URL to use `gemini-2.0-flash`:
+```
+https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent
+```
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.2.8] - 2026-02-16
 
 ### Fixed - "Others" label vs "Unknown" internal enum mismatch
