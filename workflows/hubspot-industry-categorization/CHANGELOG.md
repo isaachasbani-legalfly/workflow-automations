@@ -2,6 +2,30 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.2.14] - 2026-02-16
+
+### Fixed - Multi-branch convergence: 36 items dropped, only 3 (last batch) processed
+
+**Root cause**: In n8n v1 execution order, when multiple separate branches converge on the same non-Merge node, only the **last arriving batch** propagates to downstream nodes. Earlier batches are silently discarded.
+
+The workflow had 4 branches all connecting directly to `Prepare Gemini Input`:
+- `Check Description Exists TRUE` → Prepare Gemini Input (36 items — **discarded**)
+- `Check LinkedIn Success TRUE` → Prepare Gemini Input (some items — **discarded**)
+- `Check Website Success TRUE` → Prepare Gemini Input (some items — **discarded**)
+- `Online Research` → Prepare Gemini Input (3 items — **only these survived**)
+
+This is why the execution showed 36 inputs → 3 outputs (all OVO Energy from Online Research).
+
+**Fix**: Added a `Merge Enrichment Branches` node (mode: Append) between all 4 branches and `Prepare Gemini Input`. All 4 branches now feed into the Merge node, which collects the full batch before passing to Prepare Gemini Input.
+
+**Also fixed**: `Parse Gemini Response` had the same `$node['X'].json` bug (always returns item[0]). Changed to `$('Prepare Gemini Input').item.json` to correctly pair each Gemini response with its source company data.
+
+**Expected behaviour after fix**: 39 companies processed → 39 items into Prepare Gemini Input → 39 Gemini calls → 39 HubSpot updates + Slack notifications.
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.2.13] - 2026-02-16
 
 ### Fixed - All companies classified as OVO Energy ($node vs $() reference bug)
