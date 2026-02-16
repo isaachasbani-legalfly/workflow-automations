@@ -2,6 +2,23 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.2.13] - 2026-02-16
+
+### Fixed - All companies classified as OVO Energy ($node vs $() reference bug)
+
+**Root cause**: `Prepare Gemini Input` used `$node['Prepare Company Data'].json` to get company data. In n8n, `$node['NodeName'].json` ALWAYS returns the **first item** of that node's output — regardless of which item is currently being processed. Since OVO Energy was the first company in the batch, every single company's Gemini prompt was built with OVO Energy's name, description, and domain, and every HubSpot update wrote to OVO Energy's companyId.
+
+**Confirmed via HubSpot**: Only OVO Energy had `industry__internal_` set from execution #105, despite 44 companies being processed.
+
+**Fix**: Changed `$node['Prepare Company Data'].json` → `$('Prepare Company Data').item.json`
+- `$('NodeName').item.json` follows the item's execution lineage and returns the **correct corresponding item** from that node, regardless of which branch the item arrived from (direct description path, LinkedIn, website, or Online Research).
+
+**Why OVO Energy appeared 3 times**: 3 duplicate OVO Energy company records exist in HubSpot created today without descriptions. These 3 records took the longest path (no description → LinkedIn failed → website failed → Online Research) and emerged as the last batch in the execution — which is why the execution trace shows 3 items.
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.2.9] - 2026-02-16
 
 ### Fixed - Gemini model deprecated (gemini-1.5-flash → gemini-2.0-flash)
