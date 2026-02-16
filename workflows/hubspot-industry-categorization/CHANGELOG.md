@@ -2,6 +2,59 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+---
+
+## [3.3.0] - 2026-02-16
+
+### 🎯 Major Architecture Change: Multi-Path LLM System
+
+**Changed**
+- **THREE independent LLM paths** (previously: single merged path)
+  - Path 1: HubSpot Description → Gemini (UNCHANGED - working)
+  - Path 2: LinkedIn Enrichment → Gemini (NEW)
+  - Path 3: Website Scraping → Gemini (NEW)
+
+**Added**
+- 9 new nodes for independent categorization paths:
+  - `Check Has URL/Domain` - IF node to verify domain exists
+  - `Amplemarket LinkedIn API` - HTTP Request for LinkedIn enrichment
+  - `Check LinkedIn Data Retrieved` - IF node to verify LinkedIn response
+  - `Prepare Gemini Input - LinkedIn` - Code node with LinkedIn-optimized prompt
+  - `Gemini Categorization - LinkedIn` - HTTP Request to Gemini API
+  - `Parse Gemini Response - LinkedIn` - Code node to extract category
+  - `Check Website Data Retrieved` - IF node to verify website scraping
+  - `Prepare Gemini Input - Website` - Code node with website-optimized prompt
+  - `Gemini Categorization - Website` - HTTP Request to Gemini API
+  - `Parse Gemini Response - Website` - Code node to extract category
+
+**Removed**
+- `Merge Enrichment Branches` node (no longer needed with independent paths)
+
+**Modified**
+- Renamed existing nodes for clarity:
+  - `Prepare Gemini Input` → `Prepare Gemini Input - HubSpot`
+  - `Gemini Categorization` → `Gemini Categorization - HubSpot`
+  - `Parse Gemini Response` → `Parse Gemini Response - HubSpot`
+- Updated all connections to support three-path architecture
+
+**Benefits**
+- Data-source-specific prompts optimized for each enrichment type
+- Independent processing eliminates data format conflicts
+- HubSpot description path unchanged (proven working)
+- Graceful fallback cascade maintained: LinkedIn → Website → Online Research
+- All paths converge at "Check Confidence" for unified updates
+
+**Technical Details**
+- Total nodes: 27 (was 18, +9 new nodes)
+- Node reuse: 5 shared nodes (Check Confidence, Update HubSpot, both Slack nodes)
+- Path-specific: 9 new nodes (3 per path: Prepare, Gemini, Parse)
+
+**Requirements**
+- ⚠️ **Amplemarket API Key** required for LinkedIn enrichment path
+- All other credentials unchanged (HubSpot, Slack, Gemini)
+
+---
+
 ## [3.2.14] - 2026-02-16
 
 ### Fixed - Multi-branch convergence: 36 items dropped, only 3 (last batch) processed
