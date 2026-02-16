@@ -11,8 +11,8 @@
         "rule": {
           "interval": [
             {
-              "field": "minutes",
-              "minutesInterval": 5
+              "field": "cronExpression",
+              "expression": "0 18 * * *"
             }
           ]
         }
@@ -20,7 +20,7 @@
     },
     {
       "id": "1b",
-      "name": "Get Recent Companies",
+      "name": "Get Uncategorized Companies",
       "type": "n8n-nodes-base.hubspot",
       "typeVersion": 2.2,
       "position": [300, 100],
@@ -29,7 +29,23 @@
         "resource": "company",
         "operation": "getRecentlyCreatedUpdated",
         "returnAll": false,
-        "limit": 5,
+        "limit": 50,
+        "filters": {
+          "filterGroupsUi": {
+            "filterGroupsValues": [
+              {
+                "filtersUi": {
+                  "filterValues": [
+                    {
+                      "propertyName": "industry_internal_sync",
+                      "operator": "NOT_HAS_PROPERTY"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
         "additionalFields": {}
       },
       "credentials": {
@@ -141,11 +157,85 @@
       }
     },
     {
+      "id": "4a",
+      "name": "Check Description Quality",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1100, 100],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "combinator": "or",
+          "conditions": [
+            {
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "leftValue": "={{ $json.description ? $json.description.length : 0 }}",
+              "rightValue": 100
+            },
+            {
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "leftValue": "={{ $json.aboutUs ? $json.aboutUs.length : 0 }}",
+              "rightValue": 100
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "4b",
+      "name": "Use HubSpot Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1300, 20],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "name": "enrichmentSource",
+              "type": "string",
+              "value": "hubspot"
+            },
+            {
+              "name": "linkedinDescription",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "linkedinIndustry",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "linkedinSpecialties",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "websiteDescription",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
       "id": "5",
       "name": "Amplemarket LinkedIn Enrichment",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [1100, 80],
+      "position": [1300, 180],
       "continueOnFail": true,
       "parameters": {
         "url": "https://api.amplemarket.com/api/v2/companies/search",
@@ -176,7 +266,7 @@
       "name": "LinkedIn Success Check",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1300, 80],
+      "position": [1500, 180],
       "parameters": {
         "conditions": {
           "options": {
@@ -204,7 +294,7 @@
       "name": "Extract LinkedIn Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1500, 20],
+      "position": [1700, 100],
       "parameters": {
         "mode": "manual",
         "assignments": {
@@ -238,7 +328,7 @@
       "name": "Website Metadata Fetch",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [1500, 140],
+      "position": [1700, 260],
       "continueOnFail": true,
       "parameters": {
         "url": "={{ 'https://' + $node['Prepare LinkedIn Call'].json.website.replace('https://','').replace('http://','') }}",
@@ -258,7 +348,7 @@
       "name": "Website Success Check",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1700, 140],
+      "position": [1900, 260],
       "parameters": {
         "conditions": {
           "options": {
@@ -286,7 +376,7 @@
       "name": "Extract Website Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1900, 80],
+      "position": [2100, 180],
       "parameters": {
         "mode": "manual",
         "assignments": {
@@ -312,23 +402,38 @@
     },
     {
       "id": "11",
-      "name": "Both Failed - Error",
+      "name": "Use Fallback Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1900, 200],
+      "position": [2100, 340],
       "parameters": {
         "mode": "manual",
         "assignments": {
           "assignments": [
             {
-              "name": "enrichmentFailed",
-              "type": "boolean",
-              "value": true
+              "name": "enrichmentSource",
+              "type": "string",
+              "value": "fallback"
             },
             {
-              "name": "errorMessage",
+              "name": "linkedinDescription",
               "type": "string",
-              "value": "Both LinkedIn and website enrichment failed"
+              "value": ""
+            },
+            {
+              "name": "linkedinIndustry",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "linkedinSpecialties",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "websiteDescription",
+              "type": "string",
+              "value": ""
             }
           ]
         }
@@ -339,7 +444,7 @@
       "name": "Merge Enriched Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [2100, 50],
+      "position": [2300, 140],
       "parameters": {
         "mode": "manual",
         "assignments": {
@@ -347,7 +452,7 @@
             {
               "name": "enrichedData",
               "type": "json",
-              "value": "={{ { companyName: $node['Prepare LinkedIn Call'].json.companyName, description: $node['Prepare LinkedIn Call'].json.description || '', aboutUs: $node['Prepare LinkedIn Call'].json.aboutUs || '', keywords: $node['Prepare LinkedIn Call'].json.keywords || '', linkedinDescription: ($json.linkedinDescription || $json.websiteDescription || ''), linkedinIndustry: ($json.linkedinIndustry || ''), linkedinSpecialties: ($json.linkedinSpecialties || ''), enrichmentSource: ($json.enrichmentSource || 'none') } }}"
+              "value": "={{ { companyName: $node['Prepare LinkedIn Call'].json.companyName, description: $node['Prepare LinkedIn Call'].json.description || '', aboutUs: $node['Prepare LinkedIn Call'].json.aboutUs || '', keywords: $node['Prepare LinkedIn Call'].json.keywords || '', linkedinDescription: ($json.linkedinDescription || ''), linkedinIndustry: ($json.linkedinIndustry || ''), linkedinSpecialties: ($json.linkedinSpecialties || ''), websiteDescription: ($json.websiteDescription || ''), enrichmentSource: ($json.enrichmentSource || 'fallback') } }}"
             }
           ]
         }
@@ -358,7 +463,7 @@
       "name": "Gemini Categorization",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [2300, 50],
+      "position": [2500, 140],
       "parameters": {
         "modelName": "models/gemini-3-flash-preview",
         "options": {
@@ -368,7 +473,7 @@
         "messages": {
           "messageValues": [
             {
-              "content": "=You are an expert business industry classifier. Categorize this company into ONE of these 15 internal industry categories:\n1. Accounting\n2. Insurance\n3. Legal Services\n4. Technology\n5. Healthcare\n6. Public Sector\n7. Retail and Consumer Goods\n8. Consulting\n9. Construction\n10. Payroll and HR Services\n11. Banking\n12. Energy\n13. Financial Services\n14. Manufacturing\n15. Transportation\n\nCOMPANY DATA:\nName: {{ $json.enrichedData.companyName }}\nDescription: {{ $json.enrichedData.description }}\nAbout Us: {{ $json.enrichedData.aboutUs }}\nKeywords: {{ $json.enrichedData.keywords }}\nLinkedIn Data: {{ $json.enrichedData.linkedinDescription }}\nLinkedIn Industry: {{ $json.enrichedData.linkedinIndustry }}\nLinkedIn Specialties: {{ $json.enrichedData.linkedinSpecialties }}\n\nRULES:\n1. Analyze ALL available data\n2. Look for PRIMARY business keywords\n3. If company creates tech (software/SaaS) → Technology\n4. If company USES tech but does something else → Their actual industry\n5. If confidence < 70%, respond: \"MANUAL_REVIEW_REQUIRED\"\n\nRespond ONLY with the category name or \"MANUAL_REVIEW_REQUIRED\". No explanation.",
+              "content": "=You are an expert business industry classifier. Categorize this company into ONE of these 15 internal industry categories:\n1. Accounting | 2. Insurance | 3. Legal Services | 4. Technology | 5. Healthcare\n6. Public Sector | 7. Retail and Consumer Goods | 8. Consulting | 9. Construction\n10. Payroll and HR Services | 11. Banking | 12. Energy | 13. Financial Services\n14. Manufacturing | 15. Transportation\n\nCOMPANY DATA:\nName: {{ $json.enrichedData.companyName }}\n\nHubSpot Direct Data (PRIORITY):\n- Description: {{ $json.enrichedData.description || 'Not provided' }}\n- About Us: {{ $json.enrichedData.aboutUs || 'Not provided' }}\n- Keywords: {{ $json.enrichedData.keywords || 'Not provided' }}\n\nEnriched Data ({{ $json.enrichedData.enrichmentSource }}):\n- LinkedIn Description: {{ $json.enrichedData.linkedinDescription || 'Not available' }}\n- LinkedIn Industry: {{ $json.enrichedData.linkedinIndustry || 'Not available' }}\n- LinkedIn Specialties: {{ $json.enrichedData.linkedinSpecialties || 'Not available' }}\n- Website Description: {{ $json.enrichedData.websiteDescription || 'Not available' }}\n\nRULES:\n1. PRIORITIZE HubSpot description/about_us if available (>100 chars)\n2. Use enriched data (LinkedIn/Website) as supporting evidence only\n3. Look for PRIMARY business keywords\n4. If company creates tech (software/SaaS) → Technology\n5. If company USES tech but does something else → Their actual industry\n6. If confidence < 70%, respond: \"MANUAL_REVIEW_REQUIRED\"\n\nRespond ONLY with the category name or \"MANUAL_REVIEW_REQUIRED\". No explanation.",
               "role": "user"
             }
           ]
@@ -386,7 +491,7 @@
       "name": "Check Manual Review",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [2500, 50],
+      "position": [2700, 140],
       "parameters": {
         "conditions": {
           "options": {
@@ -414,7 +519,7 @@
       "name": "Parse Categorization Result",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [2700, 0],
+      "position": [2900, 60],
       "parameters": {
         "mode": "manual",
         "assignments": {
@@ -433,7 +538,7 @@
       "name": "Update HubSpot with Category",
       "type": "n8n-nodes-base.hubspot",
       "typeVersion": 2.2,
-      "position": [2900, 0],
+      "position": [3100, 60],
       "parameters": {
         "authentication": "appToken",
         "resource": "company",
@@ -466,7 +571,7 @@
       "name": "Send Success Slack",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [3100, 0],
+      "position": [3300, 60],
       "parameters": {
         "resource": "message",
         "operation": "post",
@@ -477,7 +582,7 @@
           "mode": "id"
         },
         "messageType": "text",
-        "text": "=✅ *{{ $node['Prepare LinkedIn Call'].json.companyName }}* categorized as *{{ $node['Parse Categorization Result'].json.category }}*\n\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $node['Prepare LinkedIn Call'].json.companyId }}|View in HubSpot>"
+        "text": "=✅ *{{ $node['Prepare LinkedIn Call'].json.companyName }}* categorized as *{{ $node['Parse Categorization Result'].json.category }}*\n\nSource: {{ $node['Merge Enriched Data'].json.enrichedData.enrichmentSource }}\n\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $node['Prepare LinkedIn Call'].json.companyId }}|View in HubSpot>"
       },
       "credentials": {
         "slackApi": {
@@ -491,7 +596,7 @@
       "name": "Send Manual Review Slack",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [2900, 120],
+      "position": [2900, 220],
       "parameters": {
         "resource": "message",
         "operation": "post",
@@ -502,32 +607,7 @@
           "mode": "id"
         },
         "messageType": "text",
-        "text": "=⚠️ *Manual Review Required* for *{{ $node['Prepare LinkedIn Call'].json.companyName }}*\n\nAvailable data:\n- Description: {{ $node['Prepare LinkedIn Call'].json.description }}\n- Keywords: {{ $node['Prepare LinkedIn Call'].json.keywords }}\n- Enrichment Source: {{ $json.enrichmentSource || 'Unknown' }}\n\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $node['Prepare LinkedIn Call'].json.companyId }}|View in HubSpot>"
-      },
-      "credentials": {
-        "slackApi": {
-          "id": "lYs0WHzWk4c7z9Kk",
-          "name": "Slack"
-        }
-      }
-    },
-    {
-      "id": "19",
-      "name": "Send Enrichment Failed Alert",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.4,
-      "position": [2100, 200],
-      "parameters": {
-        "resource": "message",
-        "operation": "post",
-        "select": "channel",
-        "channelId": {
-          "__rl": true,
-          "value": "D0ADELD95GR",
-          "mode": "id"
-        },
-        "messageType": "text",
-        "text": "=❌ *Enrichment Failed* for *{{ $node['Prepare LinkedIn Call'].json.companyName }}*\n\nBoth LinkedIn and website enrichment failed. Unable to categorize.\n\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $node['Prepare LinkedIn Call'].json.companyId }}|View in HubSpot>\n\nAction: Manual categorization required"
+        "text": "=⚠️ *Manual Review Required* for *{{ $node['Prepare LinkedIn Call'].json.companyName }}*\n\nAvailable data:\n- Description: {{ $node['Prepare LinkedIn Call'].json.description }}\n- Keywords: {{ $node['Prepare LinkedIn Call'].json.keywords }}\n- Enrichment Source: {{ $node['Merge Enriched Data'].json.enrichedData.enrichmentSource }}\n\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $node['Prepare LinkedIn Call'].json.companyId }}|View in HubSpot>"
       },
       "credentials": {
         "slackApi": {
@@ -542,14 +622,14 @@
       "main": [
         [
           {
-            "node": "Get Recent Companies",
+            "node": "Get Uncategorized Companies",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get Recent Companies": {
+    "Get Uncategorized Companies": {
       "main": [
         [
           {
@@ -586,7 +666,36 @@
       "main": [
         [
           {
+            "node": "Check Description Quality",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Description Quality": {
+      "main": [
+        [
+          {
+            "node": "Use HubSpot Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Amplemarket LinkedIn Enrichment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use HubSpot Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Enriched Data",
             "type": "main",
             "index": 0
           }
@@ -655,7 +764,7 @@
         ],
         [
           {
-            "node": "Both Failed - Error",
+            "node": "Use Fallback Data",
             "type": "main",
             "index": 0
           }
@@ -673,11 +782,11 @@
         ]
       ]
     },
-    "Both Failed - Error": {
+    "Use Fallback Data": {
       "main": [
         [
           {
-            "node": "Send Enrichment Failed Alert",
+            "node": "Merge Enriched Data",
             "type": "main",
             "index": 0
           }
