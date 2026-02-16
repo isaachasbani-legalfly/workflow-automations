@@ -4,6 +4,27 @@ All notable changes to the HubSpot Company Industry Categorization workflow will
 
 ---
 
+## [3.3.6] - 2026-02-16
+
+### Fixed - MAX_TOKENS truncation + upgraded LinkedIn prompt to full classification ruleset
+
+**Root cause**: `Gemini Categorization - LinkedIn` and `Gemini Categorization - Website` had `maxOutputTokens: 50`. Gemini 2.5 Flash uses internal thinking tokens first — with 47 thinking tokens consumed, only 3 remain for the actual response, causing `finishReason: "MAX_TOKENS"` and empty or truncated output (e.g. `"MANUAL"` instead of `"MANUAL_REVIEW_REQUIRED"`).
+
+**Fix 1**: Removed `maxOutputTokens` from both LinkedIn and Website Gemini nodes (matching HubSpot path which has no limit and works correctly).
+
+**Fix 2**: Upgraded `Prepare Gemini Input - LinkedIn` prompt to match the HubSpot 9-rule classification system:
+- Full numbered category list (not compact inline format)
+- 9 classification rules with priority order
+- Removed `MANUAL_REVIEW_REQUIRED` — always returns one of 16 categories
+- LinkedIn `industry` field explicitly noted as a hint, cross-checked with overview + keywords
+- Same examples as HubSpot prompt for consistent behaviour
+
+**New file**: `linkedin-prompt.js` — standalone reference matching `updated-hubspot-prompt.js` format.
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.3.5] - 2026-02-16
 
 ### Changed - Simplify LinkedIn Gemini prompt + fix wrong field names
