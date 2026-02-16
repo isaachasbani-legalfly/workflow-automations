@@ -20,14 +20,37 @@
       "position": [0, 160]
     },
     {
-      "id": "normalize-company",
-      "name": "Get Today's Companies",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "search-companies",
+      "name": "Search Today's Companies",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [200, 160],
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "// Search HubSpot for companies created today using CRM v3 API\n// Filters at source — no need to fetch-all and filter in n8n\nconst now = new Date();\nconst startOfToday = new Date(Date.UTC(\n  now.getUTCFullYear(),\n  now.getUTCMonth(),\n  now.getUTCDate()\n)).getTime();\n\nconst allCompanies = [];\nlet after = undefined;\n\ndo {\n  const body = {\n    filterGroups: [{\n      filters: [{\n        propertyName: 'createdate',\n        operator: 'GTE',\n        value: String(startOfToday)\n      }]\n    }],\n    properties: [\n      'name', 'domain', 'description', 'about_us',\n      'linkedin_company_page', 'industry',\n      'industry__form____contact_sync', 'industry__internal_'\n    ],\n    limit: 100\n  };\n\n  if (after) body.after = after;\n\n  const response = await $helpers.httpRequestWithAuthentication('hubspotAppToken', {\n    method: 'POST',\n    url: 'https://api.hubapi.com/crm/v3/objects/companies/search',\n    json: true,\n    body\n  });\n\n  if (response.results) {\n    allCompanies.push(...response.results);\n  }\n\n  after = response.paging?.next?.after;\n} while (after);\n\n// Return individual items — id and flat properties (v3 API already flat)\nreturn allCompanies.map(company => ({\n  json: {\n    id: String(company.id),\n    properties: company.properties || {}\n  }\n}));"
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ ({ filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())).getTime()) }] }], properties: ['name', 'domain', 'description', 'about_us', 'linkedin_company_page', 'industry', 'industry__form____contact_sync', 'industry__internal_'], limit: 100 }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "id": "normalize-company",
+      "name": "Split Companies",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, 160],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// HubSpot search returns {results: [{id, properties}, ...]}\n// Split into individual items for downstream processing\nconst results = $json.results || [];\nreturn results.map(company => ({\n  json: {\n    id: String(company.id),\n    properties: company.properties || {}\n  }\n}));"
       }
     },
     {
@@ -434,9 +457,12 @@
   ],
   "connections": {
     "Schedule Trigger": {
-      "main": [[{"node": "Get Today's Companies", "type": "main", "index": 0}]]
+      "main": [[{"node": "Search Today's Companies", "type": "main", "index": 0}]]
     },
-    "Get Today's Companies": {
+    "Search Today's Companies": {
+      "main": [[{"node": "Split Companies", "type": "main", "index": 0}]]
+    },
+    "Split Companies": {
       "main": [[{"node": "Check Demo Form", "type": "main", "index": 0}]]
     },
     "Check Demo Form": {

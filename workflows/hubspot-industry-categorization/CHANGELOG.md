@@ -2,6 +2,25 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.2.1] - 2026-02-16
+
+### Fixed - $helpers not available in n8n task runner
+
+**Error**: `ReferenceError: $helpers is not defined` — n8n's external task runner does not expose `$helpers` to Code nodes.
+
+**Fix**: Replaced the single "Get Today's Companies" Code node with two nodes:
+1. **HTTP Request "Search Today's Companies"** — calls `POST /crm/v3/objects/companies/search` with `createdate >= today_midnight_UTC` filter using the `hubspotAppToken` predefined credential
+2. **Code "Split Companies"** — splits `$json.results` array into individual `{id, properties}` items
+
+**Flow**:
+```
+Schedule Trigger → Search Today's Companies (HTTP Request) → Split Companies (Code) → Check Demo Form
+```
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.2.0] - 2026-02-16
 
 ### Refactor - Replace polling node with HubSpot Search API (efficient date filtering)
