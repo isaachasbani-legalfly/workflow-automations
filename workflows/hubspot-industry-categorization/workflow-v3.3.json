@@ -173,9 +173,9 @@
           "options": {"version": 3, "leftValue": "", "caseSensitive": true, "typeValidation": "strict"},
           "conditions": [
             {
-              "id": "url-check",
+              "id": "linkedin-url-check",
               "operator": {"type": "string", "operation": "notEmpty"},
-              "leftValue": "={{ $json.domain }}",
+              "leftValue": "={{ $json.linkedinUrl }}",
               "rightValue": ""
             }
           ],
@@ -184,7 +184,7 @@
         "options": {}
       },
       "id": "check-has-url",
-      "name": "Check Has URL/Domain",
+      "name": "Check Has LinkedIn URL",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [1450, 280]
@@ -197,7 +197,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ domain: $json.domain, company_name: $json.companyName }) }}",
+        "jsonBody": "={{ JSON.stringify({ linkedin_url: $json.linkedinUrl, company_name: $json.companyName }) }}",
         "options": {
           "timeout": 30000,
           "retry": {
@@ -482,7 +482,7 @@
     "Check Description Exists": {
       "main": [
         [{"node": "Prepare Gemini Input - HubSpot", "type": "main", "index": 0}],
-        [{"node": "Check Has URL/Domain", "type": "main", "index": 0}]
+        [{"node": "Check Has LinkedIn URL", "type": "main", "index": 0}]
       ]
     },
     "Prepare Gemini Input - HubSpot": {
@@ -494,10 +494,10 @@
     "Parse Gemini Response - HubSpot": {
       "main": [[{"node": "Check Confidence", "type": "main", "index": 0}]]
     },
-    "Check Has URL/Domain": {
+    "Check Has LinkedIn URL": {
       "main": [
         [{"node": "Amplemarket LinkedIn API", "type": "main", "index": 0}],
-        [{"node": "Send Manual Review Slack", "type": "main", "index": 0}]
+        [{"node": "Website Scraping", "type": "main", "index": 0}]
       ]
     },
     "Amplemarket LinkedIn API": {

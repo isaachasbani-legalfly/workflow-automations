@@ -4,6 +4,36 @@ All notable changes to the HubSpot Company Industry Categorization workflow will
 
 ---
 
+## [3.3.3] - 2026-02-16
+
+### Changed - No-description fallback: LinkedIn URL check replaces domain check
+
+**Previous behavior** (no description):
+```
+No Description → Check Domain → YES: Amplemarket(domain) → LinkedIn data → ...
+                              → NO: Manual Review
+```
+
+**New behavior** (no description):
+```
+No Description → Check LinkedIn URL → YES: Amplemarket(linkedin_url) → LinkedIn data → ...
+                                    → NO: Website Scraping → ...
+```
+
+**Changes**:
+1. `Check Has URL/Domain` → renamed to `Check Has LinkedIn URL`
+   - Condition changed from `$json.domain` → `$json.linkedinUrl`
+2. `Amplemarket LinkedIn API` body updated:
+   - Old: `{ domain: $json.domain, company_name: $json.companyName }`
+   - New: `{ linkedin_url: $json.linkedinUrl, company_name: $json.companyName }`
+3. FALSE branch rewired: `Check Has LinkedIn URL` FALSE → `Website Scraping` (was `Send Manual Review Slack`)
+
+**Why**: Using the HubSpot `linkedin_company_page` URL directly is more reliable than Amplemarket's domain-based LinkedIn lookup. When there's no LinkedIn URL, website scraping is attempted immediately — no dead-end manual review at this stage.
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.3.2] - 2026-02-16
 
 ### Fixed - Slack notification showing "undefined" values and "Unknown" label
