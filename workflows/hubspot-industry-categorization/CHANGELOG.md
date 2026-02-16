@@ -4,6 +4,33 @@ All notable changes to the HubSpot Company Industry Categorization workflow will
 
 ---
 
+## [3.3.5] - 2026-02-16
+
+### Changed - Simplify LinkedIn Gemini prompt + fix wrong field names
+
+**Root cause**: The `Prepare Gemini Input - LinkedIn` node was using field names from the old Amplemarket endpoint. The actual `/companies/find` response uses different names:
+- `description` → **`overview`** (the rich company description)
+- `specialties` → **`keywords`** (company keyword tags)
+- `employee_count` → **`size`** (e.g. "51-200 employees")
+
+**Also removed unnecessary fields** from the Gemini prompt:
+- Removed: `company_size`, `technologies`, `location`
+- Kept only: `overview`, `industry`, `keywords`
+
+**Why**: `overview` + `industry` + `keywords` contain everything needed for classification. Sending `technologies` (20+ entries), `location`, and `size` adds tokens without improving accuracy.
+
+**New prompt structure**:
+```
+Name: <companyName>
+LinkedIn Industry: <industry>    ← hint, not definitive
+Keywords: <keywords>             ← company self-tags
+Overview: <overview>             ← richest signal
+```
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.3.4] - 2026-02-16
 
 ### Fixed - Amplemarket API: wrong endpoint, method, and parameters
