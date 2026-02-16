@@ -2,6 +2,22 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.1.3] - 2026-02-16
+
+### Fixed - IF Node Object Type Error & Time Filter Change
+
+**Issues**:
+1. `Check Demo Form` still throwing "Wrong type: '[object Object]' is an object but was expecting a string" — the previous normalization only handled `{value: "..."}` format, leaving other object shapes as-is
+2. Time filter was "last 25 hours" instead of "companies added today"
+
+**Fixes** (both in "Normalize & Filter New" Code node):
+- **Stronger normalization**: ALL property values are now converted to strings. Any `null`/`undefined` → `''`, any object → `String(val.value)` or `''`, primitives → `String(val)`. This guarantees downstream IF nodes always receive strings.
+- **Today filter**: Changed from `Date.now() - 25h` rolling window to `Date.UTC` midnight of current day, so companies added at any point today are included regardless of when the workflow runs.
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.1.2] - 2026-02-16
 
 ### Fixed - HubSpot v2 API companyId Mismatch & Retroactive Processing
