@@ -2,6 +2,30 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.1.2] - 2026-02-16
+
+### Fixed - HubSpot v2 API companyId Mismatch & Retroactive Processing
+
+**Root Cause**: `getRecentlyCreatedUpdated` uses the legacy HubSpot v2 API which:
+- Returns `companyId` (not `id`) as the identifier field
+- Returns properties in nested `{value: "..."}` format instead of flat strings
+- This caused `$json.id` to be `undefined`, triggering 400 errors in "Get Company Details"
+
+**Additional Fix**: Workflow previously had no time filter, meaning it would retroactively process all 3,511 existing uncategorized companies. Added a 25-hour rolling window so only companies created since the last run are processed.
+
+**Fix Applied**: Added "Normalize & Filter New" Code node between "Get Uncategorized Companies" and "Check Demo Form":
+- Remaps `companyId` → `id` (fixes v2 API field name mismatch)
+- Filters out companies older than 25 hours (prevents retroactive processing)
+- Normalizes nested v2 property format `{value: "..."}` to flat strings
+
+**Also Fixed in this session**:
+- `Check Demo Form` IF node: added `typeof` check to handle object-type property values (prevents "Wrong type: '[object Object]'" error)
+- HubSpot property name corrected: `industry_internal_sync` → `industry__internal_` (actual property name in HubSpot)
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.1.1] - 2026-02-16
 
 ### Fixed - HTTP Request Node "Not Installed" Error

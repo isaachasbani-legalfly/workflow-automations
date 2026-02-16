@@ -3,28 +3,28 @@
   "id": "8DM3CwXLxOT3G8B7",
   "nodes": [
     {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 18 * * *"
+            }
+          ]
+        }
+      },
       "id": "schedule-trigger",
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
-      "position": [0, 160],
-      "parameters": {
-        "rule": {
-          "interval": [{"field": "cronExpression", "expression": "0 18 * * *"}]
-        }
-      }
+      "position": [0, 160]
     },
     {
-      "id": "get-companies",
-      "name": "Get Uncategorized Companies",
-      "type": "n8n-nodes-base.hubspot",
-      "typeVersion": 2.2,
-      "position": [192, 160],
       "parameters": {
         "authentication": "appToken",
         "resource": "company",
         "operation": "getRecentlyCreatedUpdated",
-        "limit": 50,
+        "limit": 10,
         "filters": {
           "filterGroupsUi": {
             "filterGroupsValues": [
@@ -32,7 +32,7 @@
                 "filtersUi": {
                   "filterValues": [
                     {
-                      "propertyName": "industry_internal_sync",
+                      "propertyName": "industry__internal_",
                       "operator": "NOT_HAS_PROPERTY"
                     }
                   ]
@@ -43,302 +43,497 @@
         },
         "additionalFields": {}
       },
-      "credentials": {"hubspotAppToken": {"id": "5ww8XNGf4HTQu4UI", "name": "hubspot"}}
+      "id": "get-companies",
+      "name": "Get Uncategorized Companies",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [192, 160],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
     },
     {
+      "id": "normalize-company",
+      "name": "Normalize & Filter New",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, 160],
+      "parameters": {
+        "jsCode": "// HubSpot getRecentlyCreatedUpdated uses legacy v2 API:\n// - ID is 'companyId', not 'id'\n// - Properties may be nested as {value: ...}\nconst id = $json.id || $json.companyId;\nif (!id) return [];\n\n// Only process companies created in the last 25 hours\n// (workflow runs daily - this prevents retroactive processing of old companies)\nconst createDateRaw = $json.properties?.createdate?.value || $json.properties?.createdate;\nif (createDateRaw) {\n  const createDate = new Date(createDateRaw);\n  const cutoff = new Date(Date.now() - 25 * 60 * 60 * 1000);\n  if (createDate < cutoff) return [];\n}\n\n// Normalize properties: flatten v2 nested {value: ...} format to plain strings\nconst props = {};\nfor (const [key, val] of Object.entries($json.properties || {})) {\n  props[key] = (typeof val === 'object' && val !== null && 'value' in val) ? val.value : val;\n}\n\nreturn [{json: {id: String(id), properties: props}}];"
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "demo-check",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "leftValue": "={{ typeof $json.properties.industry__form____contact_sync === 'object' ? JSON.stringify($json.properties.industry__form____contact_sync) : ($json.properties.industry__form____contact_sync || '') }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
       "id": "check-demo",
       "name": "Check Demo Form",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [400, 160],
-      "parameters": {
-        "conditions": {
-          "options": {"version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict"},
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "demo-check",
-              "operator": {"type": "string", "operation": "notEmpty"},
-              "leftValue": "={{ $json.properties.industry__form____contact_sync }}",
-              "rightValue": ""
-            }
-          ]
-        }
-      }
+      "position": [608, 160]
     },
     {
-      "id": "get-details",
-      "name": "Get Company Details",
-      "type": "n8n-nodes-base.hubspot",
-      "typeVersion": 2.2,
-      "position": [704, -16],
       "parameters": {
         "authentication": "appToken",
         "resource": "company",
         "operation": "get",
-        "companyId": {"mode": "id", "value": "={{ $json.id }}"},
-        "additionalFields": {
-          "properties": ["name", "domain", "description", "about_us", "linkedin_company_page", "industry", "hs_ideal_customer_profile"]
-        }
+        "companyId": {
+          "mode": "id",
+          "value": "={{ $json.id }}"
+        },
+        "additionalFields": {}
       },
-      "credentials": {"hubspotAppToken": {"id": "5ww8XNGf4HTQu4UI", "name": "hubspot"}}
+      "id": "get-details",
+      "name": "Get Company Details",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [816, 160],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
     },
     {
-      "id": "prepare-data",
-      "name": "Prepare Company Data",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [912, -16],
       "parameters": {
         "assignments": {
           "assignments": [
-            {"id": "field1", "name": "companyId", "type": "string", "value": "={{ $json.id }}"},
-            {"id": "field2", "name": "companyName", "type": "string", "value": "={{ $json.properties.name }}"},
-            {"id": "field3", "name": "domain", "type": "string", "value": "={{ $json.properties.domain }}"},
-            {"id": "field4", "name": "description", "type": "string", "value": "={{ $json.properties.description }}"},
-            {"id": "field5", "name": "aboutUs", "type": "string", "value": "={{ $json.properties.about_us }}"},
-            {"id": "field6", "name": "linkedinUrl", "type": "string", "value": "={{ $json.properties.linkedin_company_page }}"}
-          ]
-        }
-      }
-    },
-    {
-      "id": "check-desc",
-      "name": "Check Description Exists",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [1104, -16],
-      "parameters": {
-        "conditions": {
-          "options": {"version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict"},
-          "combinator": "and",
-          "conditions": [
             {
-              "id": "desc-check",
-              "operator": {"type": "string", "operation": "notEmpty"},
-              "leftValue": "={{ $json.description }}",
-              "rightValue": ""
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "linkedin-enrich",
-      "name": "LinkedIn Enrichment",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1312, 96],
-      "parameters": {
-        "url": "https://api.amplemarket.com/company/linkedin/enrichment",
-        "method": "POST",
-        "authentication": "none",
-        "sendBody": true,
-        "contentType": "json",
-        "body": "={{ JSON.stringify({ \"linkedin_url\": $json.linkedinUrl }) }}",
-        "options": {}
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "id": "check-linkedin",
-      "name": "Check LinkedIn Success",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [1504, 96],
-      "parameters": {
-        "conditions": {
-          "options": {"version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict"},
-          "combinator": "and",
-          "conditions": [
+              "id": "field1",
+              "name": "companyId",
+              "type": "string",
+              "value": "={{ $json.id }}"
+            },
             {
-              "id": "linkedin-check",
-              "operator": {"type": "string", "operation": "notEmpty"},
-              "leftValue": "={{ $json.description }}",
-              "rightValue": ""
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "website-scrape",
-      "name": "Website Scraping",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [1712, 192],
-      "parameters": {
-        "url": "={{ 'https://' + $('Prepare Company Data').item.json.domain }}",
-        "method": "GET",
-        "authentication": "none",
-        "options": {}
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "id": "check-website",
-      "name": "Check Website Success",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [1904, 192],
-      "parameters": {
-        "conditions": {
-          "options": {"version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict"},
-          "combinator": "and",
-          "conditions": [
+              "id": "field2",
+              "name": "companyName",
+              "type": "string",
+              "value": "={{ $json.properties.name }}"
+            },
             {
-              "id": "website-check",
-              "operator": {"type": "string", "operation": "contains"},
-              "leftValue": "={{ $json }}",
-              "rightValue": "description"
+              "id": "field3",
+              "name": "domain",
+              "type": "string",
+              "value": "={{ $json.properties.domain }}"
+            },
+            {
+              "id": "field4",
+              "name": "description",
+              "type": "string",
+              "value": "={{ $json.properties.description }}"
+            },
+            {
+              "id": "field5",
+              "name": "aboutUs",
+              "type": "string",
+              "value": "={{ $json.properties.about_us }}"
+            },
+            {
+              "id": "field6",
+              "name": "linkedinUrl",
+              "type": "string",
+              "value": "={{ $json.properties.linkedin_company_page }}"
             }
-          ]
-        }
-      }
-    },
-    {
-      "id": "online-research",
-      "name": "Online Research",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [2112, 288],
-      "parameters": {
-        "url": "https://serpapi.com/search",
-        "method": "GET",
-        "authentication": "none",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {"name": "q", "value": "={{ $('Prepare Company Data').item.json.companyName }} company information"},
-            {"name": "api_key", "value": "YOUR_SERPAPI_KEY_HERE"},
-            {"name": "num", "value": "3"},
-            {"name": "engine", "value": "google"}
           ]
         },
         "options": {}
       },
+      "id": "prepare-data",
+      "name": "Prepare Company Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1024, 160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "desc-check",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "leftValue": "={{ $json.description }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-desc",
+      "name": "Check Description Exists",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1232, 160]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.amplemarket.com/company/linkedin/enrichment",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [{}]
+        },
+        "options": {}
+      },
+      "id": "linkedin-enrich",
+      "name": "LinkedIn Enrichment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 256],
       "onError": "continueRegularOutput"
     },
     {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "linkedin-check",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "leftValue": "={{ $json.description }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-linkedin",
+      "name": "Check LinkedIn Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1648, 256]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://' + $('Prepare Company Data').item.json.domain }}",
+        "options": {}
+      },
+      "id": "website-scrape",
+      "name": "Website Scraping",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1856, 352],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "website-check",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              },
+              "leftValue": "={{ $json }}",
+              "rightValue": "description"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-website",
+      "name": "Check Website Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2064, 352]
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $('Prepare Company Data').item.json.companyName }} company information"
+            },
+            {
+              "name": "api_key",
+              "value": "YOUR_SERPAPI_KEY_HERE"
+            },
+            {
+              "name": "num",
+              "value": "3"
+            },
+            {
+              "name": "engine",
+              "value": "google"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "online-research",
+      "name": "Online Research",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2272, 448],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const companyData = $node['Prepare Company Data'].json;\nconst allItems = $input.all();\n\nlet enrichmentSource = 'hubspot';\nlet enrichedInfo = '';\n\nconst sourceNode = allItems[0]?.node || '';\n\nif (sourceNode === 'Check LinkedIn Success') {\n  enrichmentSource = 'linkedin';\n  const linkedinData = $json;\n  enrichedInfo = `LinkedIn Description: ${linkedinData.description || 'N/A'}\\nIndustry: ${linkedinData.industry || 'N/A'}\\nSpecialties: ${linkedinData.specialties || 'N/A'}`;\n} else if (sourceNode === 'Check Website Success') {\n  enrichmentSource = 'website';\n  enrichedInfo = `Website Content: ${JSON.stringify($json).substring(0, 500)}`;\n} else if (sourceNode === 'Online Research') {\n  enrichmentSource = 'online_research';\n  if ($json.organic_results && Array.isArray($json.organic_results)) {\n    const topResults = $json.organic_results.slice(0, 3).map(r => `${r.title}: ${r.snippet}`).join('\\n');\n    enrichedInfo = `Online Research Results:\\n${topResults}`;\n  } else {\n    enrichedInfo = 'No research results available';\n  }\n} else if (sourceNode === 'Check Description Exists') {\n  enrichmentSource = 'hubspot';\n  enrichedInfo = `Description: ${companyData.description || 'N/A'}\\nAbout Us: ${companyData.aboutUs || 'N/A'}`;\n} else {\n  enrichmentSource = 'fallback';\n  enrichedInfo = 'Minimal data available';\n}\n\nconst prompt = `You are an expert business industry classifier. Categorize this company into ONE of these 15 internal industry categories:\\n\\n1. Accounting | 2. Insurance | 3. Legal Services | 4. Technology | 5. Healthcare\\n6. Public Sector | 7. Retail and Consumer Goods | 8. Consulting | 9. Construction\\n10. Payroll and HR Services | 11. Banking | 12. Energy | 13. Financial Services\\n14. Manufacturing | 15. Transportation\\n\\nCOMPANY DATA:\\nName: ${companyData.companyName}\\n\\nHubSpot Direct Data:\\n- Description: ${companyData.description || 'Not provided'}\\n- About Us: ${companyData.aboutUs || 'Not provided'}\\n\\nEnriched Data (${enrichmentSource}):\\n${enrichedInfo}\\n\\nRULES:\\n1. PRIORITIZE HubSpot description/about_us if available\\n2. Use enriched data (LinkedIn/Website/Research) as supporting evidence only\\n3. Look for PRIMARY business keywords\\n4. If company creates tech (software/SaaS) -> Technology\\n5. If company USES tech but does something else -> Their actual industry\\n6. If confidence < 70%, respond: \"MANUAL_REVIEW_REQUIRED\"\\n\\nRespond ONLY with the category name or \"MANUAL_REVIEW_REQUIRED\". No explanation.`;\n\nreturn [{json: {companyId: companyData.companyId, companyName: companyData.companyName, enrichmentSource: enrichmentSource, prompt: prompt}}];"
+      },
       "id": "prepare-gemini",
       "name": "Prepare Gemini Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2304, -16],
-      "parameters": {
-        "jsCode": "const companyData = $('Prepare Company Data').first().json;\nconst allItems = $input.all();\n\nlet enrichmentSource = 'hubspot';\nlet enrichedInfo = '';\n\n// Detect which branch fed into this node via the last executed node name\nconst lastNode = $input.first()?.pairedItem?.sourceNodeName || '';\n\nif (lastNode === 'Check LinkedIn Success') {\n  enrichmentSource = 'linkedin';\n  const linkedinData = $input.first().json;\n  enrichedInfo = `LinkedIn Description: ${linkedinData.description || 'N/A'}\\nIndustry: ${linkedinData.industry || 'N/A'}\\nSpecialties: ${linkedinData.specialties || 'N/A'}`;\n} else if (lastNode === 'Check Website Success') {\n  enrichmentSource = 'website';\n  enrichedInfo = `Website Content: ${JSON.stringify($input.first().json).substring(0, 500)}`;\n} else if (lastNode === 'Online Research') {\n  enrichmentSource = 'online_research';\n  const results = $input.first().json.organic_results;\n  if (results && Array.isArray(results)) {\n    const topResults = results.slice(0, 3).map(r => `${r.title}: ${r.snippet}`).join('\\n');\n    enrichedInfo = `Online Research Results:\\n${topResults}`;\n  } else {\n    enrichedInfo = 'No research results available';\n  }\n} else {\n  enrichmentSource = 'hubspot';\n  enrichedInfo = `Description: ${companyData.description || 'N/A'}\\nAbout Us: ${companyData.aboutUs || 'N/A'}`;\n}\n\nconst prompt = `You are an expert business industry classifier. Categorize this company into ONE of these 15 internal industry categories:\n\n1. Accounting | 2. Insurance | 3. Legal Services | 4. Technology | 5. Healthcare\n6. Public Sector | 7. Retail and Consumer Goods | 8. Consulting | 9. Construction\n10. Payroll and HR Services | 11. Banking | 12. Energy | 13. Financial Services\n14. Manufacturing | 15. Transportation\n\nCOMPANY DATA:\nName: ${companyData.companyName}\n\nHubSpot Direct Data:\n- Description: ${companyData.description || 'Not provided'}\n- About Us: ${companyData.aboutUs || 'Not provided'}\n\nEnriched Data (${enrichmentSource}):\n${enrichedInfo}\n\nRULES:\n1. PRIORITIZE HubSpot description/about_us if available\n2. Use enriched data (LinkedIn/Website/Research) as supporting evidence only\n3. Look for PRIMARY business keywords\n4. If company creates tech (software/SaaS) -> Technology\n5. If company USES tech but does something else -> Their actual industry\n6. If confidence < 70%, respond: \"MANUAL_REVIEW_REQUIRED\"\n\nRespond ONLY with the category name or \"MANUAL_REVIEW_REQUIRED\". No explanation.`;\n\nreturn [{json: {companyId: companyData.companyId, companyName: companyData.companyName, enrichmentSource: enrichmentSource, prompt: prompt}}];"
-      }
+      "position": [2480, 160]
     },
     {
+      "parameters": {
+        "modelName": "models/gemini-3-flash-preview",
+        "options": {
+          "temperature": 0.3
+        }
+      },
       "id": "gemini-cat",
       "name": "Gemini Categorization",
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
-      "position": [2512, -16],
-      "parameters": {
-        "modelName": "models/gemini-3-flash-preview",
-        "options": {"temperature": 0.3}
-      },
-      "credentials": {"googlePalmApi": {"id": "QnUjlFnc4gypgplL", "name": "Gemini"}}
+      "position": [2688, 160],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "QnUjlFnc4gypgplL",
+          "name": "Gemini"
+        }
+      }
     },
     {
+      "parameters": {
+        "jsCode": "const geminiResponse = $json.text || $json.response || JSON.stringify($json);\nconst category = geminiResponse.trim();\n\nconst prepData = $node['Prepare Gemini Input'].json;\nreturn [{json: {companyId: prepData.companyId, companyName: prepData.companyName, enrichmentSource: prepData.enrichmentSource, category: category, needsManualReview: category === 'MANUAL_REVIEW_REQUIRED'}}];"
+      },
       "id": "parse-response",
       "name": "Parse Gemini Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2704, -16],
-      "parameters": {
-        "jsCode": "const geminiResponse = $json.text || $json.response || JSON.stringify($json);\nconst category = geminiResponse.trim();\n\nconst prepData = $('Prepare Gemini Input').first().json;\nreturn [{json: {companyId: prepData.companyId, companyName: prepData.companyName, enrichmentSource: prepData.enrichmentSource, category: category, needsManualReview: category === 'MANUAL_REVIEW_REQUIRED'}}];"
-      }
+      "position": [2896, 160]
     },
     {
-      "id": "check-confidence",
-      "name": "Check Confidence",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [2912, -16],
       "parameters": {
         "conditions": {
-          "options": {"version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict"},
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "combinator": "and",
           "conditions": [
             {
               "id": "confidence-check",
-              "operator": {"type": "boolean", "operation": "false", "singleValue": true},
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              },
               "leftValue": "={{ $json.needsManualReview }}",
               "rightValue": ""
             }
           ]
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "check-confidence",
+      "name": "Check Confidence",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [3104, 160]
     },
     {
-      "id": "update-hubspot",
-      "name": "Update HubSpot",
-      "type": "n8n-nodes-base.hubspot",
-      "typeVersion": 2.2,
-      "position": [3104, -112],
       "parameters": {
         "authentication": "appToken",
         "resource": "company",
         "operation": "update",
-        "companyId": {"mode": "id", "value": "={{ $json.companyId }}"},
+        "companyId": {
+          "mode": "id",
+          "value": "={{ $json.companyId }}"
+        },
         "updateFields": {
           "customPropertiesUi": {
             "customPropertiesValues": [
-              {"property": "industry_internal_sync", "value": "={{ $json.category }}"}
+              {
+                "property": "industry__internal_",
+                "value": "={{ $json.category }}"
+              }
             ]
           }
         }
       },
-      "credentials": {"hubspotAppToken": {"id": "5ww8XNGf4HTQu4UI", "name": "hubspot"}}
+      "id": "update-hubspot",
+      "name": "Update HubSpot",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2.2,
+      "position": [3312, 64],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
     },
     {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "mode": "id",
+          "value": "D0ADELD95GR"
+        },
+        "text": "=✅ *{{ $json.companyName }}* categorized as *{{ $json.category }}*\n\n🔍 Source: {{ $json.enrichmentSource }}\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $json.companyId }}|View in HubSpot>",
+        "otherOptions": {}
+      },
       "id": "slack-success",
       "name": "Send Success Slack",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [3312, -112],
-      "parameters": {
-        "operation": "post",
-        "select": "channel",
-        "channelId": {"mode": "id", "value": "D0ADELD95GR"},
-        "text": "=✅ *{{ $json.companyName }}* categorized as *{{ $json.category }}*\n\n🔍 Source: {{ $json.enrichmentSource }}\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $json.companyId }}|View in HubSpot>"
-      },
-      "credentials": {"slackApi": {"id": "lYs0WHzWk4c7z9Kk", "name": "Slack"}}
+      "position": [3520, 64],
+      "credentials": {
+        "slackApi": {
+          "id": "lYs0WHzWk4c7z9Kk",
+          "name": "Slack"
+        }
+      }
     },
     {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "mode": "id",
+          "value": "D0ADELD95GR"
+        },
+        "text": "=⚠️ *Manual Review Required* for *{{ $json.companyName }}*\n\n🔍 Source: {{ $json.enrichmentSource }}\n📊 Could not confidently categorize this company\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $json.companyId }}|View in HubSpot>",
+        "otherOptions": {}
+      },
       "id": "slack-manual",
       "name": "Send Manual Review Slack",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [3104, 96],
-      "parameters": {
-        "operation": "post",
-        "select": "channel",
-        "channelId": {"mode": "id", "value": "D0ADELD95GR"},
-        "text": "=⚠️ *Manual Review Required* for *{{ $json.companyName }}*\n\n🔍 Source: {{ $json.enrichmentSource }}\n📊 Could not confidently categorize this company\n🔗 <https://app.hubspot.com/contacts/142047914/company/{{ $json.companyId }}|View in HubSpot>"
-      },
-      "credentials": {"slackApi": {"id": "lYs0WHzWk4c7z9Kk", "name": "Slack"}}
+      "position": [3312, 256],
+      "credentials": {
+        "slackApi": {
+          "id": "lYs0WHzWk4c7z9Kk",
+          "name": "Slack"
+        }
+      }
     }
   ],
   "connections": {
-    "Schedule Trigger": {"main": [[{"node": "Get Uncategorized Companies", "type": "main", "index": 0}]]},
-    "Get Uncategorized Companies": {"main": [[{"node": "Check Demo Form", "type": "main", "index": 0}]]},
-    "Check Demo Form": {"main": [[], [{"node": "Get Company Details", "type": "main", "index": 0}]]},
-    "Get Company Details": {"main": [[{"node": "Prepare Company Data", "type": "main", "index": 0}]]},
-    "Prepare Company Data": {"main": [[{"node": "Check Description Exists", "type": "main", "index": 0}]]},
-    "Check Description Exists": {"main": [[{"node": "Prepare Gemini Input", "type": "main", "index": 0}], [{"node": "LinkedIn Enrichment", "type": "main", "index": 0}]]},
-    "LinkedIn Enrichment": {"main": [[{"node": "Check LinkedIn Success", "type": "main", "index": 0}]]},
-    "Check LinkedIn Success": {"main": [[{"node": "Prepare Gemini Input", "type": "main", "index": 0}], [{"node": "Website Scraping", "type": "main", "index": 0}]]},
-    "Website Scraping": {"main": [[{"node": "Check Website Success", "type": "main", "index": 0}]]},
-    "Check Website Success": {"main": [[{"node": "Prepare Gemini Input", "type": "main", "index": 0}], [{"node": "Online Research", "type": "main", "index": 0}]]},
-    "Online Research": {"main": [[{"node": "Prepare Gemini Input", "type": "main", "index": 0}]]},
-    "Prepare Gemini Input": {"main": [[{"node": "Gemini Categorization", "type": "main", "index": 0}]]},
-    "Gemini Categorization": {"main": [[{"node": "Parse Gemini Response", "type": "main", "index": 0}]]},
-    "Parse Gemini Response": {"main": [[{"node": "Check Confidence", "type": "main", "index": 0}]]},
-    "Check Confidence": {"main": [[{"node": "Update HubSpot", "type": "main", "index": 0}], [{"node": "Send Manual Review Slack", "type": "main", "index": 0}]]},
-    "Update HubSpot": {"main": [[{"node": "Send Success Slack", "type": "main", "index": 0}]]}
+    "Schedule Trigger": {
+      "main": [[{"node": "Get Uncategorized Companies", "type": "main", "index": 0}]]
+    },
+    "Get Uncategorized Companies": {
+      "main": [[{"node": "Normalize & Filter New", "type": "main", "index": 0}]]
+    },
+    "Normalize & Filter New": {
+      "main": [[{"node": "Check Demo Form", "type": "main", "index": 0}]]
+    },
+    "Check Demo Form": {
+      "main": [
+        [],
+        [{"node": "Get Company Details", "type": "main", "index": 0}]
+      ]
+    },
+    "Get Company Details": {
+      "main": [[{"node": "Prepare Company Data", "type": "main", "index": 0}]]
+    },
+    "Prepare Company Data": {
+      "main": [[{"node": "Check Description Exists", "type": "main", "index": 0}]]
+    },
+    "Check Description Exists": {
+      "main": [
+        [{"node": "Prepare Gemini Input", "type": "main", "index": 0}],
+        [{"node": "LinkedIn Enrichment", "type": "main", "index": 0}]
+      ]
+    },
+    "LinkedIn Enrichment": {
+      "main": [[{"node": "Check LinkedIn Success", "type": "main", "index": 0}]]
+    },
+    "Check LinkedIn Success": {
+      "main": [
+        [{"node": "Prepare Gemini Input", "type": "main", "index": 0}],
+        [{"node": "Website Scraping", "type": "main", "index": 0}]
+      ]
+    },
+    "Website Scraping": {
+      "main": [[{"node": "Check Website Success", "type": "main", "index": 0}]]
+    },
+    "Check Website Success": {
+      "main": [
+        [{"node": "Prepare Gemini Input", "type": "main", "index": 0}],
+        [{"node": "Online Research", "type": "main", "index": 0}]
+      ]
+    },
+    "Online Research": {
+      "main": [[{"node": "Prepare Gemini Input", "type": "main", "index": 0}]]
+    },
+    "Prepare Gemini Input": {
+      "main": [[{"node": "Gemini Categorization", "type": "main", "index": 0}]]
+    },
+    "Gemini Categorization": {
+      "main": [[{"node": "Parse Gemini Response", "type": "main", "index": 0}]]
+    },
+    "Parse Gemini Response": {
+      "main": [[{"node": "Check Confidence", "type": "main", "index": 0}]]
+    },
+    "Check Confidence": {
+      "main": [
+        [{"node": "Update HubSpot", "type": "main", "index": 0}],
+        [{"node": "Send Manual Review Slack", "type": "main", "index": 0}]
+      ]
+    },
+    "Update HubSpot": {
+      "main": [[{"node": "Send Success Slack", "type": "main", "index": 0}]]
+    }
   },
   "settings": {
     "executionOrder": "v1",
