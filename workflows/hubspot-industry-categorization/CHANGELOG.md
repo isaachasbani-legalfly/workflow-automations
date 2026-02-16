@@ -2,6 +2,31 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.2.7] - 2026-02-16
+
+### Fixed - Replace LangChain Gemini sub-node with direct REST API call
+
+**Root cause**: `@n8n/n8n-nodes-langchain.lmChatGoogleGemini` is a LangChain **sub-node** designed to be wired as an AI connection into agents/chains — not for direct execution in the main flow. When called directly it makes a malformed request to Google and returns a 400 HTML error page.
+
+**Fix 1**: Replaced `Gemini Categorization` node:
+- Old: `@n8n/n8n-nodes-langchain.lmChatGoogleGemini` (typeVersion 1)
+- New: `n8n-nodes-base.httpRequest` (typeVersion 4.2) calling `POST https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`
+- Authentication: `predefinedCredentialType: "googlePalmApi"` (same credential)
+- Body: `JSON.stringify({ contents: [{ parts: [{ text: $json.prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 50 } })`
+
+**Fix 2**: Updated `Parse Gemini Response` to read from REST API response structure:
+- Old: `$json.text || $json.response` (LangChain output format)
+- New: `response?.candidates?.[0]?.content?.parts?.[0]?.text` (Gemini REST API format)
+
+**Fix 3**: Corrected HubSpot enum value in `Prepare Gemini Input` prompt:
+- Old: `"Payroll and HR Services"` (invalid enum — not accepted by HubSpot)
+- New: `"HR and Payroll Services"` (exact HubSpot enum value)
+- Also: expanded from 15 → 16 categories by adding `Unknown`
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.2.6] - 2026-02-16
 
 ### Fixed - HubSpot v2 API nested property format & Gemini source detection
