@@ -2,6 +2,24 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.2.4] - 2026-02-16
+
+### Fixed - jsonBody must return a JSON string, not a JS object
+
+**Error**: `NodeOperationError: JSON parameter needs to be valid JSON`
+
+**Root Cause**: The `jsonBody` field type is "json". n8n evaluates the expression `={{ { ... } }}` to a JavaScript object, then the HTTP Request node calls `JSON.parse(object)`. Since `JSON.parse` coerces non-strings via `.toString()`, this becomes `JSON.parse("[object Object]")` → throws.
+
+**Fix**: Wrapped the object in `JSON.stringify(...)` so the expression returns a valid JSON string:
+```
+={{ JSON.stringify({ filterGroups: [...], ... }) }}
+```
+Now `JSON.parse(string)` succeeds inside the node.
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.2.3] - 2026-02-16
 
 ### Fixed - HTTP Request missing specifyBody parameter
