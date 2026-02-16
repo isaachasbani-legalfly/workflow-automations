@@ -68,7 +68,8 @@
               "id": "demo-check",
               "operator": {
                 "type": "string",
-                "operation": "notEmpty"
+                "operation": "empty",
+                "singleValue": true
               },
               "leftValue": "={{ $json.properties.industry__form____contact_sync || '' }}",
               "rightValue": ""

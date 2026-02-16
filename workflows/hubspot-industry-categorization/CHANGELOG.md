@@ -2,6 +2,22 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.2.5] - 2026-02-16
+
+### Fixed - Check Demo Form routing was inverted
+
+**Problem**: Companies that submitted a form with their industry (non-null `industry__form____contact_sync`) were being sent through the full categorization pipeline. Companies without form data were being skipped.
+
+**Correct logic**: If a company filled a form with their industry, that value is trusted — skip AI categorization. Only companies with no form data should go through Gemini categorization.
+
+**Fix**: Changed `notEmpty` → `empty` operator on the IF node:
+- TRUE (form IS empty = no industry data) → Get Company Details → categorize ✓
+- FALSE (form has data = industry known) → skip ✓
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.2.4] - 2026-02-16
 
 ### Fixed - jsonBody must return a JSON string, not a JS object
