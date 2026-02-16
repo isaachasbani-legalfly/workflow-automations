@@ -2,6 +2,34 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.2.6] - 2026-02-16
+
+### Fixed - HubSpot v2 API nested property format & Gemini source detection
+
+**Two root causes found from execution #98:**
+
+**1. `companyId: null` + `companyName: {value: "OVO Energy", ...}` (object, not string)**
+- `Get Company Details` HubSpot node uses the v2 API internally, which returns:
+  - `companyId` as the ID field (not `id`)
+  - Properties as deeply nested objects: `{value: "...", timestamp: ..., source: ..., versions: [...]}`
+- `Prepare Company Data` was reading `$json.id` (null) and `$json.properties.name` (the full object)
+- Fix: Updated all 6 assignments to handle both v2 (object) and v3 (string) formats:
+  - `companyId`: `$json.companyId || $json.id`
+  - Properties: `typeof val === 'object' ? val.value : val`
+
+**2. Gemini always received "Minimal data available" (enrichmentSource always "fallback")**
+- `Prepare Gemini Input` code tried `allItems[0]?.node` to detect which branch sent the item
+- `node` is not a property on n8n items → always empty string → always falls to "fallback"
+- Fix: Detect source by inspecting `$json` structure:
+  - `$json.organic_results` → online_research
+  - `$json.data` (HTML string) → website
+  - `$json.description` ≠ company description → linkedin
+  - Otherwise → hubspot (description was available directly)
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.2.5] - 2026-02-16
 
 ### Fixed - Check Demo Form routing was inverted

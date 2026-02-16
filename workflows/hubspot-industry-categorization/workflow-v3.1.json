@@ -116,37 +116,37 @@
               "id": "field1",
               "name": "companyId",
               "type": "string",
-              "value": "={{ $json.id }}"
+              "value": "={{ $json.companyId || $json.id }}"
             },
             {
               "id": "field2",
               "name": "companyName",
               "type": "string",
-              "value": "={{ $json.properties.name }}"
+              "value": "={{ typeof $json.properties?.name === 'object' ? ($json.properties?.name?.value || '') : ($json.properties?.name || '') }}"
             },
             {
               "id": "field3",
               "name": "domain",
               "type": "string",
-              "value": "={{ $json.properties.domain }}"
+              "value": "={{ typeof $json.properties?.domain === 'object' ? ($json.properties?.domain?.value || '') : ($json.properties?.domain || '') }}"
             },
             {
               "id": "field4",
               "name": "description",
               "type": "string",
-              "value": "={{ $json.properties.description }}"
+              "value": "={{ typeof $json.properties?.description === 'object' ? ($json.properties?.description?.value || '') : ($json.properties?.description || '') }}"
             },
             {
               "id": "field5",
               "name": "aboutUs",
               "type": "string",
-              "value": "={{ $json.properties.about_us }}"
+              "value": "={{ typeof $json.properties?.about_us === 'object' ? ($json.properties?.about_us?.value || '') : ($json.properties?.about_us || '') }}"
             },
             {
               "id": "field6",
               "name": "linkedinUrl",
               "type": "string",
-              "value": "={{ $json.properties.linkedin_company_page }}"
+              "value": "={{ typeof $json.properties?.linkedin_company_page === 'object' ? ($json.properties?.linkedin_company_page?.value || '') : ($json.properties?.linkedin_company_page || '') }}"
             }
           ]
         },
@@ -312,7 +312,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const companyData = $node['Prepare Company Data'].json;\nconst allItems = $input.all();\n\nlet enrichmentSource = 'hubspot';\nlet enrichedInfo = '';\n\nconst sourceNode = allItems[0]?.node || '';\n\nif (sourceNode === 'Check LinkedIn Success') {\n  enrichmentSource = 'linkedin';\n  const linkedinData = $json;\n  enrichedInfo = `LinkedIn Description: ${linkedinData.description || 'N/A'}\\nIndustry: ${linkedinData.industry || 'N/A'}\\nSpecialties: ${linkedinData.specialties || 'N/A'}`;\n} else if (sourceNode === 'Check Website Success') {\n  enrichmentSource = 'website';\n  enrichedInfo = `Website Content: ${JSON.stringify($json).substring(0, 500)}`;\n} else if (sourceNode === 'Online Research') {\n  enrichmentSource = 'online_research';\n  if ($json.organic_results && Array.isArray($json.organic_results)) {\n    const topResults = $json.organic_results.slice(0, 3).map(r => `${r.title}: ${r.snippet}`).join('\\n');\n    enrichedInfo = `Online Research Results:\\n${topResults}`;\n  } else {\n    enrichedInfo = 'No research results available';\n  }\n} else if (sourceNode === 'Check Description Exists') {\n  enrichmentSource = 'hubspot';\n  enrichedInfo = `Description: ${companyData.description || 'N/A'}\\nAbout Us: ${companyData.aboutUs || 'N/A'}`;\n} else {\n  enrichmentSource = 'fallback';\n  enrichedInfo = 'Minimal data available';\n}\n\nconst prompt = `You are an expert business industry classifier. Categorize this company into ONE of these 15 internal industry categories:\\n\\n1. Accounting | 2. Insurance | 3. Legal Services | 4. Technology | 5. Healthcare\\n6. Public Sector | 7. Retail and Consumer Goods | 8. Consulting | 9. Construction\\n10. Payroll and HR Services | 11. Banking | 12. Energy | 13. Financial Services\\n14. Manufacturing | 15. Transportation\\n\\nCOMPANY DATA:\\nName: ${companyData.companyName}\\n\\nHubSpot Direct Data:\\n- Description: ${companyData.description || 'Not provided'}\\n- About Us: ${companyData.aboutUs || 'Not provided'}\\n\\nEnriched Data (${enrichmentSource}):\\n${enrichedInfo}\\n\\nRULES:\\n1. PRIORITIZE HubSpot description/about_us if available\\n2. Use enriched data (LinkedIn/Website/Research) as supporting evidence only\\n3. Look for PRIMARY business keywords\\n4. If company creates tech (software/SaaS) -> Technology\\n5. If company USES tech but does something else -> Their actual industry\\n6. If confidence < 70%, respond: \"MANUAL_REVIEW_REQUIRED\"\\n\\nRespond ONLY with the category name or \"MANUAL_REVIEW_REQUIRED\". No explanation.`;\n\nreturn [{json: {companyId: companyData.companyId, companyName: companyData.companyName, enrichmentSource: enrichmentSource, prompt: prompt}}];"
+        "jsCode": "const companyData = $node['Prepare Company Data'].json;\n\nlet enrichmentSource = 'hubspot';\nlet enrichedInfo = '';\n\n// Detect which branch sent this item by checking $json structure\nif ($json.organic_results !== undefined) {\n  enrichmentSource = 'online_research';\n  const results = Array.isArray($json.organic_results) ? $json.organic_results.slice(0, 3) : [];\n  enrichedInfo = results.length > 0\n    ? results.map(r => `${r.title}: ${r.snippet || ''}`).join('\\n')\n    : 'No online research results available';\n} else if ($json.data !== undefined || ($json.statusCode !== undefined && !$json.description)) {\n  enrichmentSource = 'website';\n  const html = typeof $json.data === 'string' ? $json.data : '';\n  const metaMatch = html.match(/<meta[^>]+name=[\"']description[\"'][^>]+content=[\"']([^\"']+)[\"']/i)\n    || html.match(/<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+name=[\"']description[\"']/i);\n  enrichedInfo = metaMatch ? `Website meta description: ${metaMatch[1]}` : 'Website content fetched (no meta description found)';\n} else if ($json.description !== undefined && $json.description !== companyData.description) {\n  enrichmentSource = 'linkedin';\n  enrichedInfo = `LinkedIn Description: ${$json.description || 'N/A'}\\nIndustry: ${$json.industry || 'N/A'}\\nSpecialties: ${$json.specialties || 'N/A'}`;\n} else {\n  enrichmentSource = 'hubspot';\n  enrichedInfo = `Description: ${companyData.description || 'N/A'}\\nAbout Us: ${companyData.aboutUs || 'N/A'}`;\n}\n\nconst prompt = `You are an expert business industry classifier. Categorize this company into ONE of these 15 internal industry categories:\\n\\n1. Accounting | 2. Insurance | 3. Legal Services | 4. Technology | 5. Healthcare\\n6. Public Sector | 7. Retail and Consumer Goods | 8. Consulting | 9. Construction\\n10. Payroll and HR Services | 11. Banking | 12. Energy | 13. Financial Services\\n14. Manufacturing | 15. Transportation\\n\\nCOMPANY DATA:\\nName: ${companyData.companyName}\\nDomain: ${companyData.domain || 'Not provided'}\\n\\nHubSpot Direct Data:\\n- Description: ${companyData.description || 'Not provided'}\\n- About Us: ${companyData.aboutUs || 'Not provided'}\\n\\nEnriched Data (${enrichmentSource}):\\n${enrichedInfo}\\n\\nRULES:\\n1. PRIORITIZE HubSpot description/about_us if available\\n2. Use enriched data (LinkedIn/Website/Research) as supporting evidence only\\n3. Look for PRIMARY business keywords\\n4. If company creates tech (software/SaaS) -> Technology\\n5. If company USES tech but does something else -> Their actual industry\\n6. If confidence < 70%, respond: \\\"MANUAL_REVIEW_REQUIRED\\\"\\n\\nRespond ONLY with the category name or \\\"MANUAL_REVIEW_REQUIRED\\\". No explanation.`;\n\nreturn [{json: {companyId: companyData.companyId, companyName: companyData.companyName, enrichmentSource: enrichmentSource, prompt: prompt}}];"
       },
       "id": "prepare-gemini",
       "name": "Prepare Gemini Input",
