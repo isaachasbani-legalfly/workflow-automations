@@ -58,8 +58,7 @@
         "authentication": "appToken",
         "resource": "company",
         "operation": "getRecentlyCreatedUpdated",
-        "returnAll": false,
-        "limit": 100,
+        "returnAll": true,
         "additionalFields": {}
       }
     },

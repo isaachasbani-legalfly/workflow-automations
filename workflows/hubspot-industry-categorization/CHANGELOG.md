@@ -2,6 +2,18 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.1.6] - 2026-02-16
+
+### Fixed - Use returnAll to guarantee all today's companies are fetched
+
+**Problem**: `limit: 100` would miss companies if more than 100 were added today.
+
+**Fix**: Changed to `returnAll: true` — HubSpot node paginates through all recently created companies; the Normalize node then filters down to only those with `createdate` = today.
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.1.5] - 2026-02-16
 
 ### Changed - Fetch All Companies Added Today (not just uncategorized)
