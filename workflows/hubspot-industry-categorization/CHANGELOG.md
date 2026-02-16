@@ -4,13 +4,48 @@ All notable changes to the HubSpot Company Industry Categorization workflow will
 
 ---
 
+## [3.3.1] - 2026-02-16
+
+### 🎯 Enhanced HubSpot Description Prompt - Comprehensive Classification Rules
+
+**Changed - HubSpot Description Path (Path 1)**
+- **New comprehensive prompt** with 9-rule classification system (3,763 characters)
+- **Removed token limit** (`maxOutputTokens` removed - no truncation)
+- **Removed MANUAL_REVIEW_REQUIRED** - always returns one of 16 categories
+- **Model**: gemini-2.5-flash (unchanged)
+
+**New Classification Rules**:
+1. **Technology Priority**: Software/SaaS builders → Technology (even if serving specific industry)
+2. **Legal Services Priority**: ALL legal work → Legal Services (never Consulting)
+3. **Specific Service Categories**: HR consulting → HR and Payroll Services (not Consulting)
+4. **Construction vs Manufacturing**: Buildings/infrastructure = Construction, products = Manufacturing
+5. **Retail vs Manufacturing**: Companies that sell → Retail (even if they manufacture)
+6. **Public Sector**: Only government agencies (contractors → their service category)
+7. **Multi-Service**: Multiple services → Consulting (default for generalist firms)
+8. **Others**: Only for non-matching industries (Agriculture, Education, Media, Non-profits)
+9. **Conflict Resolution**: Clear hierarchy (Technology > Legal Services > Specific Service > Consulting)
+
+**Examples in Prompt**:
+- "We build SaaS software for law firms" → Technology
+- "We provide HR consulting and recruiting services" → HR and Payroll Services
+- "Law firm specializing in corporate law" → Legal Services
+- "We manufacture and sell consumer electronics online" → Retail and Consumer Goods
+- "Multi-service firm offering accounting, HR, and legal advisory" → Consulting
+
+**Technical Changes**:
+- Prepare Gemini Input - HubSpot: 3,763 char prompt (was ~800 chars)
+- Gemini Categorization - HubSpot: No maxOutputTokens (was 50)
+- Parse Response - HubSpot: `needsManualReview: false` (always high confidence)
+
+---
+
 ## [3.3.0] - 2026-02-16
 
 ### 🎯 Major Architecture Change: Multi-Path LLM System
 
 **Changed**
 - **THREE independent LLM paths** (previously: single merged path)
-  - Path 1: HubSpot Description → Gemini (UNCHANGED - working)
+  - Path 1: HubSpot Description → Gemini (working - now ENHANCED with new prompt)
   - Path 2: LinkedIn Enrichment → Gemini (NEW)
   - Path 3: Website Scraping → Gemini (NEW)
 
