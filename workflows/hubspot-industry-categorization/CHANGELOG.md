@@ -4,6 +4,26 @@ All notable changes to the HubSpot Company Industry Categorization workflow will
 
 ---
 
+## [3.3.2] - 2026-02-16
+
+### Fixed - Slack notification showing "undefined" values
+
+**Problem**: Slack messages displayed "undefined categorized as undefined" instead of company name and category.
+
+**Root Cause**: The "Send Success Slack" node was reading `$json.companyName` and `$json.category` from its immediate input (the "Update HubSpot" node), which returns HubSpot's API response, not the categorization data.
+
+**Fix**: Updated Slack node expressions to reference the "Check Confidence" node output, which contains the parsed categorization data:
+- Changed: `$json.companyName` → `$('Check Confidence').item.json.companyName`
+- Changed: `$json.category` → `$('Check Confidence').item.json.category`
+- Changed: `$json.enrichmentSource` → `$('Check Confidence').item.json.enrichmentSource`
+- Changed: `$json.companyId` → `$('Check Confidence').item.json.companyId`
+
+Also fixed expression syntax from `{{ }}` (Mustache) to `={{ }}` (n8n expressions) using template literals.
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.3.1] - 2026-02-16
 
 ### 🎯 Enhanced HubSpot Description Prompt - Comprehensive Classification Rules
