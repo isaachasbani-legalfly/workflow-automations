@@ -158,7 +158,8 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $json;\nconst geminiText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';\nlet category = geminiText.trim();\n\n// Map display label to HubSpot internal enum value\nif (category === 'Others') category = 'Unknown';\n\nconst prepData = $('Prepare Gemini Input - HubSpot').item.json;\nreturn [{\n  json: {\n    companyId: prepData.companyId,\n    companyName: prepData.companyName,\n    enrichmentSource: prepData.enrichmentSource,\n    category: category,\n    needsManualReview: false\n  }\n}];"
+        "mode": "runOnceForEachItem",
+        "jsCode": "const response = $json;\nconst geminiText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';\nlet category = geminiText.trim();\n\n// Map display label to HubSpot internal enum value\nif (category === 'Others') category = 'Unknown';\n\nconst prepData = $('Prepare Gemini Input - HubSpot').item.json;\n\nreturn {\n  companyId: prepData.companyId,\n  companyName: prepData.companyName,\n  enrichmentSource: prepData.enrichmentSource,\n  category: category,\n  needsManualReview: false\n};"
       },
       "id": "parse-response-hs",
       "name": "Parse Gemini Response - HubSpot",
@@ -273,7 +274,8 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $json;\nconst geminiText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';\nlet category = geminiText.trim();\n\n// Map display label to HubSpot internal enum value\nif (category === 'Others') category = 'Unknown';\n\nconst prepData = $('Prepare Gemini Input - LinkedIn').item.json;\nreturn [{\n  json: {\n    companyId: prepData.companyId,\n    companyName: prepData.companyName,\n    enrichmentSource: prepData.enrichmentSource,\n    category: category,\n    needsManualReview: category === 'MANUAL_REVIEW_REQUIRED'\n  }\n}];"
+        "mode": "runOnceForEachItem",
+        "jsCode": "const response = $json;\nconst geminiText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';\nlet category = geminiText.trim();\n\n// Map display label to HubSpot internal enum value\nif (category === 'Others') category = 'Unknown';\n\nconst prepData = $('Prepare Gemini Input - LinkedIn').item.json;\n\nreturn {\n  companyId: prepData.companyId,\n  companyName: prepData.companyName,\n  enrichmentSource: prepData.enrichmentSource,\n  category: category,\n  needsManualReview: false\n};"
       },
       "id": "parse-response-linkedin",
       "name": "Parse Gemini Response - LinkedIn",
@@ -348,7 +350,8 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $json;\nconst geminiText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';\nlet category = geminiText.trim();\n\n// Map display label to HubSpot internal enum value\nif (category === 'Others') category = 'Unknown';\n\nconst prepData = $('Prepare Gemini Input - Website').item.json;\nreturn [{\n  json: {\n    companyId: prepData.companyId,\n    companyName: prepData.companyName,\n    enrichmentSource: prepData.enrichmentSource,\n    category: category,\n    needsManualReview: category === 'MANUAL_REVIEW_REQUIRED'\n  }\n}];"
+        "mode": "runOnceForEachItem",
+        "jsCode": "const response = $json;\nconst geminiText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';\nlet category = geminiText.trim();\n\n// Map display label to HubSpot internal enum value\nif (category === 'Others') category = 'Unknown';\n\nconst prepData = $('Prepare Gemini Input - Website').item.json;\n\nreturn {\n  companyId: prepData.companyId,\n  companyName: prepData.companyName,\n  enrichmentSource: prepData.enrichmentSource,\n  category: category,\n  needsManualReview: false\n};"
       },
       "id": "parse-response-website",
       "name": "Parse Gemini Response - Website",
