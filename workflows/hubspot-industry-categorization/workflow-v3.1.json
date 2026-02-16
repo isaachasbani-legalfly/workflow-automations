@@ -44,7 +44,7 @@
         "additionalFields": {}
       },
       "id": "get-companies",
-      "name": "Get Uncategorized Companies",
+      "name": "Get Recent Companies",
       "type": "n8n-nodes-base.hubspot",
       "typeVersion": 2.2,
       "position": [192, 160],
@@ -58,23 +58,8 @@
         "authentication": "appToken",
         "resource": "company",
         "operation": "getRecentlyCreatedUpdated",
-        "limit": 10,
-        "filters": {
-          "filterGroupsUi": {
-            "filterGroupsValues": [
-              {
-                "filtersUi": {
-                  "filterValues": [
-                    {
-                      "propertyName": "industry__internal_",
-                      "operator": "NOT_HAS_PROPERTY"
-                    }
-                  ]
-                }
-              }
-            ]
-          }
-        },
+        "returnAll": false,
+        "limit": 100,
         "additionalFields": {}
       }
     },

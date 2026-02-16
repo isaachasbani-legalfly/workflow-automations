@@ -2,6 +2,23 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.1.5] - 2026-02-16
+
+### Changed - Fetch All Companies Added Today (not just uncategorized)
+
+**Previous behavior**: Only fetched companies missing `industry__internal_` (uncategorized)
+**New behavior**: Fetches all companies added today — including already-categorized ones — so existing categories can be improved/corrected
+
+**Changes**:
+- Removed `industry__internal_` `NOT_HAS_PROPERTY` filter from Get Recent Companies node
+- Increased limit from 10 → 100 to handle larger daily volumes
+- Renamed node from "Get Uncategorized Companies" → "Get Recent Companies"
+- Normalize node still filters to today's `createdate` only
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.1.4] - 2026-02-16
 
 ### Fixed - Three Additional Issues
