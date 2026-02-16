@@ -2,6 +2,26 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.2.3] - 2026-02-16
+
+### Fixed - HTTP Request missing specifyBody parameter
+
+**Problem**: "Search Today's Companies" was still returning all 37,242 companies despite the `jsonBody` fix in v3.2.2.
+
+**Root Cause**: `specifyBody` defaults to `"keypair"` (key-value pairs mode). Without explicitly setting `specifyBody: "json"`, n8n ignores `jsonBody` entirely and sends an empty body to HubSpot. An empty POST body to `/crm/v3/objects/companies/search` returns all companies with no filtering.
+
+**Fix**: Added `specifyBody: "json"` to the "Search Today's Companies" HTTP Request node parameters. The full required config for JSON body in HTTP Request v4.2 is:
+```
+sendBody: true
+contentType: "json"        ← sets Content-Type: application/json
+specifyBody: "json"        ← tells n8n to use jsonBody field  ← THIS was missing
+jsonBody: "={{ { ... } }}" ← the actual body content
+```
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.2.2] - 2026-02-16
 
 ### Fixed - HTTP Request body parameter name & Code node mode
