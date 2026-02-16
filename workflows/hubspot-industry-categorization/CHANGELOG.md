@@ -2,6 +2,27 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.2.2] - 2026-02-16
+
+### Fixed - HTTP Request body parameter name & Code node mode
+
+**Problem 1**: "Search Today's Companies" was returning ALL 37,242 companies (no date filter applied).
+- Root cause: `body` parameter name is wrong for HTTP Request v4.2 with `contentType: "json"` — the filter was silently ignored
+- Fix: Renamed `body` → `jsonBody` (the correct parameter name for JSON body in typeVersion 4.2)
+
+**Problem 2**: "Split Companies" Code node error: `"A 'json' property isn't an object [item 0]"`
+- Root cause: `mode: "runOnceForEachItem"` receives one item at a time, but the node was returning an array where each array element is an item — n8n interprets the array as the single output item's `json`, which is an array (not an object)
+- Fix: Changed `mode` to `"runOnceForAllItems"`, updated code to use `$input.first().json.results` to access the HTTP response and map each company to a flat `{json: {id, properties}}` item
+
+**Flow** (unchanged):
+```
+Schedule Trigger → Search Today's Companies (HTTP POST w/ createdate GTE filter) → Split Companies (one item per company) → Check Demo Form → ...
+```
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.2.1] - 2026-02-16
 
 ### Fixed - $helpers not available in n8n task runner

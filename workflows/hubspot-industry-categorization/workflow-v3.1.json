@@ -32,7 +32,7 @@
         "nodeCredentialType": "hubspotAppToken",
         "sendBody": true,
         "contentType": "json",
-        "body": "={{ ({ filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())).getTime()) }] }], properties: ['name', 'domain', 'description', 'about_us', 'linkedin_company_page', 'industry', 'industry__form____contact_sync', 'industry__internal_'], limit: 100 }) }}",
+        "jsonBody": "={{ { filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())).getTime()) }] }], properties: ['name', 'domain', 'description', 'about_us', 'linkedin_company_page', 'industry', 'industry__form____contact_sync', 'industry__internal_'], limit: 100 } }}",
         "options": {}
       },
       "credentials": {
@@ -49,8 +49,8 @@
       "typeVersion": 2,
       "position": [400, 160],
       "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// HubSpot search returns {results: [{id, properties}, ...]}\n// Split into individual items for downstream processing\nconst results = $json.results || [];\nreturn results.map(company => ({\n  json: {\n    id: String(company.id),\n    properties: company.properties || {}\n  }\n}));"
+        "mode": "runOnceForAllItems",
+        "jsCode": "const response = $input.first().json;\nconst results = response.results || [];\nreturn results.map(company => ({\n  json: {\n    id: String(company.id),\n    properties: company.properties || {}\n  }\n}));"
       }
     },
     {
