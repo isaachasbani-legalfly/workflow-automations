@@ -6,19 +6,30 @@ All notable changes to the HubSpot Company Industry Categorization workflow will
 
 ## [3.3.2] - 2026-02-16
 
-### Fixed - Slack notification showing "undefined" values
+### Fixed - Slack notification showing "undefined" values and "Unknown" label
 
-**Problem**: Slack messages displayed "undefined categorized as undefined" instead of company name and category.
+**Problem 1**: Slack messages displayed "undefined categorized as undefined" instead of company name and category.
 
 **Root Cause**: The "Send Success Slack" node was reading `$json.companyName` and `$json.category` from its immediate input (the "Update HubSpot" node), which returns HubSpot's API response, not the categorization data.
 
-**Fix**: Updated Slack node expressions to reference the "Check Confidence" node output, which contains the parsed categorization data:
+**Fix 1**: Updated Slack node expressions to reference the "Check Confidence" node output, which contains the parsed categorization data:
 - Changed: `$json.companyName` → `$('Check Confidence').item.json.companyName`
 - Changed: `$json.category` → `$('Check Confidence').item.json.category`
 - Changed: `$json.enrichmentSource` → `$('Check Confidence').item.json.enrichmentSource`
 - Changed: `$json.companyId` → `$('Check Confidence').item.json.companyId`
 
 Also fixed expression syntax from `{{ }}` (Mustache) to `={{ }}` (n8n expressions) using template literals.
+
+**Problem 2**: Slack displayed "Unknown" instead of user-friendly "Others" label.
+
+**Root Cause**: Parse Gemini Response nodes map "Others" → "Unknown" for HubSpot's internal enum, but Slack was showing the internal value.
+
+**Fix 2**: Added inline mapping in Slack message to display "Others" instead of "Unknown":
+```javascript
+${$('Check Confidence').item.json.category === 'Unknown' ? 'Others' : $('Check Confidence').item.json.category}
+```
+
+**Result**: HubSpot stores "Unknown" (correct enum), Slack displays "Others" (user-friendly label).
 
 **Workflow ID**: `8DM3CwXLxOT3G8B7`
 
