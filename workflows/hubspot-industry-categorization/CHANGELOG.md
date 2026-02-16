@@ -2,6 +2,31 @@
 
 All notable changes to the HubSpot Company Industry Categorization workflow will be documented in this file.
 
+## [3.2.0] - 2026-02-16
+
+### Refactor - Replace polling node with HubSpot Search API (efficient date filtering)
+
+**Problem**: `getRecentlyCreatedUpdated` with `returnAll: true` retrieves every company ever created and filters in n8n — extremely inefficient.
+
+**Solution**: Replaced the HubSpot poll node + Normalize Code node with a single "Get Today's Companies" Code node that:
+- Calls `POST /crm/v3/objects/companies/search` with `createdate >= today_midnight_UTC`
+- Filters happen at the HubSpot API level — only today's companies are returned
+- Handles pagination automatically (loops through pages of 100)
+- Returns `{id, properties}` in v3 flat format directly — no normalization needed
+
+**Flow change**:
+```
+Before: Schedule Trigger → Get Recent Companies (HubSpot) → Normalize & Filter New (Code) → Check Demo Form
+After:  Schedule Trigger → Get Today's Companies (Code)                                   → Check Demo Form
+```
+
+**Nodes removed**: Get Recent Companies (HubSpot `getRecentlyCreatedUpdated`)
+**Nodes merged**: "Normalize & Filter New" replaced by "Get Today's Companies"
+
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+
+---
+
 ## [3.1.6] - 2026-02-16
 
 ### Fixed - Use returnAll to guarantee all today's companies are fetched

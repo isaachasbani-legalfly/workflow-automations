@@ -20,56 +20,14 @@
       "position": [0, 160]
     },
     {
-      "parameters": {
-        "authentication": "appToken",
-        "resource": "company",
-        "operation": "getRecentlyCreatedUpdated",
-        "limit": 10,
-        "filters": {
-          "filterGroupsUi": {
-            "filterGroupsValues": [
-              {
-                "filtersUi": {
-                  "filterValues": [
-                    {
-                      "propertyName": "industry__internal_",
-                      "operator": "NOT_HAS_PROPERTY"
-                    }
-                  ]
-                }
-              }
-            ]
-          }
-        },
-        "additionalFields": {}
-      },
-      "id": "get-companies",
-      "name": "Get Recent Companies",
-      "type": "n8n-nodes-base.hubspot",
-      "typeVersion": 2.2,
-      "position": [192, 160],
-      "credentials": {
-        "hubspotAppToken": {
-          "id": "5ww8XNGf4HTQu4UI",
-          "name": "hubspot"
-        }
-      },
-      "parameters": {
-        "authentication": "appToken",
-        "resource": "company",
-        "operation": "getRecentlyCreatedUpdated",
-        "returnAll": true,
-        "additionalFields": {}
-      }
-    },
-    {
       "id": "normalize-company",
-      "name": "Normalize & Filter New",
+      "name": "Get Today's Companies",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [400, 160],
+      "position": [200, 160],
       "parameters": {
-        "jsCode": "// HubSpot getRecentlyCreatedUpdated uses legacy v2 API:\n// - ID is 'companyId', not 'id'\n// - Properties may be nested as {value: ...}\nconst id = $json.id || $json.companyId;\nif (!id) return [];\n\n// Only process companies created today (since UTC midnight)\nconst createDateRaw = $json.properties?.createdate?.value || $json.properties?.createdate;\nif (createDateRaw) {\n  const createDate = new Date(createDateRaw);\n  const now = new Date();\n  const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));\n  if (createDate < startOfToday) return [];\n}\n\n// Normalize ALL properties to strings\n// Handles: v2 nested {value: '...'}, null, undefined, and any other object\nconst props = {};\nfor (const [key, val] of Object.entries($json.properties || {})) {\n  if (val === null || val === undefined) {\n    props[key] = '';\n  } else if (typeof val === 'object') {\n    // v2 API wraps values as {value: '...'} - extract or default to empty string\n    props[key] = val.value !== undefined ? String(val.value) : '';\n  } else {\n    props[key] = String(val);\n  }\n}\n\nreturn [{json: {id: String(id), properties: props}}];"
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Search HubSpot for companies created today using CRM v3 API\n// Filters at source — no need to fetch-all and filter in n8n\nconst now = new Date();\nconst startOfToday = new Date(Date.UTC(\n  now.getUTCFullYear(),\n  now.getUTCMonth(),\n  now.getUTCDate()\n)).getTime();\n\nconst allCompanies = [];\nlet after = undefined;\n\ndo {\n  const body = {\n    filterGroups: [{\n      filters: [{\n        propertyName: 'createdate',\n        operator: 'GTE',\n        value: String(startOfToday)\n      }]\n    }],\n    properties: [\n      'name', 'domain', 'description', 'about_us',\n      'linkedin_company_page', 'industry',\n      'industry__form____contact_sync', 'industry__internal_'\n    ],\n    limit: 100\n  };\n\n  if (after) body.after = after;\n\n  const response = await $helpers.httpRequestWithAuthentication('hubspotAppToken', {\n    method: 'POST',\n    url: 'https://api.hubapi.com/crm/v3/objects/companies/search',\n    json: true,\n    body\n  });\n\n  if (response.results) {\n    allCompanies.push(...response.results);\n  }\n\n  after = response.paging?.next?.after;\n} while (after);\n\n// Return individual items — id and flat properties (v3 API already flat)\nreturn allCompanies.map(company => ({\n  json: {\n    id: String(company.id),\n    properties: company.properties || {}\n  }\n}));"
       }
     },
     {
@@ -476,12 +434,9 @@
   ],
   "connections": {
     "Schedule Trigger": {
-      "main": [[{"node": "Get Uncategorized Companies", "type": "main", "index": 0}]]
+      "main": [[{"node": "Get Today's Companies", "type": "main", "index": 0}]]
     },
-    "Get Uncategorized Companies": {
-      "main": [[{"node": "Normalize & Filter New", "type": "main", "index": 0}]]
-    },
-    "Normalize & Filter New": {
+    "Get Today's Companies": {
       "main": [[{"node": "Check Demo Form", "type": "main", "index": 0}]]
     },
     "Check Demo Form": {
