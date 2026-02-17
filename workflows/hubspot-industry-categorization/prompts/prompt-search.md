@@ -1,13 +1,40 @@
-// Prepare Gemini Input - LinkedIn
-const companyData = $('Prepare Company Data').item.json;
-const d = $json;
+# Prompt: Search Fallback Path
 
-// Extract the fields that matter for classification
-const overview = d.overview || 'Not provided';
-const industry = d.industry || 'Not provided';
-const keywords = Array.isArray(d.keywords) ? d.keywords.join(', ') : (d.keywords || 'Not provided');
+**Node**: `Prepare Gemini Input - Search` (`prepare-gemini-search`)
+**Triggered when**: No HubSpot description → LinkedIn failed/missing → no domain OR website scraping returned empty
+**enrichmentSource**: `search`
 
-const prompt = `You are an expert business industry classifier. Categorize this company into ONE of these 16 internal industry categories:
+## Input Variables
+
+| Variable | Source |
+|----------|--------|
+| `{{companyName}}` | `Prepare Company Data` → `companyName` |
+| `{{domain}}` | `Prepare Company Data` → `domain` (omitted from prompt if empty) |
+| `{{searchContent}}` | Jina Reader response → `data`, preprocessed (max 2000 chars) |
+
+## Search URL
+
+```
+GET https://r.jina.ai/https://duckduckgo.com/html/?q={{companyName}} company
+```
+
+Jina Reader fetches and parses the DuckDuckGo HTML search results page into clean text.
+
+## Preprocessing Applied to Search Content
+
+Before inserting into the prompt, the Jina response (`$json.data`) is cleaned:
+1. Strip markdown images: `![...](...)` → removed
+2. Strip links, keep link text: `[text](url)` → `text`
+3. Collapse 3+ consecutive blank lines → 2 blank lines
+4. Trim whitespace
+5. Truncate to **2000 characters**
+
+---
+
+## Prompt Text
+
+```
+You are an expert business industry classifier. Categorize this company into ONE of these 16 internal industry categories:
 
 1. Accounting
 2. Insurance
@@ -26,25 +53,21 @@ const prompt = `You are an expert business industry classifier. Categorize this 
 15. Transportation
 16. Others
 
-COMPANY DATA (from LinkedIn):
-Name: ${companyData.companyName}
-LinkedIn Industry: ${industry}
-Keywords: ${keywords}
+COMPANY DATA (from web search):
+Name: {{companyName}}
+Domain: {{domain}}               ← omitted entirely if domain is empty
 
-Overview:
-${overview}
+Search Results:
+{{searchContent}}
 
 CLASSIFICATION RULES - Read carefully and apply in order:
 
 1. TECHNOLOGY PRIORITY
    - If company CREATES software, SaaS platforms, apps, or tech products → Technology
-   - Examples: "We build legal practice management software" → Technology
-   - Examples: "We develop healthcare EHR systems" → Technology
    - Even if they serve a specific industry, if they BUILD the tech → Technology
 
 2. LEGAL SERVICES
    - ANY legal work, legal consulting, compliance services → Legal Services
-   - Examples: "Law firm", "Legal compliance consulting", "Contract review services" → Legal Services
    - Legal is ALWAYS Legal Services, never Consulting
 
 3. SPECIFIC SERVICE CATEGORIES
@@ -52,32 +75,26 @@ CLASSIFICATION RULES - Read carefully and apply in order:
    - Tax, bookkeeping, audit, CFO services → Accounting
    - Loans, deposits, payment processing → Banking
    - Investment advisory, wealth management → Financial Services
-   - If company does THE WORK (not just advises) → Their specific service category
 
 4. CONSTRUCTION vs MANUFACTURING
-   - Building construction, infrastructure, large projects → Construction
-   - Making products, goods, equipment, materials → Manufacturing
+   - Building construction, infrastructure → Construction
+   - Making products, goods, equipment → Manufacturing
 
 5. RETAIL vs MANUFACTURING
-   - If company sells products (even if they manufacture them) → Retail and Consumer Goods
-   - Focus on the selling/distribution aspect
+   - If company sells products → Retail and Consumer Goods
 
 6. PUBLIC SECTOR
    - ONLY government agencies → Public Sector
-   - Government contractors → Their service category (e.g., Technology, Consulting)
    - Non-profits → Others
 
 7. MULTI-SERVICE COMPANIES
-   - If company offers multiple services (e.g., "accounting, HR, and legal services") → Consulting
-   - Consulting is the default for generalist advisory firms
+   - Multiple services → Consulting
 
 8. OTHERS
-   - Use ONLY when the industry doesn't fit ANY of the 15 categories
-   - Examples: Agriculture, Education, Media, Entertainment, Non-profits
-   - Do NOT use "Others" as a fallback if uncertain - always pick the best match from 1-15
+   - Use ONLY when industry doesn't fit ANY of the 15 categories
+   - Do NOT use Others as a fallback - always pick the best match
 
 9. CONFLICT RESOLUTION
-   - LinkedIn "Industry" field is a HINT - cross-check with overview and keywords
    - Technology takes priority if they build software
    - Legal Services takes priority for any legal work
    - Specific service category beats general Consulting
@@ -94,13 +111,5 @@ Examples:
 - "Multi-service firm offering accounting, HR, and legal advisory" → Consulting
 - "Non-profit educational institution" → Others
 
-Your response (category name only):`;
-
-return {
-  json: {
-    companyId: companyData.companyId,
-    companyName: companyData.companyName,
-    enrichmentSource: 'linkedin',
-    prompt: prompt
-  }
-};
+Your response (category name only):
+```

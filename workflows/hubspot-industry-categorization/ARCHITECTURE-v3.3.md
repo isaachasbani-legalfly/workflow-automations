@@ -1,680 +1,264 @@
-# HubSpot Industry Categorization v3.3 - Multi-Path LLM Architecture
+# HubSpot Industry Categorization v3.3 - Architecture
 
 ## Overview
 
-Workflow that categorizes HubSpot companies using **three independent LLM paths**, each optimized for different data sources.
+Workflow that categorizes HubSpot companies created **yesterday** into one of 16 internal industry categories using Gemini 2.5 Flash. Uses a **four-path enrichment cascade**: HubSpot description → LinkedIn (Amplemarket) → Website scraping (Jina) → Web search (DuckDuckGo via Jina). All paths converge, every categorized company is written to HubSpot, and a single daily Slack summary is sent.
 
-**Workflow ID**: `8DM3CCwXLxOT3G8B7` (to be updated)
-**Version**: v3.3
-**Status**: Architecture Design Phase
-
----
-
-## Key Changes from v3.2
-
-### v3.2 Architecture (Previous)
-- Single LLM path: All enrichment sources → Merge → One Gemini call
-- Problem: One generic prompt for different data formats
-
-### v3.3 Architecture (New)
-- **Three independent LLM paths**, each with data-source-specific prompts:
-  1. **HubSpot Description Path**: Companies with HubSpot descriptions
-  2. **LinkedIn Enrichment Path**: Companies without descriptions, enriched via Amplemarket API
-  3. **Website Scraping Path**: Companies without descriptions or LinkedIn data, enriched via website scraping
-
-- **Benefits**:
-  - Prompts optimized for each data source format
-  - Better categorization accuracy
-  - Independent error handling per path
-  - Maintains existing fallback cascade
+**Workflow ID**: `8DM3CwXLxOT3G8B7`
+**n8n URL**: `https://legalfly.app.n8n.cloud/workflow/8DM3CwXLxOT3G8B7`
+**Status**: Active (production)
 
 ---
 
-## Architecture Diagram
+## Workflow Diagram
 
 ```mermaid
-graph TB
-    Start[Schedule Trigger] --> Search[Search Today's Companies]
-    Search --> Split[Split Companies]
-    Split --> CheckDemo{Check Demo Form}
-    CheckDemo -->|TRUE: Skip| End1[End - Already Categorized]
-    CheckDemo -->|FALSE: Proceed| GetDetails[Get Company Details]
-    GetDetails --> PrepareData[Prepare Company Data]
+flowchart TD
+    Start([Schedule Trigger\nmidnight daily])
 
-    PrepareData --> CheckDesc{Check Description Exists}
+    Start --> Search["Search Yesterday's Companies\nHubSpot API"]
+    Search --> Split["Split Companies\nCode node"]
+    Split --> CheckDemo{Check Demo Form\nindustry__form____contact_sync empty?}
 
-    %% PATH 1: HubSpot Description (EXISTING - WORKING)
-    CheckDesc -->|TRUE: Has Description| PrepGemini1[Prepare Gemini Input<br/>HubSpot]
-    PrepGemini1 --> Gemini1[Gemini Categorization<br/>HubSpot]
-    Gemini1 --> Parse1[Parse Response<br/>HubSpot]
+    CheckDemo -->|TRUE: empty - proceed| GetDetails[Get Company Details\nHubSpot node]
+    CheckDemo -->|FALSE: filled - skip| End1[Silent Skip\nNo connection]
 
-    %% PATH 2: LinkedIn Enrichment (NEW)
-    CheckDesc -->|FALSE: No Description| CheckURL{Check Has URL/Domain}
-    CheckURL -->|TRUE: Has URL| AmpleAPI[Amplemarket LinkedIn API]
-    CheckURL -->|FALSE: No URL| ManualSkip[Manual Review Slack]
+    GetDetails --> PrepareData[Prepare Company Data\nSet node]
+    PrepareData --> CheckDesc{Check Description Exists\nlength >= 100 chars?}
 
-    AmpleAPI --> CheckLinkedIn{Check LinkedIn<br/>Data Retrieved}
-    CheckLinkedIn -->|TRUE: Has Data| PrepGemini2[Prepare Gemini Input<br/>LinkedIn]
-    PrepGemini2 --> Gemini2[Gemini Categorization<br/>LinkedIn]
-    Gemini2 --> Parse2[Parse Response<br/>LinkedIn]
+    %% PATH 1: HubSpot Description
+    CheckDesc -->|TRUE| PrepGeminiHS[Prepare Gemini Input - HubSpot\nCode node]
+    PrepGeminiHS --> GeminiHS[Gemini Categorization - HubSpot\ngemini-2.5-flash]
+    GeminiHS --> ParseHS[Parse Gemini Response - HubSpot\nCode node]
+    ParseHS --> PreservePreUpdate
 
-    %% PATH 3: Website Scraping (NEW)
-    CheckLinkedIn -->|FALSE: No Data| WebScrape[Website Scraping]
-    WebScrape --> CheckWebsite{Check Website<br/>Data Retrieved}
-    CheckWebsite -->|TRUE: Has Data| PrepGemini3[Prepare Gemini Input<br/>Website]
-    PrepGemini3 --> Gemini3[Gemini Categorization<br/>Website]
-    Gemini3 --> Parse3[Parse Response<br/>Website]
+    %% PATH 2: LinkedIn
+    CheckDesc -->|FALSE| CheckLinkedInURL{Check Has LinkedIn URL\nlinkedinUrl not empty?}
+    CheckLinkedInURL -->|TRUE| AmpleAPI[Amplemarket LinkedIn API\nGET /companies/find?linkedin_url=...]
+    CheckLinkedInURL -->|FALSE| CheckDomain{Check Has Domain\ndomain not empty?}
+    AmpleAPI --> CheckLinkedInData{Check LinkedIn Data Retrieved\nname or domain not empty?}
+    CheckLinkedInData -->|TRUE| PrepGeminiLI[Prepare Gemini Input - LinkedIn\nCode node]
+    PrepGeminiLI --> GeminiLI[Gemini Categorization - LinkedIn\ngemini-2.5-flash]
+    GeminiLI --> ParseLI[Parse Gemini Response - LinkedIn\nCode node]
+    ParseLI --> PreservePreUpdate
+    CheckLinkedInData -->|FALSE| CheckDomain
 
-    CheckWebsite -->|FALSE: No Data| OnlineResearch[Online Research<br/>SerpAPI]
-    OnlineResearch --> ManualFallback[Manual Review Slack]
+    %% PATH 3: Website Scraping
+    CheckDomain -->|TRUE| WebScrape[Website Scraping\nJina r.jina.ai]
+    CheckDomain -->|FALSE| JinaSearch[Jina Search\nDuckDuckGo via r.jina.ai]
+    WebScrape --> CheckWebData{Check Website Data Retrieved\ndata not empty?}
+    CheckWebData -->|TRUE| PrepGeminiWeb[Prepare Gemini Input - Website\nCode node]
+    PrepGeminiWeb --> GeminiWeb[Gemini Categorization - Website\ngemini-2.5-flash]
+    GeminiWeb --> ParseWeb[Parse Gemini Response - Website\nCode node]
+    ParseWeb --> PreservePreUpdate
+    CheckWebData -->|FALSE| JinaSearch
 
-    %% CONVERGENCE: All three paths merge here
-    Parse1 --> CheckConf{Check Confidence}
-    Parse2 --> CheckConf
-    Parse3 --> CheckConf
+    %% PATH 4: Jina Search (final fallback)
+    JinaSearch --> PrepGeminiSearch[Prepare Gemini Input - Search\nCode node]
+    PrepGeminiSearch --> GeminiSearch[Gemini Categorization - Search\ngemini-2.5-flash]
+    GeminiSearch --> ParseSearch[Parse Gemini Response - Search\nCode node]
+    ParseSearch --> PreservePreUpdate
 
-    CheckConf -->|TRUE: High Confidence| UpdateHS[Update HubSpot]
-    CheckConf -->|FALSE: Low Confidence| ManualReview[Manual Review Slack]
-
-    UpdateHS --> SuccessSlack[Success Slack Notification]
+    %% Convergence
+    PreservePreUpdate[Preserve Pre-Update Data\nSet node]
+    PreservePreUpdate --> UpdateHS[Update HubSpot\nindustry__internal_]
+    UpdateHS --> Preserve[Preserve Result Data\nCode node]
+    Preserve --> Aggregate[Aggregate All Results]
+    Aggregate --> FormatSummary[Format Summary Message\nCode node]
+    FormatSummary --> SlackSummary[Send Summary Slack\nDaily digest]
 ```
 
 ---
 
 ## Node Breakdown
 
-### Trigger & Initial Processing (Unchanged)
-1. **Schedule Trigger** - Daily at 6 PM
-2. **Search Today's Companies** - HTTP Request to HubSpot API
-3. **Split Companies** - Code node to split into individual items
-4. **Check Demo Form** - IF node: Skip if `industry__form____contact_sync` filled
-5. **Get Company Details** - HubSpot node: Fetch full company record
-6. **Prepare Company Data** - Set node: Normalize data structure
+### Trigger & Initial Processing
 
-### Routing Logic (Modified)
-7. **Check Description Exists** - IF node: Route to Path 1 or Path 2/3
-8. **Check Has URL/Domain** - IF node (NEW): Verify domain exists for enrichment
-9. **Check LinkedIn Data Retrieved** - IF node (NEW): Verify Amplemarket response
-10. **Check Website Data Retrieved** - IF node (NEW): Verify website scraping success
+| Node | Type | Config |
+|------|------|--------|
+| **Schedule Trigger** | scheduleTrigger | Cron: `1 0 * * *` (12:01 AM daily) |
+| **Search Yesterday's Companies** | httpRequest | POST `https://api.hubapi.com/crm/v3/objects/companies/search` — filters companies with `createdate GTE yesterday-midnight AND LT today-midnight` (UTC). Fetches: name, domain, description, about_us, linkedin_company_page, industry, industry__form____contact_sync, industry__internal_. Limit: 100 |
+| **Split Companies** | code | Maps HubSpot search results into individual items with `{id, properties}` |
+| **Check Demo Form** | if | `industry__form____contact_sync` is **empty** → TRUE (proceed). If filled, company was self-categorized via form — skip silently (no FALSE branch connected) |
+| **Get Company Details** | hubspot | Gets full company record by ID |
+| **Prepare Company Data** | set | Normalizes into: `companyId`, `companyName`, `domain`, `description`, `aboutUs`, `linkedinUrl`. Handles both object and string property formats |
 
 ---
 
-## Three Independent LLM Paths
+### Routing Logic
 
-### PATH 1: HubSpot Description Path (Existing - No Changes)
-
-**Trigger**: Company has `description` or `about_us` in HubSpot
-
-**Flow**:
-```
-Check Description Exists (TRUE)
-→ Prepare Gemini Input - HubSpot
-→ Gemini Categorization - HubSpot
-→ Parse Response - HubSpot
-→ Check Confidence
-```
-
-**Nodes**:
-- **Prepare Gemini Input - HubSpot** (existing `prepare-gemini` node)
-  - Uses HubSpot description/about_us fields
-  - Prompt optimized for direct company descriptions
-
-- **Gemini Categorization - HubSpot** (existing `gemini-cat` node)
-  - Model: `gemini-2.5-flash`
-  - Temperature: 0.3
-  - Max tokens: 50
-
-- **Parse Response - HubSpot** (existing `parse-response` node)
-  - Extracts category from Gemini response
-  - Maps "Others" → "Unknown"
-  - Sets `enrichmentSource: 'hubspot'`
-
-**Prompt Structure**:
-```
-COMPANY DATA:
-Name: ${companyName}
-Domain: ${domain}
-
-HubSpot Direct Data:
-- Description: ${description}
-- About Us: ${aboutUs}
-
-RULES:
-1. PRIORITIZE HubSpot description/about_us
-2. Look for PRIMARY business keywords
-3. If company creates tech (software/SaaS) -> Technology
-4. If company USES tech but does something else -> Their actual industry
-5. If confidence < 70%, respond: MANUAL_REVIEW_REQUIRED
-
-Respond ONLY with category name or MANUAL_REVIEW_REQUIRED.
-```
+| Node | Type | Condition | TRUE → | FALSE → |
+|------|------|-----------|--------|---------|
+| **Check Description Exists** | if | `description.length >= 100` | Path 1: HubSpot | Path 2: LinkedIn |
+| **Check Has LinkedIn URL** | if | `linkedinUrl` not empty | Amplemarket API | Check Has Domain |
+| **Check LinkedIn Data Retrieved** | if | `name \|\| domain` not empty | Path 2: LinkedIn Gemini | Check Has Domain |
+| **Check Has Domain** | if | `domain` not empty | Path 3: Website Scraping | Path 4: Jina Search |
+| **Check Website Data Retrieved** | if | `data` not empty | Path 3: Website Gemini | Path 4: Jina Search |
 
 ---
 
-### PATH 2: LinkedIn Enrichment Path (NEW)
+### Path 1: HubSpot Description
 
-**Trigger**: Company has NO description but HAS URL/domain
+**Trigger**: Company has description with ≥ 100 characters in HubSpot.
 
-**Flow**:
-```
-Check Description Exists (FALSE)
-→ Check Has URL/Domain (TRUE)
-→ Amplemarket LinkedIn API
-→ Check LinkedIn Data Retrieved (TRUE)
-→ Prepare Gemini Input - LinkedIn
-→ Gemini Categorization - LinkedIn
-→ Parse Response - LinkedIn
-→ Check Confidence
-```
+**Flow**: Check Description Exists (TRUE) → Prepare Gemini Input - HubSpot → Gemini Categorization - HubSpot → Parse Gemini Response - HubSpot → Preserve Pre-Update Data
 
-**New Nodes**:
-
-1. **Check Has URL/Domain** (IF node)
-   ```json
-   {
-     "id": "check-has-url",
-     "name": "Check Has URL/Domain",
-     "type": "n8n-nodes-base.if",
-     "typeVersion": 2.3,
-     "parameters": {
-       "conditions": {
-         "options": {"version": 3},
-         "conditions": [{
-           "id": "url-check",
-           "operator": {"type": "string", "operation": "notEmpty"},
-           "leftValue": "={{ $json.domain }}"
-         }]
-       }
-     }
-   }
-   ```
-
-2. **Amplemarket LinkedIn API** (HTTP Request node)
-   ```json
-   {
-     "id": "amplemarket-linkedin",
-     "name": "Amplemarket LinkedIn API",
-     "type": "n8n-nodes-base.httpRequest",
-     "typeVersion": 4.2,
-     "parameters": {
-       "method": "POST",
-       "url": "https://api.amplemarket.com/company/linkedin/enrichment",
-       "authentication": "genericCredentialType",
-       "genericAuthType": "httpHeaderAuth",
-       "sendBody": true,
-       "specifyBody": "json",
-       "jsonBody": "={{ JSON.stringify({ domain: $json.domain, company_name: $json.companyName }) }}",
-       "options": {
-         "timeout": 30000,
-         "retry": {
-           "enabled": true,
-           "maxRetries": 2,
-           "retryInterval": 1000
-         }
-       }
-     },
-     "onError": "continueRegularOutput"
-   }
-   ```
-
-3. **Check LinkedIn Data Retrieved** (IF node)
-   ```json
-   {
-     "id": "check-linkedin-success",
-     "name": "Check LinkedIn Data Retrieved",
-     "type": "n8n-nodes-base.if",
-     "typeVersion": 2.3,
-     "parameters": {
-       "conditions": {
-         "options": {"version": 3},
-         "conditions": [{
-           "id": "linkedin-data-check",
-           "operator": {"type": "string", "operation": "notEmpty"},
-           "leftValue": "={{ $json.description || $json.company?.description || '' }}"
-         }]
-       }
-     }
-   }
-   ```
-
-4. **Prepare Gemini Input - LinkedIn** (Code node)
-   ```javascript
-   const companyData = $('Prepare Company Data').item.json;
-   const linkedinData = $json;
-
-   // Extract LinkedIn fields (Amplemarket response format)
-   const description = linkedinData.description || linkedinData.company?.description || 'Not available';
-   const industry = linkedinData.industry || linkedinData.company?.industry || 'Not available';
-   const companySize = linkedinData.company_size || linkedinData.company?.employeeCount || 'Not available';
-   const specialties = linkedinData.specialties?.join(', ') || linkedinData.company?.specialties?.join(', ') || 'Not available';
-   const tagline = linkedinData.tagline || linkedinData.company?.tagline || 'Not available';
-
-   const prompt = `You are an expert business industry classifier. Categorize this company into ONE of these 16 internal industry categories:
-
-   1. Accounting | 2. Insurance | 3. Legal Services | 4. Technology | 5. Healthcare
-   6. Public Sector | 7. Retail and Consumer Goods | 8. Consulting | 9. Construction
-   10. HR and Payroll Services | 11. Banking | 12. Energy | 13. Financial Services
-   14. Manufacturing | 15. Transportation | 16. Others
-
-   COMPANY DATA (from LinkedIn):
-   Name: ${companyData.companyName}
-   Domain: ${companyData.domain || 'Not provided'}
-
-   LinkedIn Profile:
-   - Description: ${description}
-   - Industry: ${industry}
-   - Company Size: ${companySize}
-   - Specialties: ${specialties}
-   - Tagline: ${tagline}
-
-   RULES:
-   1. LinkedIn "Industry" field is a HINT, not definitive
-   2. Look at description and specialties for PRIMARY business activity
-   3. If company creates tech (software/SaaS) -> Technology
-   4. If company USES tech but does something else -> Their actual industry
-   5. If confidence < 70%, respond: MANUAL_REVIEW_REQUIRED
-
-   Respond ONLY with the exact category name from the list above, or MANUAL_REVIEW_REQUIRED. No explanation.`;
-
-   return {
-     json: {
-       companyId: companyData.companyId,
-       companyName: companyData.companyName,
-       enrichmentSource: 'linkedin',
-       prompt: prompt
-     }
-   };
-   ```
-
-5. **Gemini Categorization - LinkedIn** (HTTP Request node)
-   - Same configuration as HubSpot Gemini node
-   - Model: `gemini-2.5-flash`
-   - Temperature: 0.3
-   - Max tokens: 50
-
-6. **Parse Response - LinkedIn** (Code node)
-   ```javascript
-   const response = $json;
-   const geminiText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-   let category = geminiText.trim();
-
-   // Map display label to HubSpot internal enum value
-   if (category === 'Others') category = 'Unknown';
-
-   const prepData = $('Prepare Gemini Input - LinkedIn').item.json;
-   return [{
-     json: {
-       companyId: prepData.companyId,
-       companyName: prepData.companyName,
-       enrichmentSource: prepData.enrichmentSource,
-       category: category,
-       needsManualReview: category === 'MANUAL_REVIEW_REQUIRED'
-     }
-   }];
-   ```
+**Prompt uses**: `companyName`, `domain`, `description`, `aboutUs`
+**enrichmentSource**: `'hubspot'`
+**Prompt file**: [`prompts/prompt-hubspot.md`](prompts/prompt-hubspot.md)
 
 ---
 
-### PATH 3: Website Scraping Path (NEW)
+### Path 2: LinkedIn Enrichment
 
-**Trigger**: Company has NO description AND LinkedIn enrichment failed
+**Trigger**: No description → has LinkedIn URL → Amplemarket returns data.
 
-**Flow**:
-```
-Check LinkedIn Data Retrieved (FALSE)
-→ Website Scraping
-→ Check Website Data Retrieved (TRUE)
-→ Prepare Gemini Input - Website
-→ Gemini Categorization - Website
-→ Parse Response - Website
-→ Check Confidence
-```
+**Flow**: Check Has LinkedIn URL (TRUE) → Amplemarket LinkedIn API → Check LinkedIn Data Retrieved (TRUE) → Prepare Gemini Input - LinkedIn → Gemini Categorization - LinkedIn → Parse Gemini Response - LinkedIn → Preserve Pre-Update Data
 
-**New Nodes**:
+**Amplemarket API**: `GET https://api.amplemarket.com/companies/find?linkedin_url=...`
+- Auth: `httpHeaderAuth` (credential: `amplemarket`)
+- `onError: continueRegularOutput` (failures fall through to Check Has Domain)
 
-1. **Website Scraping** (existing node, keep as-is)
-   - HTTP GET request to company domain
-   - Extracts HTML content
-
-2. **Check Website Data Retrieved** (IF node - modify existing)
-   ```json
-   {
-     "id": "check-website-success",
-     "name": "Check Website Data Retrieved",
-     "type": "n8n-nodes-base.if",
-     "typeVersion": 2.3,
-     "parameters": {
-       "conditions": {
-         "options": {"version": 3},
-         "conditions": [{
-           "id": "website-data-check",
-           "operator": {"type": "string", "operation": "notEmpty"},
-           "leftValue": "={{ $json.data || '' }}"
-         }]
-       }
-     }
-   }
-   ```
-
-3. **Prepare Gemini Input - Website** (Code node - NEW)
-   ```javascript
-   const companyData = $('Prepare Company Data').item.json;
-   const websiteData = $json.data || '';
-
-   // Extract meta tags and content snippets
-   const metaDescription = websiteData.match(/<meta\s+name="description"\s+content="([^"]+)"/i)?.[1] || '';
-   const ogDescription = websiteData.match(/<meta\s+property="og:description"\s+content="([^"]+)"/i)?.[1] || '';
-   const title = websiteData.match(/<title>([^<]+)<\/title>/i)?.[1] || '';
-
-   // Get first 500 chars of visible text (rough extraction)
-   const bodyText = websiteData.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-                               .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-                               .replace(/<[^>]+>/g, ' ')
-                               .replace(/\s+/g, ' ')
-                               .trim()
-                               .substring(0, 500);
-
-   const prompt = `You are an expert business industry classifier. Categorize this company into ONE of these 16 internal industry categories:
-
-   1. Accounting | 2. Insurance | 3. Legal Services | 4. Technology | 5. Healthcare
-   6. Public Sector | 7. Retail and Consumer Goods | 8. Consulting | 9. Construction
-   10. HR and Payroll Services | 11. Banking | 12. Energy | 13. Financial Services
-   14. Manufacturing | 15. Transportation | 16. Others
-
-   COMPANY DATA (from Website):
-   Name: ${companyData.companyName}
-   Domain: ${companyData.domain}
-
-   Website Information:
-   - Page Title: ${title || 'Not available'}
-   - Meta Description: ${metaDescription || 'Not available'}
-   - OG Description: ${ogDescription || 'Not available'}
-   - Content Preview: ${bodyText || 'Not available'}
-
-   RULES:
-   1. Focus on business activity described on website
-   2. Meta descriptions often contain company positioning
-   3. If company creates tech (software/SaaS) -> Technology
-   4. If company USES tech but does something else -> Their actual industry
-   5. If confidence < 70%, respond: MANUAL_REVIEW_REQUIRED
-
-   Respond ONLY with the exact category name from the list above, or MANUAL_REVIEW_REQUIRED. No explanation.`;
-
-   return {
-     json: {
-       companyId: companyData.companyId,
-       companyName: companyData.companyName,
-       enrichmentSource: 'website',
-       prompt: prompt
-     }
-   };
-   ```
-
-4. **Gemini Categorization - Website** (HTTP Request node - NEW)
-   - Same configuration as other Gemini nodes
-   - Model: `gemini-2.5-flash`
-   - Temperature: 0.3
-   - Max tokens: 50
-
-5. **Parse Response - Website** (Code node - NEW)
-   ```javascript
-   const response = $json;
-   const geminiText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-   let category = geminiText.trim();
-
-   // Map display label to HubSpot internal enum value
-   if (category === 'Others') category = 'Unknown';
-
-   const prepData = $('Prepare Gemini Input - Website').item.json;
-   return [{
-     json: {
-       companyId: prepData.companyId,
-       companyName: prepData.companyName,
-       enrichmentSource: prepData.enrichmentSource,
-       category: category,
-       needsManualReview: category === 'MANUAL_REVIEW_REQUIRED'
-     }
-   }];
-   ```
+**Prompt uses**: `companyName`, LinkedIn `industry`, `keywords`, `overview`
+**enrichmentSource**: `'linkedin'`
+**Prompt file**: [`prompts/prompt-linkedin.md`](prompts/prompt-linkedin.md)
 
 ---
 
-## Convergence Point & Shared Nodes
+### Path 3: Website Scraping
 
-All three paths converge at **Check Confidence** node. These nodes are **reused** across all paths:
+**Trigger**: No description → LinkedIn failed/missing → has domain.
 
-### Shared Nodes (No Changes)
-1. **Check Confidence** (IF node)
-   - Checks `$json.needsManualReview === false`
-   - Routes to Update HubSpot (TRUE) or Manual Review Slack (FALSE)
+**Flow**: Check Has Domain (TRUE) → Website Scraping → Check Website Data Retrieved (TRUE) → Prepare Gemini Input - Website → Gemini Categorization - Website → Parse Gemini Response - Website → Preserve Pre-Update Data
 
-2. **Update HubSpot** (HubSpot node)
-   - Updates `industry__internal_` property
-   - Uses `$json.category` from any path
+**Website Scraping**: `GET https://r.jina.ai/https://{domain}` — Jina Reader returns clean markdown.
+- Strips markdown images, Wix asset links, collapses blank lines
+- Truncates to 2000 chars for prompt
 
-3. **Send Success Slack** (Slack node)
-   - Notification: "✅ Company categorized as {category}"
-   - Source: `$json.enrichmentSource` (hubspot/linkedin/website)
-
-4. **Send Manual Review Slack** (Slack node)
-   - Notification: "⚠️ Manual Review Required"
-   - Source: `$json.enrichmentSource`
+**enrichmentSource**: `'website'`
+**Prompt file**: [`prompts/prompt-website.md`](prompts/prompt-website.md)
 
 ---
 
-## Node Reuse Strategy
+### Path 4: Jina Search (Final Fallback)
 
-### Reusable (Shared across paths)
-- ✅ Check Confidence
-- ✅ Update HubSpot
-- ✅ Send Success Slack
-- ✅ Send Manual Review Slack
-- ✅ Trigger & initial processing nodes
+**Trigger**: No domain, OR website scraping returned empty data.
 
-### Non-Reusable (Path-specific)
-- ❌ Prepare Gemini Input (3 separate nodes - different prompts)
-- ❌ Gemini Categorization (3 separate nodes - same config, different inputs)
-- ❌ Parse Response (3 separate nodes - different upstream references)
+**Flow**: Jina Search → Prepare Gemini Input - Search → Gemini Categorization - Search → Parse Gemini Response - Search → Preserve Pre-Update Data
 
-**Rationale**: Each path has different data structures and prompt requirements. Code nodes reference specific upstream nodes by name (e.g., `$('Prepare Gemini Input - LinkedIn')`), requiring separate instances.
+**Jina Search**: `GET https://r.jina.ai/https://duckduckgo.com/html/?q={companyName + ' company'}` — DuckDuckGo search results via Jina Reader.
+- Strips markdown images, strips links (keeps link text), collapses blank lines
+- Truncates to 2000 chars
+
+**enrichmentSource**: `'search'`
+**Prompt file**: [`prompts/prompt-search.md`](prompts/prompt-search.md)
 
 ---
 
-## Complete Node List (v3.3)
+### Gemini Configuration (all paths)
 
-| ID | Node Name | Type | Status |
-|----|-----------|------|--------|
-| schedule-trigger | Schedule Trigger | scheduleTrigger | Existing |
-| search-companies | Search Today's Companies | httpRequest | Existing |
-| normalize-company | Split Companies | code | Existing |
-| check-demo | Check Demo Form | if | Existing |
-| get-details | Get Company Details | hubspot | Existing |
-| prepare-data | Prepare Company Data | set | Existing |
-| check-desc | Check Description Exists | if | Existing |
-| **check-has-url** | **Check Has URL/Domain** | **if** | **NEW** |
-| **amplemarket-linkedin** | **Amplemarket LinkedIn API** | **httpRequest** | **NEW** |
-| **check-linkedin-success** | **Check LinkedIn Data Retrieved** | **if** | **NEW** |
-| prepare-gemini-hs | Prepare Gemini Input - HubSpot | code | Existing (rename) |
-| gemini-cat-hs | Gemini Categorization - HubSpot | httpRequest | Existing (rename) |
-| parse-response-hs | Parse Response - HubSpot | code | Existing (rename) |
-| **prepare-gemini-linkedin** | **Prepare Gemini Input - LinkedIn** | **code** | **NEW** |
-| **gemini-cat-linkedin** | **Gemini Categorization - LinkedIn** | **httpRequest** | **NEW** |
-| **parse-response-linkedin** | **Parse Response - LinkedIn** | **code** | **NEW** |
-| website-scrape | Website Scraping | httpRequest | Existing |
-| check-website | Check Website Data Retrieved | if | Existing (modify) |
-| **prepare-gemini-website** | **Prepare Gemini Input - Website** | **code** | **NEW** |
-| **gemini-cat-website** | **Gemini Categorization - Website** | **httpRequest** | **NEW** |
-| **parse-response-website** | **Parse Response - Website** | **code** | **NEW** |
-| online-research | Online Research | httpRequest | Existing |
-| check-confidence | Check Confidence | if | Existing |
-| update-hubspot | Update HubSpot | hubspot | Existing |
-| slack-success | Send Success Slack | slack | Existing |
-| slack-manual | Send Manual Review Slack | slack | Existing |
-
-**Total Nodes**: 27 (was 18, added 9 new nodes)
+- **Model**: `gemini-2.5-flash`
+- **Endpoint**: `POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`
+- **Auth**: `googlePalmApi` (credential: `Gemini`)
+- **Temperature**: `0.3`
+- **Response parsing**: `candidates[0].content.parts[0].text`
+- **`Others` mapping**: Gemini returns `'Others'` → stored as `'Unknown'` in HubSpot
 
 ---
 
-## Connection Changes
+### 16 Industry Categories
 
-### Connections to Remove
-```
-- "Merge Enrichment Branches" node (DELETE - no longer needed)
-- "Check Description Exists" FALSE → "LinkedIn Enrichment" (old direct connection)
-- All connections to/from old "Merge Enrichment Branches"
-```
-
-### Connections to Add
-
-**Path 1: HubSpot Description**
-```
-- "Check Description Exists" TRUE → "Prepare Gemini Input - HubSpot"
-- "Prepare Gemini Input - HubSpot" → "Gemini Categorization - HubSpot"
-- "Gemini Categorization - HubSpot" → "Parse Response - HubSpot"
-- "Parse Response - HubSpot" → "Check Confidence"
-```
-
-**Path 2: LinkedIn Enrichment**
-```
-- "Check Description Exists" FALSE → "Check Has URL/Domain"
-- "Check Has URL/Domain" TRUE → "Amplemarket LinkedIn API"
-- "Check Has URL/Domain" FALSE → "Send Manual Review Slack"
-- "Amplemarket LinkedIn API" → "Check LinkedIn Data Retrieved"
-- "Check LinkedIn Data Retrieved" TRUE → "Prepare Gemini Input - LinkedIn"
-- "Check LinkedIn Data Retrieved" FALSE → "Website Scraping" (fallback)
-- "Prepare Gemini Input - LinkedIn" → "Gemini Categorization - LinkedIn"
-- "Gemini Categorization - LinkedIn" → "Parse Response - LinkedIn"
-- "Parse Response - LinkedIn" → "Check Confidence"
-```
-
-**Path 3: Website Scraping**
-```
-- "Website Scraping" → "Check Website Data Retrieved"
-- "Check Website Data Retrieved" TRUE → "Prepare Gemini Input - Website"
-- "Check Website Data Retrieved" FALSE → "Online Research" (final fallback)
-- "Prepare Gemini Input - Website" → "Gemini Categorization - Website"
-- "Gemini Categorization - Website" → "Parse Response - Website"
-- "Parse Response - Website" → "Check Confidence"
-- "Online Research" → "Send Manual Review Slack"
-```
-
-**Convergence**
-```
-- "Check Confidence" TRUE → "Update HubSpot"
-- "Check Confidence" FALSE → "Send Manual Review Slack"
-- "Update HubSpot" → "Send Success Slack"
-```
+1. Accounting
+2. Insurance
+3. Legal Services
+4. Technology
+5. Healthcare
+6. Public Sector
+7. Retail and Consumer Goods
+8. Consulting
+9. Construction
+10. HR and Payroll Services
+11. Banking
+12. Energy
+13. Financial Services
+14. Manufacturing
+15. Transportation
+16. Others (stored as `Unknown` in HubSpot)
 
 ---
 
-## Testing Strategy
+### Convergence & Output
 
-### Test Case 1: HubSpot Description Path
-**Input**: Company with `description` in HubSpot
-**Expected**: Uses Path 1, skips LinkedIn/Website enrichment
-**Verify**:
-- `enrichmentSource === 'hubspot'`
-- No API calls to Amplemarket or website
-- Category assigned correctly
+All four paths converge at **Preserve Pre-Update Data**:
 
-### Test Case 2: LinkedIn Enrichment Path
-**Input**: Company WITHOUT description, WITH domain
-**Expected**: Calls Amplemarket API, uses LinkedIn data
-**Verify**:
-- `enrichmentSource === 'linkedin'`
-- Amplemarket API called successfully
-- LinkedIn-specific prompt used
-- Category assigned correctly
-
-### Test Case 3: Website Scraping Path
-**Input**: Company WITHOUT description, LinkedIn API fails
-**Expected**: Falls back to website scraping
-**Verify**:
-- `enrichmentSource === 'website'`
-- Website scraping executed
-- Website-specific prompt used
-- Category assigned correctly
-
-### Test Case 4: All Enrichments Fail
-**Input**: Company WITHOUT description, NO domain OR all APIs fail
-**Expected**: Manual review Slack sent
-**Verify**:
-- Slack alert sent with "Manual Review Required"
-- No HubSpot update attempted
-
-### Test Case 5: Low Confidence
-**Input**: Any path returns `MANUAL_REVIEW_REQUIRED`
-**Expected**: Manual review Slack sent
-**Verify**:
-- `needsManualReview === true`
-- Slack alert sent
-- No HubSpot update
+- **Preserve Pre-Update Data** (Set node): Snapshots `companyId`, `companyName`, `enrichmentSource`, `category`, `needsManualReview` before the HubSpot write. Ensures data is accessible after Update HubSpot overwrites the item context.
+- **Update HubSpot**: Writes `industry__internal_` property with the Gemini-assigned category.
+- **Preserve Result Data** (Code node): Re-reads from `Preserve Pre-Update Data` and re-emits the result fields for aggregation.
+- **Aggregate All Results**: Collects all processed company results into a single array.
+- **Format Summary Message**: Builds a Slack digest listing each company with name, category, enrichment source, and HubSpot link. Displays `'Others'` (not `'Unknown'`) for readability.
+- **Send Summary Slack**: Posts to channel `D0ADELD95GR`.
 
 ---
 
-## Deployment Plan
+## Complete Node List
 
-### Phase 1: Build New Nodes
-1. Create 3 new IF nodes (URL check, LinkedIn check, Website check)
-2. Create Amplemarket LinkedIn API node
-3. Create 3 "Prepare Gemini Input" nodes (LinkedIn, Website, rename existing)
-4. Create 3 "Gemini Categorization" nodes (LinkedIn, Website, rename existing)
-5. Create 3 "Parse Response" nodes (LinkedIn, Website, rename existing)
+| ID | Name | Type |
+|----|------|------|
+| schedule-trigger | Schedule Trigger | scheduleTrigger |
+| search-companies | Search Yesterday's Companies | httpRequest |
+| normalize-company | Split Companies | code |
+| check-demo | Check Demo Form | if |
+| get-details | Get Company Details | hubspot |
+| prepare-data | Prepare Company Data | set |
+| check-desc | Check Description Exists | if |
+| prepare-gemini-hs | Prepare Gemini Input - HubSpot | code |
+| gemini-cat-hs | Gemini Categorization - HubSpot | httpRequest |
+| parse-response-hs | Parse Gemini Response - HubSpot | code |
+| check-has-url | Check Has LinkedIn URL | if |
+| amplemarket-linkedin | Amplemarket LinkedIn API | httpRequest |
+| check-linkedin-success | Check LinkedIn Data Retrieved | if |
+| prepare-gemini-linkedin | Prepare Gemini Input - LinkedIn | code |
+| gemini-cat-linkedin | Gemini Categorization - LinkedIn | httpRequest |
+| parse-response-linkedin | Parse Gemini Response - LinkedIn | code |
+| check-has-domain | Check Has Domain | if |
+| website-scrape | Website Scraping | httpRequest |
+| check-website-success | Check Website Data Retrieved | if |
+| prepare-gemini-website | Prepare Gemini Input - Website | code |
+| gemini-cat-website | Gemini Categorization - Website | httpRequest |
+| parse-response-website | Parse Gemini Response - Website | code |
+| jina-search | Jina Search | httpRequest |
+| prepare-gemini-search | Prepare Gemini Input - Search | code |
+| gemini-cat-search | Gemini Categorization - Search | httpRequest |
+| parse-response-search | Parse Gemini Response - Search | code |
+| preserve-pre-update | Preserve Pre-Update Data | set |
+| update-hubspot | Update HubSpot | hubspot |
+| preserve-success-result | Preserve Result Data | code |
+| aggregate-all | Aggregate All Results | aggregate |
+| format-summary | Format Summary Message | code |
+| slack-summary | Send Summary Slack | slack |
 
-### Phase 2: Update Connections
-1. Remove "Merge Enrichment Branches" node
-2. Connect Path 1 (HubSpot Description)
-3. Connect Path 2 (LinkedIn Enrichment)
-4. Connect Path 3 (Website Scraping)
-5. Connect all paths to "Check Confidence"
-
-### Phase 3: Validation
-1. Validate each node configuration
-2. Validate workflow structure
-3. Validate all connections
-4. Test each path independently
-
-### Phase 4: Deploy & Test
-1. Deploy to n8n instance
-2. Run test execution for each path
-3. Monitor Slack notifications
-4. Verify HubSpot updates
+**Total**: 32 nodes
 
 ---
 
 ## Credentials Required
 
-- ✅ HubSpot Private App Token (existing)
-- ✅ Slack API (existing)
-- ✅ Google Gemini API (existing)
-- ⚠️ **Amplemarket API Key** (NEW - required for LinkedIn path)
-- ⚠️ SerpAPI Key (optional - for Online Research fallback)
+| Service | Credential Name | Type |
+|---------|----------------|------|
+| HubSpot | `hubspot` | hubspotAppToken |
+| Google Gemini | `Gemini` | googlePalmApi |
+| Amplemarket | `amplemarket` | httpHeaderAuth |
+| Slack | `Slack` | slackApi |
 
 ---
 
-## Next Steps
+## Key Design Decisions
 
-1. **Get Amplemarket API credentials**
-2. **Build workflow with new architecture**
-3. **Validate all nodes and connections**
-4. **Deploy to n8n instance**
-5. **Test all three paths**
-6. **Monitor execution results**
-7. **Update CHANGELOG.md to v3.3**
-
----
-
-## Estimated Complexity
-
-- **Setup Time**: 45-60 minutes
-- **Node Count**: 27 nodes
-- **New Nodes**: 9 nodes
-- **Modified Nodes**: 3 nodes (renamed)
-- **Deleted Nodes**: 1 node (Merge Enrichment Branches)
-- **API Dependencies**: 4 (HubSpot, Slack, Gemini, Amplemarket)
-
----
-
-**Architecture Approved**: Ready for implementation
-**Version**: v3.3
-**Date**: 2026-02-16
+- **Yesterday's companies**: Runs at midnight and processes companies created the previous day — avoids the race condition of processing companies still being created throughout the current day.
+- **Demo form check**: Companies that self-categorized via a form are silently skipped — no FALSE branch connected, so they simply don't proceed.
+- **Description threshold**: 100 characters — below this, the description is too short to reliably classify.
+- **Preserve Pre-Update Data**: A Set node inserted before Update HubSpot snapshots the result data. This is necessary because the HubSpot update overwrites the execution item context, making fields unavailable to downstream nodes.
+- **No per-company Slack noise**: All results are aggregated into a single daily digest.
+- **`Others` → `Unknown`**: HubSpot's internal enum value for the "Others" category is `Unknown`. The workflow maps this on parse but displays `Others` in the Slack summary.
+- **DuckDuckGo via Jina Reader**: The search fallback now uses Jina Reader to fetch DuckDuckGo HTML search results (`r.jina.ai/https://duckduckgo.com/html/?q=...`), yielding cleaner parsed text than the Jina Search API (`s.jina.ai`).
+- **`onError: continueRegularOutput`** on Amplemarket and scraping nodes: API failures don't crash the workflow — they fall through to the next enrichment path.

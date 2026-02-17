@@ -1,18 +1,25 @@
 {
   "name": "HubSpot Company Industry Categorization v3.3",
-  "id": "8DM3CwXLxOT3G8B7",
   "nodes": [
     {
       "parameters": {
         "rule": {
-          "interval": [{"field": "cronExpression", "expression": "0 18 * * *"}]
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "1 0 * * *"
+            }
+          ]
         }
       },
       "id": "schedule-trigger",
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
-      "position": [0, 160]
+      "position": [
+        -256,
+        160
+      ]
     },
     {
       "parameters": {
@@ -22,16 +29,22 @@
         "nodeCredentialType": "hubspotAppToken",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())).getTime()) }] }], properties: ['name', 'domain', 'description', 'about_us', 'linkedin_company_page', 'industry', 'industry__form____contact_sync', 'industry__internal_'], limit: 100 }) }}",
+        "jsonBody": "={{ JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() - 1)).getTime()) }, { propertyName: 'createdate', operator: 'LT', value: String(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())).getTime()) }] }], properties: ['name', 'domain', 'description', 'about_us', 'linkedin_company_page', 'industry', 'industry__form____contact_sync', 'industry__internal_'], limit: 100 }) }}",
         "options": {}
       },
       "id": "search-companies",
       "name": "Search Today's Companies",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [208, 160],
+      "position": [
+        0,
+        160
+      ],
       "credentials": {
-        "hubspotAppToken": {"id": "5ww8XNGf4HTQu4UI", "name": "hubspot"}
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
       }
     },
     {
@@ -42,16 +55,27 @@
       "name": "Split Companies",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [400, 160]
+      "position": [
+        240,
+        160
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"version": 3, "leftValue": "", "caseSensitive": true, "typeValidation": "strict"},
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "demo-check",
-              "operator": {"type": "string", "operation": "empty"},
+              "operator": {
+                "type": "string",
+                "operation": "empty"
+              },
               "leftValue": "={{ $json.properties.industry__form____contact_sync || '' }}",
               "rightValue": ""
             }
@@ -64,35 +88,77 @@
       "name": "Check Demo Form",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [624, 32]
+      "position": [
+        480,
+        160
+      ]
     },
     {
       "parameters": {
         "authentication": "appToken",
         "resource": "company",
         "operation": "get",
-        "companyId": {"mode": "id", "value": "={{ $json.id }}"},
+        "companyId": {
+          "mode": "id",
+          "value": "={{ $json.id }}"
+        },
         "additionalFields": {}
       },
       "id": "get-details",
       "name": "Get Company Details",
       "type": "n8n-nodes-base.hubspot",
       "typeVersion": 2.2,
-      "position": [800, 240],
+      "position": [
+        1008,
+        144
+      ],
       "credentials": {
-        "hubspotAppToken": {"id": "5ww8XNGf4HTQu4UI", "name": "hubspot"}
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
       }
     },
     {
       "parameters": {
         "assignments": {
           "assignments": [
-            {"id": "field1", "name": "companyId", "type": "string", "value": "={{ $json.companyId || $json.id }}"},
-            {"id": "field2", "name": "companyName", "type": "string", "value": "={{ typeof $json.properties?.name === 'object' ? ($json.properties?.name?.value || '') : ($json.properties?.name || '') }}"},
-            {"id": "field3", "name": "domain", "type": "string", "value": "={{ typeof $json.properties?.domain === 'object' ? ($json.properties?.domain?.value || '') : ($json.properties?.domain || '') }}"},
-            {"id": "field4", "name": "description", "type": "string", "value": "={{ typeof $json.properties?.description === 'object' ? ($json.properties?.description?.value || '') : ($json.properties?.description || '') }}"},
-            {"id": "field5", "name": "aboutUs", "type": "string", "value": "={{ typeof $json.properties?.about_us === 'object' ? ($json.properties?.about_us?.value || '') : ($json.properties?.about_us || '') }}"},
-            {"id": "field6", "name": "linkedinUrl", "type": "string", "value": "={{ typeof $json.properties?.linkedin_company_page === 'object' ? ($json.properties?.linkedin_company_page?.value || '') : ($json.properties?.linkedin_company_page || '') }}"}
+            {
+              "id": "field1",
+              "name": "companyId",
+              "type": "string",
+              "value": "={{ $json.companyId || $json.id }}"
+            },
+            {
+              "id": "field2",
+              "name": "companyName",
+              "type": "string",
+              "value": "={{ typeof $json.properties?.name === 'object' ? ($json.properties?.name?.value || '') : ($json.properties?.name || '') }}"
+            },
+            {
+              "id": "field3",
+              "name": "domain",
+              "type": "string",
+              "value": "={{ typeof $json.properties?.domain === 'object' ? ($json.properties?.domain?.value || '') : ($json.properties?.domain || '') }}"
+            },
+            {
+              "id": "field4",
+              "name": "description",
+              "type": "string",
+              "value": "={{ typeof $json.properties?.description === 'object' ? ($json.properties?.description?.value || '') : ($json.properties?.description || '') }}"
+            },
+            {
+              "id": "field5",
+              "name": "aboutUs",
+              "type": "string",
+              "value": "={{ typeof $json.properties?.about_us === 'object' ? ($json.properties?.about_us?.value || '') : ($json.properties?.about_us || '') }}"
+            },
+            {
+              "id": "field6",
+              "name": "linkedinUrl",
+              "type": "string",
+              "value": "={{ typeof $json.properties?.linkedin_company_page === 'object' ? ($json.properties?.linkedin_company_page?.value || '') : ($json.properties?.linkedin_company_page || '') }}"
+            }
           ]
         },
         "options": {}
@@ -101,18 +167,29 @@
       "name": "Prepare Company Data",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [960, 352]
+      "position": [
+        1440,
+        144
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"version": 3, "leftValue": "", "caseSensitive": true, "typeValidation": "strict"},
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "desc-check",
-              "operator": {"type": "string", "operation": "notEmpty"},
-              "leftValue": "={{ $json.description }}",
-              "rightValue": ""
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              },
+              "leftValue": "={{ ($json.description || '').length }}",
+              "rightValue": 100
             }
           ],
           "combinator": "and"
@@ -123,7 +200,10 @@
       "name": "Check Description Exists",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1200, 160]
+      "position": [
+        1904,
+        176
+      ]
     },
     {
       "parameters": {
@@ -134,7 +214,10 @@
       "name": "Prepare Gemini Input - HubSpot",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1450, 80]
+      "position": [
+        2160,
+        48
+      ]
     },
     {
       "parameters": {
@@ -151,9 +234,15 @@
       "name": "Gemini Categorization - HubSpot",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1700, 80],
+      "position": [
+        2480,
+        -48
+      ],
       "credentials": {
-        "googlePalmApi": {"id": "QnUjlFnc4gypgplL", "name": "Gemini"}
+        "googlePalmApi": {
+          "id": "QnUjlFnc4gypgplL",
+          "name": "Gemini"
+        }
       }
     },
     {
@@ -165,16 +254,27 @@
       "name": "Parse Gemini Response - HubSpot",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1950, 80]
+      "position": [
+        3072,
+        -64
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"version": 3, "leftValue": "", "caseSensitive": true, "typeValidation": "strict"},
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "linkedin-url-check",
-              "operator": {"type": "string", "operation": "notEmpty"},
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
               "leftValue": "={{ $json.linkedinUrl }}",
               "rightValue": ""
             }
@@ -187,18 +287,23 @@
       "name": "Check Has LinkedIn URL",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1450, 280]
+      "position": [
+        2096,
+        368
+      ]
     },
     {
       "parameters": {
-        "method": "GET",
         "url": "https://api.amplemarket.com/companies/find",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            {"name": "linkedin_url", "value": "={{ $json.linkedinUrl }}"}
+            {
+              "name": "linkedin_url",
+              "value": "={{ $json.linkedinUrl }}"
+            }
           ]
         },
         "options": {
@@ -214,17 +319,34 @@
       "name": "Amplemarket LinkedIn API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1700, 280],
+      "position": [
+        2416,
+        288
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jx7A2XtklZuWBopq",
+          "name": "amplemarket"
+        }
+      },
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"version": 3, "leftValue": "", "caseSensitive": true, "typeValidation": "strict"},
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "linkedin-data-check",
-              "operator": {"type": "string", "operation": "notEmpty"},
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
               "leftValue": "={{ $json.name || $json.domain || '' }}",
               "rightValue": ""
             }
@@ -237,18 +359,24 @@
       "name": "Check LinkedIn Data Retrieved",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1950, 280]
+      "position": [
+        2656,
+        288
+      ]
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const companyData = $('Prepare Company Data').item.json;\nconst d = $json;\n\n// Extract the fields that matter for classification\nconst overview = d.overview || 'Not provided';\nconst industry = d.industry || 'Not provided';\nconst keywords = Array.isArray(d.keywords) ? d.keywords.join(', ') : (d.keywords || 'Not provided');\n\nconst prompt = `You are an expert business industry classifier. Categorize this company into ONE of these 16 internal industry categories:\\n\\n1. Accounting\\n2. Insurance\\n3. Legal Services\\n4. Technology\\n5. Healthcare\\n6. Public Sector\\n7. Retail and Consumer Goods\\n8. Consulting\\n9. Construction\\n10. HR and Payroll Services\\n11. Banking\\n12. Energy\\n13. Financial Services\\n14. Manufacturing\\n15. Transportation\\n16. Others\\n\\nCOMPANY DATA (from LinkedIn):\\nName: ${companyData.companyName}\\nLinkedIn Industry: ${industry}\\nKeywords: ${keywords}\\n\\nOverview:\\n${overview}\\n\\nCLASSIFICATION RULES - Read carefully and apply in order:\\n\\n1. TECHNOLOGY PRIORITY\\n   - If company CREATES software, SaaS platforms, apps, or tech products -> Technology\\n   - Even if they serve a specific industry, if they BUILD the tech -> Technology\\n\\n2. LEGAL SERVICES\\n   - ANY legal work, legal consulting, compliance services -> Legal Services\\n   - Legal is ALWAYS Legal Services, never Consulting\\n\\n3. SPECIFIC SERVICE CATEGORIES\\n   - HR consulting, recruiting, staffing, payroll -> HR and Payroll Services\\n   - Tax, bookkeeping, audit, CFO services -> Accounting\\n   - Loans, deposits, payment processing -> Banking\\n   - Investment advisory, wealth management -> Financial Services\\n\\n4. CONSTRUCTION vs MANUFACTURING\\n   - Building construction, infrastructure -> Construction\\n   - Making products, goods, equipment -> Manufacturing\\n\\n5. RETAIL vs MANUFACTURING\\n   - If company sells products -> Retail and Consumer Goods\\n\\n6. PUBLIC SECTOR\\n   - ONLY government agencies -> Public Sector\\n   - Non-profits -> Others\\n\\n7. MULTI-SERVICE COMPANIES\\n   - Multiple services -> Consulting (default for generalist firms)\\n\\n8. OTHERS\\n   - Use ONLY when industry doesn't fit ANY of the 15 categories\\n   - Do NOT use Others as a fallback - always pick the best match\\n\\n9. CONFLICT RESOLUTION\\n   - LinkedIn Industry field is a HINT - cross-check with overview and keywords\\n   - Technology > Legal Services > Specific Service > Consulting\\n\\nCRITICAL: You MUST respond with ONLY ONE category name from the list above. No explanations, no confidence scores, just the category name.\\n\\nExamples:\\n- We build SaaS software for law firms -> Technology\\n- We provide HR consulting and recruiting services -> HR and Payroll Services\\n- Law firm specializing in corporate law -> Legal Services\\n- We manufacture and sell consumer electronics online -> Retail and Consumer Goods\\n- Accounting and bookkeeping services -> Accounting\\n- Multi-service firm offering accounting, HR, and legal advisory -> Consulting\\n- Non-profit educational institution -> Others\\n\\nYour response (category name only):`;\n\nreturn {\n  json: {\n    companyId: companyData.companyId,\n    companyName: companyData.companyName,\n    enrichmentSource: 'linkedin',\n    prompt: prompt\n  }\n};"
+        "jsCode": "const companyData = $('Prepare Company Data').item.json;\nconst d = $json;\n\n// Extract the fields that matter for classification\nconst overview = d.overview || 'Not provided';\nconst industry = d.industry || 'Not provided';\nconst keywords = Array.isArray(d.keywords) ? d.keywords.join(', ') : (d.keywords || 'Not provided');\n\nconst prompt = `You are an expert business industry classifier. Categorize this company into ONE of these 16 internal industry categories:\n\n1. Accounting\n2. Insurance\n3. Legal Services\n4. Technology\n5. Healthcare\n6. Public Sector\n7. Retail and Consumer Goods\n8. Consulting\n9. Construction\n10. HR and Payroll Services\n11. Banking\n12. Energy\n13. Financial Services\n14. Manufacturing\n15. Transportation\n16. Others\n\nCOMPANY DATA (from LinkedIn):\nName: ${companyData.companyName}\nLinkedIn Industry: ${industry}\nKeywords: ${keywords}\n\nOverview:\n${overview}\n\nCLASSIFICATION RULES - Read carefully and apply in order:\n\n1. TECHNOLOGY PRIORITY\n   - If company CREATES software, SaaS platforms, apps, or tech products → Technology\n   - Examples: \"We build legal practice management software\" → Technology\n   - Examples: \"We develop healthcare EHR systems\" → Technology\n   - Even if they serve a specific industry, if they BUILD the tech → Technology\n\n2. LEGAL SERVICES\n   - ANY legal work, legal consulting, compliance services → Legal Services\n   - Examples: \"Law firm\", \"Legal compliance consulting\", \"Contract review services\" → Legal Services\n   - Legal is ALWAYS Legal Services, never Consulting\n\n3. SPECIFIC SERVICE CATEGORIES\n   - HR consulting, recruiting, staffing, payroll → HR and Payroll Services\n   - Tax, bookkeeping, audit, CFO services → Accounting\n   - Loans, deposits, payment processing → Banking\n   - Investment advisory, wealth management → Financial Services\n   - If company does THE WORK (not just advises) → Their specific service category\n\n4. CONSTRUCTION vs MANUFACTURING\n   - Building construction, infrastructure, large projects → Construction\n   - Making products, goods, equipment, materials → Manufacturing\n\n5. RETAIL vs MANUFACTURING\n   - If company sells products (even if they manufacture them) → Retail and Consumer Goods\n   - Focus on the selling/distribution aspect\n\n6. PUBLIC SECTOR\n   - ONLY government agencies → Public Sector\n   - Government contractors → Their service category (e.g., Technology, Consulting)\n   - Non-profits → Others\n\n7. MULTI-SERVICE COMPANIES\n   - If company offers multiple services (e.g., \"accounting, HR, and legal services\") → Consulting\n   - Consulting is the default for generalist advisory firms\n\n8. OTHERS\n   - Use ONLY when the industry doesn't fit ANY of the 15 categories\n   - Examples: Agriculture, Education, Media, Entertainment, Non-profits\n   - Do NOT use \"Others\" as a fallback if uncertain - always pick the best match from 1-15\n\n9. CONFLICT RESOLUTION\n   - LinkedIn \"Industry\" field is a HINT - cross-check with overview and keywords\n   - Technology takes priority if they build software\n   - Legal Services takes priority for any legal work\n   - Specific service category beats general Consulting\n   - Retail beats Manufacturing for companies that sell\n\nCRITICAL: You MUST respond with ONLY ONE category name from the list above. No explanations, no confidence scores, just the category name.\n\nExamples:\n- \"We build SaaS software for law firms\" → Technology\n- \"We provide HR consulting and recruiting services\" → HR and Payroll Services\n- \"Law firm specializing in corporate law\" → Legal Services\n- \"We manufacture and sell consumer electronics online\" → Retail and Consumer Goods\n- \"Accounting and bookkeeping services for small businesses\" → Accounting\n- \"Multi-service firm offering accounting, HR, and legal advisory\" → Consulting\n- \"Non-profit educational institution\" → Others\n\nYour response (category name only):` ;\n\nreturn {\n  json: {\n    companyId: companyData.companyId,\n    companyName: companyData.companyName,\n    enrichmentSource: 'linkedin',\n    prompt: prompt\n  }\n};"
       },
       "id": "prepare-gemini-linkedin",
       "name": "Prepare Gemini Input - LinkedIn",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2200, 200]
+      "position": [
+        2912,
+        224
+      ]
     },
     {
       "parameters": {
@@ -265,9 +393,15 @@
       "name": "Gemini Categorization - LinkedIn",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2450, 200],
+      "position": [
+        3168,
+        224
+      ],
       "credentials": {
-        "googlePalmApi": {"id": "QnUjlFnc4gypgplL", "name": "Gemini"}
+        "googlePalmApi": {
+          "id": "QnUjlFnc4gypgplL",
+          "name": "Gemini"
+        }
       }
     },
     {
@@ -279,28 +413,42 @@
       "name": "Parse Gemini Response - LinkedIn",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2700, 200]
+      "position": [
+        3440,
+        224
+      ]
     },
     {
       "parameters": {
-        "url": "={{ 'https://' + $('Prepare Company Data').item.json.domain }}",
+        "url": "={{ 'https://r.jina.ai/https://' + $('Prepare Company Data').item.json.domain }}",
         "options": {}
       },
       "id": "website-scrape",
       "name": "Website Scraping",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2200, 380],
+      "position": [
+        2960,
+        464
+      ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
         "conditions": {
-          "options": {"version": 3, "leftValue": "", "caseSensitive": true, "typeValidation": "strict"},
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "website-data-check",
-              "operator": {"type": "string", "operation": "notEmpty"},
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
               "leftValue": "={{ $json.data || '' }}",
               "rightValue": ""
             }
@@ -313,18 +461,24 @@
       "name": "Check Website Data Retrieved",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [2450, 380]
+      "position": [
+        3184,
+        464
+      ]
     },
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const companyData = $('Prepare Company Data').item.json;\nconst websiteData = $json.data || '';\n\n// Extract meta tags and content snippets\nconst metaDescription = websiteData.match(/<meta\\s+name=\"description\"\\s+content=\"([^\"]+)\"/i)?.[1] || '';\nconst ogDescription = websiteData.match(/<meta\\s+property=\"og:description\"\\s+content=\"([^\"]+)\"/i)?.[1] || '';\nconst title = websiteData.match(/<title>([^<]+)<\\/title>/i)?.[1] || '';\n\n// Get first 500 chars of visible text (rough extraction)\nconst bodyText = websiteData.replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n                           .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n                           .replace(/<[^>]+>/g, ' ')\n                           .replace(/\\s+/g, ' ')\n                           .trim()\n                           .substring(0, 500);\n\nconst prompt = `You are an expert business industry classifier. Categorize this company into ONE of these 16 internal industry categories:\n\n1. Accounting | 2. Insurance | 3. Legal Services | 4. Technology | 5. Healthcare\n6. Public Sector | 7. Retail and Consumer Goods | 8. Consulting | 9. Construction\n10. HR and Payroll Services | 11. Banking | 12. Energy | 13. Financial Services\n14. Manufacturing | 15. Transportation | 16. Others\n\nCOMPANY DATA (from Website):\nName: ${companyData.companyName}\nDomain: ${companyData.domain}\n\nWebsite Information:\n- Page Title: ${title || 'Not available'}\n- Meta Description: ${metaDescription || 'Not available'}\n- OG Description: ${ogDescription || 'Not available'}\n- Content Preview: ${bodyText || 'Not available'}\n\nRULES:\n1. Focus on business activity described on website\n2. Meta descriptions often contain company positioning\n3. If company creates tech (software/SaaS) -> Technology\n4. If company USES tech but does something else -> Their actual industry\n5. If confidence < 70%, respond: MANUAL_REVIEW_REQUIRED\n\nRespond ONLY with the exact category name from the list above, or MANUAL_REVIEW_REQUIRED. No explanation.`;\n\nreturn {\n  json: {\n    companyId: companyData.companyId,\n    companyName: companyData.companyName,\n    enrichmentSource: 'website',\n    prompt: prompt\n  }\n};"
+        "jsCode": "const companyData = $('Prepare Company Data').item.json;\n\n// Jina returns clean markdown - strip image noise before trimming\nconst content = ($json.data || '')\n  .replace(/!\\[.*?\\]\\(.*?\\)/g, '')         // strip markdown images\n  .replace(/\\[.*?\\]\\(https?:\\/\\/static\\.wixstatic[^\\)]*\\)/g, '') // strip Wix asset links\n  .replace(/\\n{3,}/g, '\\n\\n')              // collapse excess blank lines\n  .trim()\n  .substring(0, 2000);\n\nconst prompt = `You are an expert business industry classifier. Categorize this company into ONE of these 16 internal industry categories:\n\n1. Accounting\n2. Insurance\n3. Legal Services\n4. Technology\n5. Healthcare\n6. Public Sector\n7. Retail and Consumer Goods\n8. Consulting\n9. Construction\n10. HR and Payroll Services\n11. Banking\n12. Energy\n13. Financial Services\n14. Manufacturing\n15. Transportation\n16. Others\n\nCOMPANY DATA (from Website):\nName: ${companyData.companyName}\nDomain: ${companyData.domain}\n\nWebsite Content:\n${content || 'Not available'}\n\nCLASSIFICATION RULES - Read carefully and apply in order:\n\n1. TECHNOLOGY PRIORITY\n   - If company CREATES software, SaaS platforms, apps, or tech products → Technology\n   - Even if they serve a specific industry, if they BUILD the tech → Technology\n\n2. LEGAL SERVICES\n   - ANY legal work, legal consulting, compliance services → Legal Services\n   - Legal is ALWAYS Legal Services, never Consulting\n\n3. SPECIFIC SERVICE CATEGORIES\n   - HR consulting, recruiting, staffing, payroll → HR and Payroll Services\n   - Tax, bookkeeping, audit, CFO services → Accounting\n   - Loans, deposits, payment processing → Banking\n   - Investment advisory, wealth management → Financial Services\n\n4. CONSTRUCTION vs MANUFACTURING\n   - Building construction, infrastructure → Construction\n   - Making products, goods, equipment → Manufacturing\n\n5. RETAIL vs MANUFACTURING\n   - If company sells products → Retail and Consumer Goods\n\n6. PUBLIC SECTOR\n   - ONLY government agencies → Public Sector\n   - Non-profits → Others\n\n7. MULTI-SERVICE COMPANIES\n   - Multiple services → Consulting\n\n8. OTHERS\n   - Use ONLY when industry doesn't fit ANY of the 15 categories\n   - Do NOT use Others as a fallback - always pick the best match\n\n9. CONFLICT RESOLUTION\n   - Technology takes priority if they build software\n   - Legal Services takes priority for any legal work\n   - Specific service category beats general Consulting\n   - Retail beats Manufacturing for companies that sell\n\nCRITICAL: You MUST respond with ONLY ONE category name from the list above. No explanations, no confidence scores, just the category name.\n\nExamples:\n- \"We build SaaS software for law firms\" → Technology\n- \"We provide HR consulting and recruiting services\" → HR and Payroll Services\n- \"Law firm specializing in corporate law\" → Legal Services\n- \"We manufacture and sell consumer electronics online\" → Retail and Consumer Goods\n- \"Accounting and bookkeeping services for small businesses\" → Accounting\n- \"Multi-service firm offering accounting, HR, and legal advisory\" → Consulting\n- \"Non-profit educational institution\" → Others\n\nYour response (category name only):`;\n\nreturn {\n  json: {\n    companyId: companyData.companyId,\n    companyName: companyData.companyName,\n    enrichmentSource: 'website',\n    prompt: prompt\n  }\n};"
       },
       "id": "prepare-gemini-website",
       "name": "Prepare Gemini Input - Website",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2700, 300]
+      "position": [
+        3552,
+        464
+      ]
     },
     {
       "parameters": {
@@ -341,9 +495,15 @@
       "name": "Gemini Categorization - Website",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2950, 300],
+      "position": [
+        3792,
+        464
+      ],
       "credentials": {
-        "googlePalmApi": {"id": "QnUjlFnc4gypgplL", "name": "Gemini"}
+        "googlePalmApi": {
+          "id": "QnUjlFnc4gypgplL",
+          "name": "Gemini"
+        }
       }
     },
     {
@@ -355,61 +515,27 @@
       "name": "Parse Gemini Response - Website",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3200, 300]
-    },
-    {
-      "parameters": {
-        "url": "https://serpapi.com/search",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {"name": "q", "value": "={{ $('Prepare Company Data').item.json.companyName }} company information"},
-            {"name": "api_key", "value": "YOUR_SERPAPI_KEY_HERE"},
-            {"name": "num", "value": "3"},
-            {"name": "engine", "value": "google"}
-          ]
-        },
-        "options": {}
-      },
-      "id": "online-research",
-      "name": "Online Research",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [2700, 480],
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {"version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict"},
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "confidence-check",
-              "operator": {"type": "boolean", "operation": "false", "singleValue": true},
-              "leftValue": "={{ $json.needsManualReview }}",
-              "rightValue": ""
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "check-confidence",
-      "name": "Check Confidence",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [3450, 200]
+      "position": [
+        4000,
+        464
+      ]
     },
     {
       "parameters": {
         "authentication": "appToken",
         "resource": "company",
         "operation": "update",
-        "companyId": {"mode": "id", "value": "={{ $json.companyId }}"},
+        "companyId": {
+          "mode": "id",
+          "value": "={{ $json.companyId }}"
+        },
         "updateFields": {
           "customPropertiesUi": {
             "customPropertiesValues": [
-              {"property": "industry__internal_", "value": "={{ $json.category }}"}
+              {
+                "property": "industry__internal_",
+                "value": "={{ $json.category }}"
+              }
             ]
           }
         }
@@ -418,137 +544,649 @@
       "name": "Update HubSpot",
       "type": "n8n-nodes-base.hubspot",
       "typeVersion": 2.2,
-      "position": [3700, 100],
+      "position": [
+        5072,
+        368
+      ],
       "credentials": {
-        "hubspotAppToken": {"id": "5ww8XNGf4HTQu4UI", "name": "hubspot"}
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
       }
     },
     {
       "parameters": {
-        "select": "channel",
-        "channelId": {"mode": "id", "value": "D0ADELD95GR"},
-        "text": "=`✅ *${$json.companyName}* categorized as *${$json.category}*\n\n🔍 Source: ${$json.enrichmentSource}\n🔗 <https://app.hubspot.com/contacts/142047914/company/${$json.companyId}|View in HubSpot>`",
-        "otherOptions": {}
+        "url": "={{ 'https://r.jina.ai/https://duckduckgo.com/html/?q=' + encodeURIComponent($('Prepare Company Data').item.json.companyName + ' company') }}",
+        "options": {}
       },
-      "id": "slack-success",
-      "name": "Send Success Slack",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.4,
-      "position": [3950, 100],
-      "webhookId": "2f72172b-5c28-4b03-bed9-b086a44f7aff",
+      "id": "jina-search",
+      "name": "Jina Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3328,
+        736
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const companyData = $('Prepare Company Data').item.json;\n\n// Jina search returns markdown of search results - strip noise\nconst content = ($json.data || '')\n  .replace(/!\\[.*?\\]\\(.*?\\)/g, '')         // strip markdown images\n  .replace(/\\[([^\\]]*)\\]\\([^)]+\\)/g, '$1') // strip links, keep text\n  .replace(/\\n{3,}/g, '\\n\\n')              // collapse blank lines\n  .trim()\n  .substring(0, 2000);\n\nconst prompt = `You are an expert business industry classifier. Categorize this company into ONE of these 16 internal industry categories:\\n\\n1. Accounting\\n2. Insurance\\n3. Legal Services\\n4. Technology\\n5. Healthcare\\n6. Public Sector\\n7. Retail and Consumer Goods\\n8. Consulting\\n9. Construction\\n10. HR and Payroll Services\\n11. Banking\\n12. Energy\\n13. Financial Services\\n14. Manufacturing\\n15. Transportation\\n16. Others\\n\\nCOMPANY DATA (from web search):\\nName: ${companyData.companyName}${companyData.domain ? '\\nDomain: ' + companyData.domain : ''}\\n\\nSearch Results:\\n${content || 'Not available'}\\n\\nCLASSIFICATION RULES - Read carefully and apply in order:\\n\\n1. TECHNOLOGY PRIORITY\\n   - If company CREATES software, SaaS platforms, apps, or tech products → Technology\\n   - Even if they serve a specific industry, if they BUILD the tech → Technology\\n\\n2. LEGAL SERVICES\\n   - ANY legal work, legal consulting, compliance services → Legal Services\\n   - Legal is ALWAYS Legal Services, never Consulting\\n\\n3. SPECIFIC SERVICE CATEGORIES\\n   - HR consulting, recruiting, staffing, payroll → HR and Payroll Services\\n   - Tax, bookkeeping, audit, CFO services → Accounting\\n   - Loans, deposits, payment processing → Banking\\n   - Investment advisory, wealth management → Financial Services\\n\\n4. CONSTRUCTION vs MANUFACTURING\\n   - Building construction, infrastructure → Construction\\n   - Making products, goods, equipment → Manufacturing\\n\\n5. RETAIL vs MANUFACTURING\\n   - If company sells products → Retail and Consumer Goods\\n\\n6. PUBLIC SECTOR\\n   - ONLY government agencies → Public Sector\\n   - Non-profits → Others\\n\\n7. MULTI-SERVICE COMPANIES\\n   - Multiple services → Consulting\\n\\n8. OTHERS\\n   - Use ONLY when industry doesn't fit ANY of the 15 categories\\n   - Do NOT use Others as a fallback - always pick the best match\\n\\n9. CONFLICT RESOLUTION\\n   - Technology takes priority if they build software\\n   - Legal Services takes priority for any legal work\\n   - Specific service category beats general Consulting\\n   - Retail beats Manufacturing for companies that sell\\n\\nCRITICAL: You MUST respond with ONLY ONE category name from the list above. No explanations, no confidence scores, just the category name.\\n\\nExamples:\\n- \"We build SaaS software for law firms\" → Technology\\n- \"We provide HR consulting and recruiting services\" → HR and Payroll Services\\n- \"Law firm specializing in corporate law\" → Legal Services\\n- \"We manufacture and sell consumer electronics online\" → Retail and Consumer Goods\\n- \"Accounting and bookkeeping services for small businesses\" → Accounting\\n- \"Multi-service firm offering accounting, HR, and legal advisory\" → Consulting\\n- \"Non-profit educational institution\" → Others\\n\\nYour response (category name only):`;\n\nreturn {\n  json: {\n    companyId: companyData.companyId,\n    companyName: companyData.companyName,\n    enrichmentSource: 'search',\n    prompt: prompt\n  }\n};"
+      },
+      "id": "prepare-gemini-search",
+      "name": "Prepare Gemini Input - Search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3552,
+        736
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: $json.prompt }] }], generationConfig: { temperature: 0.3 } }) }}",
+        "options": {}
+      },
+      "id": "gemini-cat-search",
+      "name": "Gemini Categorization - Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3792,
+        736
+      ],
       "credentials": {
-        "slackApi": {"id": "lYs0WHzWk4c7z9Kk", "name": "Slack"}
+        "googlePalmApi": {
+          "id": "QnUjlFnc4gypgplL",
+          "name": "Gemini"
+        }
       }
     },
     {
       "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const response = $json;\nconst geminiText = response?.candidates?.[0]?.content?.parts?.[0]?.text || '';\nlet category = geminiText.trim();\n\n// Map display label to HubSpot internal enum value\nif (category === 'Others') category = 'Unknown';\n\nconst prepData = $('Prepare Gemini Input - Search').item.json;\n\nreturn {\n  companyId: prepData.companyId,\n  companyName: prepData.companyName,\n  enrichmentSource: prepData.enrichmentSource,\n  category: category,\n  needsManualReview: false\n};"
+      },
+      "id": "parse-response-search",
+      "name": "Parse Gemini Response - Search",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4016,
+        736
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const r = $('Preserve Pre-Update Data').item.json;\nreturn {\n  json: {\n    companyId: r.companyId,\n    companyName: r.companyName,\n    enrichmentSource: r.enrichmentSource,\n    category: r.category,\n    needsManualReview: false\n  }\n};"
+      },
+      "id": "preserve-success-result",
+      "name": "Preserve Result Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5376,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "aggregate-all",
+      "name": "Aggregate All Results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        5696,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const items = $json.data || [];\n\nif (items.length === 0) {\n  return { json: { message: '📊 No companies processed today.' } };\n}\n\nconst categorized = items.filter(i => !i.needsManualReview);\nconst manualReview = items.filter(i => i.needsManualReview);\n\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\nlet message = `*📊 Industry Categorization — ${today}*\\n*${items.length} companies processed*\\n`;\n\nif (categorized.length > 0) {\n  message += `\\n✅ *${categorized.length} categorized:*\\n`;\n  for (const c of categorized) {\n    const cat = c.category === 'Unknown' ? 'Others' : c.category;\n    message += `• *${c.companyName}* → ${cat} _(${c.enrichmentSource})_ — <https://app.hubspot.com/contacts/142047914/company/${c.companyId}|View>\\n`;\n  }\n}\n\nif (manualReview.length > 0) {\n  message += `\\n⚠️ *${manualReview.length} need manual review:*\\n`;\n  for (const c of manualReview) {\n    message += `• <https://app.hubspot.com/contacts/142047914/company/${c.companyId}|${c.companyName}>\\n`;\n  }\n}\n\nreturn { json: { message } };"
+      },
+      "id": "format-summary",
+      "name": "Format Summary Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6048,
+        368
+      ]
+    },
+    {
+      "parameters": {
         "select": "channel",
-        "channelId": {"mode": "id", "value": "D0ADELD95GR"},
-        "text": "=`⚠️ *Manual Review Required* for *${$json.companyName}*\n\n🔍 Source: ${$json.enrichmentSource}\n📊 Could not confidently categorize this company\n🔗 <https://app.hubspot.com/contacts/142047914/company/${$json.companyId}|View in HubSpot>`",
+        "channelId": {
+          "mode": "id",
+          "value": "D0ADELD95GR"
+        },
+        "text": "={{ $json.message }}",
         "otherOptions": {}
       },
-      "id": "slack-manual",
-      "name": "Send Manual Review Slack",
+      "id": "slack-summary",
+      "name": "Send Summary Slack",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [3700, 300],
-      "webhookId": "81c7c262-443c-45dc-80cf-4c553a050129",
+      "position": [
+        6368,
+        368
+      ],
+      "webhookId": "8dffdfa5-c4e2-45c1-9e96-73dcad13ae4d",
       "credentials": {
-        "slackApi": {"id": "lYs0WHzWk4c7z9Kk", "name": "Slack"}
+        "slackApi": {
+          "id": "lYs0WHzWk4c7z9Kk",
+          "name": "Slack"
+        }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "domain-check",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "leftValue": "={{ $('Prepare Company Data').item.json.domain }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-has-domain",
+      "name": "Check Has Domain",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2656,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f1",
+              "name": "companyId",
+              "type": "string",
+              "value": "={{ $json.companyId }}"
+            },
+            {
+              "id": "f2",
+              "name": "companyName",
+              "type": "string",
+              "value": "={{ $json.companyName }}"
+            },
+            {
+              "id": "f3",
+              "name": "enrichmentSource",
+              "type": "string",
+              "value": "={{ $json.enrichmentSource }}"
+            },
+            {
+              "id": "f4",
+              "name": "category",
+              "type": "string",
+              "value": "={{ $json.category }}"
+            },
+            {
+              "id": "f5",
+              "name": "needsManualReview",
+              "type": "boolean",
+              "value": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "preserve-pre-update",
+      "name": "Preserve Pre-Update Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4384,
+        368
+      ]
     }
   ],
+  "pinData": {
+    "Schedule Trigger": [
+      {
+        "json": {
+          "timestamp": "2026-02-17T22:24:48.538+00:00",
+          "Readable date": "February 17th 2026, 10:24:48 pm",
+          "Readable time": "10:24:48 pm",
+          "Day of week": "Tuesday",
+          "Year": "2026",
+          "Month": "February",
+          "Day of month": "17",
+          "Hour": "22",
+          "Minute": "24",
+          "Second": "48",
+          "Timezone": "Europe/London (UTC+00:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
   "connections": {
     "Schedule Trigger": {
-      "main": [[{"node": "Search Today's Companies", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Search Today's Companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Search Today's Companies": {
-      "main": [[{"node": "Split Companies", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Split Companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Split Companies": {
-      "main": [[{"node": "Check Demo Form", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Check Demo Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check Demo Form": {
-      "main": [[{"node": "Get Company Details", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Get Company Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Get Company Details": {
-      "main": [[{"node": "Prepare Company Data", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Prepare Company Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Prepare Company Data": {
-      "main": [[{"node": "Check Description Exists", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Check Description Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check Description Exists": {
       "main": [
-        [{"node": "Prepare Gemini Input - HubSpot", "type": "main", "index": 0}],
-        [{"node": "Check Has LinkedIn URL", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Prepare Gemini Input - HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Has LinkedIn URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Prepare Gemini Input - HubSpot": {
-      "main": [[{"node": "Gemini Categorization - HubSpot", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Gemini Categorization - HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Gemini Categorization - HubSpot": {
-      "main": [[{"node": "Parse Gemini Response - HubSpot", "type": "main", "index": 0}]]
-    },
-    "Parse Gemini Response - HubSpot": {
-      "main": [[{"node": "Check Confidence", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Parse Gemini Response - HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check Has LinkedIn URL": {
       "main": [
-        [{"node": "Amplemarket LinkedIn API", "type": "main", "index": 0}],
-        [{"node": "Website Scraping", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Amplemarket LinkedIn API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Has Domain",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Amplemarket LinkedIn API": {
-      "main": [[{"node": "Check LinkedIn Data Retrieved", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Check LinkedIn Data Retrieved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check LinkedIn Data Retrieved": {
       "main": [
-        [{"node": "Prepare Gemini Input - LinkedIn", "type": "main", "index": 0}],
-        [{"node": "Website Scraping", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Prepare Gemini Input - LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Check Has Domain",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Prepare Gemini Input - LinkedIn": {
-      "main": [[{"node": "Gemini Categorization - LinkedIn", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Gemini Categorization - LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Gemini Categorization - LinkedIn": {
-      "main": [[{"node": "Parse Gemini Response - LinkedIn", "type": "main", "index": 0}]]
-    },
-    "Parse Gemini Response - LinkedIn": {
-      "main": [[{"node": "Check Confidence", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Parse Gemini Response - LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Website Scraping": {
-      "main": [[{"node": "Check Website Data Retrieved", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Check Website Data Retrieved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Check Website Data Retrieved": {
       "main": [
-        [{"node": "Prepare Gemini Input - Website", "type": "main", "index": 0}],
-        [{"node": "Online Research", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Prepare Gemini Input - Website",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Jina Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Prepare Gemini Input - Website": {
-      "main": [[{"node": "Gemini Categorization - Website", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Gemini Categorization - Website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Gemini Categorization - Website": {
-      "main": [[{"node": "Parse Gemini Response - Website", "type": "main", "index": 0}]]
-    },
-    "Parse Gemini Response - Website": {
-      "main": [[{"node": "Check Confidence", "type": "main", "index": 0}]]
-    },
-    "Online Research": {
-      "main": [[{"node": "Send Manual Review Slack", "type": "main", "index": 0}]]
-    },
-    "Check Confidence": {
       "main": [
-        [{"node": "Update HubSpot", "type": "main", "index": 0}],
-        [{"node": "Send Manual Review Slack", "type": "main", "index": 0}]
+        [
+          {
+            "node": "Parse Gemini Response - Website",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jina Search": {
+      "main": [
+        [
+          {
+            "node": "Prepare Gemini Input - Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Gemini Input - Search": {
+      "main": [
+        [
+          {
+            "node": "Gemini Categorization - Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Categorization - Search": {
+      "main": [
+        [
+          {
+            "node": "Parse Gemini Response - Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Update HubSpot": {
-      "main": [[{"node": "Send Success Slack", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Preserve Result Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preserve Result Data": {
+      "main": [
+        [
+          {
+            "node": "Aggregate All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Results": {
+      "main": [
+        [
+          {
+            "node": "Format Summary Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Summary Message": {
+      "main": [
+        [
+          {
+            "node": "Send Summary Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Has Domain": {
+      "main": [
+        [
+          {
+            "node": "Website Scraping",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Jina Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gemini Response - HubSpot": {
+      "main": [
+        [
+          {
+            "node": "Preserve Pre-Update Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gemini Response - LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Preserve Pre-Update Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gemini Response - Website": {
+      "main": [
+        [
+          {
+            "node": "Preserve Pre-Update Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Gemini Response - Search": {
+      "main": [
+        [
+          {
+            "node": "Preserve Pre-Update Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preserve Pre-Update Data": {
+      "main": [
+        [
+          {
+            "node": "Update HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "settings": {"executionOrder": "v1"},
-  "staticData": null,
-  "tags": [],
-  "triggerCount": 1
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "c50662f9-bd43-4cd2-8493-6389758c4a68",
+  "meta": {
+    "instanceId": "1c614ffbaa74dc7b329196566d86f2ebdc830e7ef4cc70cc01f324f4043c7c50"
+  },
+  "id": "8DM3CwXLxOT3G8B7",
+  "tags": []
 }

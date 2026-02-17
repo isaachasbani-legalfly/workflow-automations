@@ -1,59 +1,92 @@
 flowchart TD
-    Start([Company Added to HubSpot])
+    Start([Schedule Trigger\nmidnight daily])
 
-    Start --> Trigger["🔔 HubSpot Trigger<br/>company.creation event"]
-    Trigger --> CheckDemo{"Is from Demo Form?<br/>industry__form____contact_sync<br/>filled?"}
+    Start --> Search["🔍 Search Yesterday's Companies\nHubSpot API - companies created yesterday"]
+    Search --> Split["✂️ Split Companies\nCode node - one item per company"]
+    Split --> CheckDemo{"Check Demo Form\nindustry__form____contact_sync filled?"}
 
-    CheckDemo -->|YES - Demo Form| SkipFlow["⏭️ SKIP CATEGORIZATION<br/>User selected industry manually<br/>Don't override"]
-    CheckDemo -->|NO - Proceed| GetDetails["📋 Get Company Details<br/>name, description, website<br/>LinkedIn URL, keywords"]
+    CheckDemo -->|"YES - filled, skip"| SkipFlow["⏭️ Silent Skip\nNo connection"]
+    CheckDemo -->|"NO - empty, proceed"| GetDetails["📋 Get Company Details\nHubSpot node"]
 
-    GetDetails --> ExtractLinkedIn["📱 Extract LinkedIn URL<br/>from HubSpot company record"]
-    ExtractLinkedIn --> LinkedInAPI["🔗 Amplemarket API<br/>Fetch LinkedIn Company Data<br/>description, industry, specialties"]
+    GetDetails --> PrepareData["📊 Prepare Company Data\nSet node - normalize fields"]
 
-    LinkedInAPI --> LinkedInSuccess{LinkedIn<br/>Success?}
-    LinkedInSuccess -->|✅ YES| MergeLinkedIn["✅ Extract LinkedIn Data<br/>Company description & specialties"]
-    LinkedInSuccess -->|❌ FAILED| WebsiteAPI["🌐 Fallback: HTTP Request<br/>Fetch Website Metadata<br/>og:description, title, meta tags"]
+    PrepareData --> CheckDesc{"Check Description Exists\nlength ≥ 100 chars?"}
 
-    WebsiteAPI --> WebsiteSuccess{Website<br/>Success?}
-    WebsiteSuccess -->|✅ YES| MergeWebsite["✅ Extract Website Data<br/>Meta description & content"]
-    WebsiteSuccess -->|❌ FAILED| BothFailed["❌ BOTH FAILED<br/>No enrichment data available"]
+    %% PATH 1: HubSpot Description
+    CheckDesc -->|"YES"| PrepHS["Prepare Gemini Input\n─ HubSpot ─\nCode node"]
+    PrepHS --> GeminiHS["🤖 Gemini Categorization\n─ HubSpot ─\ngemini-2.5-flash"]
+    GeminiHS --> ParseHS["Parse Gemini Response\n─ HubSpot ─"]
+    ParseHS --> PreservePreUpdate
 
-    MergeLinkedIn --> PrepareData["📊 Prepare Data<br/>HubSpot + Enriched Data<br/>For AI categorization"]
-    MergeWebsite --> PrepareData
+    %% PATH 2: LinkedIn
+    CheckDesc -->|"NO"| CheckLIURL{"Check Has LinkedIn URL\nlinkedinUrl not empty?"}
+    CheckLIURL -->|"YES"| AmpleAPI["🔗 Amplemarket LinkedIn API\nGET /companies/find\n?linkedin_url=..."]
+    CheckLIURL -->|"NO"| CheckDomain
 
-    BothFailed --> SlackError["⚠️ Send Slack Alert<br/>#n8n-helper-test-bot<br/>Enrichment Failed - Manual Review"]
+    AmpleAPI --> CheckLIData{"Check LinkedIn Data Retrieved\nname or domain not empty?"}
+    CheckLIData -->|"YES"| PrepLI["Prepare Gemini Input\n─ LinkedIn ─\nCode node"]
+    PrepLI --> GeminiLI["🤖 Gemini Categorization\n─ LinkedIn ─\ngemini-2.5-flash"]
+    GeminiLI --> ParseLI["Parse Gemini Response\n─ LinkedIn ─"]
+    ParseLI --> PreservePreUpdate
+    CheckLIData -->|"NO"| CheckDomain
 
-    PrepareData --> Gemini["🤖 Gemini 3 Flash<br/>Intelligent Categorization<br/>Analyze all data → 15 categories"]
+    %% PATH 3: Website Scraping
+    CheckDomain{"Check Has Domain\ndomain not empty?"}
+    CheckDomain -->|"YES"| WebScrape["🌐 Website Scraping\nJina Reader\nr.jina.ai/domain"]
+    WebScrape --> CheckWebData{"Check Website Data Retrieved\ndata not empty?"}
+    CheckWebData -->|"YES"| PrepWeb["Prepare Gemini Input\n─ Website ─\nCode node"]
+    PrepWeb --> GeminiWeb["🤖 Gemini Categorization\n─ Website ─\ngemini-2.5-flash"]
+    GeminiWeb --> ParseWeb["Parse Gemini Response\n─ Website ─"]
+    ParseWeb --> PreservePreUpdate
 
-    Gemini --> ValidateCat{Confidence<br/>≥ 70%?}
+    %% PATH 4: Jina Search (final fallback)
+    CheckDomain -->|"NO"| JinaSearch
+    CheckWebData -->|"NO"| JinaSearch["🔎 Jina Search\nDuckDuckGo via Jina Reader\nr.jina.ai/duckduckgo?q=companyName"]
+    JinaSearch --> PrepSearch["Prepare Gemini Input\n─ Search ─\nCode node"]
+    PrepSearch --> GeminiSearch["🤖 Gemini Categorization\n─ Search ─\ngemini-2.5-flash"]
+    GeminiSearch --> ParseSearch["Parse Gemini Response\n─ Search ─"]
+    ParseSearch --> PreservePreUpdate
 
-    ValidateCat -->|✅ YES - High Confidence| Update["✏️ Update HubSpot<br/>Set industry_internal_sync<br/>property"]
-    ValidateCat -->|⚠️ NO - Uncertain| ManualReview["🚩 Flag for Manual Review<br/>Slack Alert Sent"]
-
-    Update --> NotifySuccess["💬 Send Slack Message<br/>#n8n-helper-test-bot<br/>✅ Category Success"]
-    ManualReview --> NotifyManual["💬 Send Slack Message<br/>#n8n-helper-test-bot<br/>⚠️ Manual Review Required"]
-
-    NotifySuccess --> Complete(["✅ Workflow Complete"])
-    NotifyManual --> Complete
-    SlackError --> Complete
-    SkipFlow --> Complete
+    %% Convergence
+    PreservePreUpdate["📋 Preserve Pre-Update Data\nSet node - snapshot before HubSpot write"]
+    PreservePreUpdate --> UpdateHS["✏️ Update HubSpot\nindustry__internal_"]
+    UpdateHS --> Preserve["Preserve Result Data\nCode node"]
+    Preserve --> Aggregate["📦 Aggregate All Results"]
+    Aggregate --> FormatSummary["Format Summary Message\nCode node"]
+    FormatSummary --> SlackSummary["💬 Send Summary Slack\nDaily digest - channel D0ADELD95GR"]
+    SlackSummary --> Complete(["✅ Workflow Complete"])
 
     style Start fill:#e1f5fe
-    style Trigger fill:#fff3e0
+    style Search fill:#f3e5f5
+    style Split fill:#f3e5f5
     style CheckDemo fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     style SkipFlow fill:#e8f5e9
     style GetDetails fill:#f3e5f5
-    style LinkedInAPI fill:#e3f2fd
-    style WebsiteAPI fill:#e3f2fd
-    style BothFailed fill:#ffccbc,stroke:#d84315,stroke-width:2px
-    style MergeLinkedIn fill:#c8e6c9
-    style MergeWebsite fill:#c8e6c9
-    style PrepareData fill:#e8f5e9
-    style Gemini fill:#c7e9f4,stroke:#0277bd,stroke-width:3px
-    style ValidateCat fill:#fff9c4,stroke:#f57f17,stroke-width:2px
-    style Update fill:#c8e6c9
-    style ManualReview fill:#ffccbc
-    style NotifySuccess fill:#b3e5fc
-    style NotifyManual fill:#ffccbc
-    style SlackError fill:#ffccbc
+    style PrepareData fill:#f3e5f5
+    style CheckDesc fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style CheckLIURL fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style CheckLIData fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style CheckDomain fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style CheckWebData fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style AmpleAPI fill:#e3f2fd
+    style WebScrape fill:#e3f2fd
+    style JinaSearch fill:#e3f2fd
+    style PrepHS fill:#e8eaf6
+    style GeminiHS fill:#c7e9f4,stroke:#0277bd,stroke-width:2px
+    style ParseHS fill:#e8eaf6
+    style PrepLI fill:#e8eaf6
+    style GeminiLI fill:#c7e9f4,stroke:#0277bd,stroke-width:2px
+    style ParseLI fill:#e8eaf6
+    style PrepWeb fill:#e8eaf6
+    style GeminiWeb fill:#c7e9f4,stroke:#0277bd,stroke-width:2px
+    style ParseWeb fill:#e8eaf6
+    style PrepSearch fill:#e8eaf6
+    style GeminiSearch fill:#c7e9f4,stroke:#0277bd,stroke-width:2px
+    style ParseSearch fill:#e8eaf6
+    style PreservePreUpdate fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style UpdateHS fill:#c8e6c9
+    style Preserve fill:#e8f5e9
+    style Aggregate fill:#e8f5e9
+    style FormatSummary fill:#e8f5e9
+    style SlackSummary fill:#b3e5fc
     style Complete fill:#a5d6a7
