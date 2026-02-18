@@ -1,0 +1,13 @@
+{
+  "workflowId": "TA6Iq4wMW0KYsCiH",
+  "workflowName": "Error Handler - Slack Notification",
+  "deployedAt": "2026-02-17T23:49:16.325Z",
+  "n8nUrl": "https://legalfly.app.n8n.cloud/workflow/TA6Iq4wMW0KYsCiH",
+  "status": "active",
+  "usedBy": [
+    {
+      "workflowId": "8DM3CwXLxOT3G8B7",
+      "workflowName": "HubSpot Company Industry Categorization v3.3"
+    }
+  ]
+}

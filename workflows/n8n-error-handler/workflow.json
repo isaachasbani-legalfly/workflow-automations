@@ -1,0 +1,79 @@
+{
+  "name": "Error Handler - Slack Notification",
+  "nodes": [
+    {
+      "id": "error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "parameters": {}
+    },
+    {
+      "id": "format-error",
+      "name": "Format Error Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const exec = $json.execution;\nconst workflow = exec.workflowData;\nconst error = exec.error;\n\nconst time = new Date().toLocaleString('en-GB', {\n  timeZone: 'Europe/London',\n  day: '2-digit',\n  month: 'short',\n  year: 'numeric',\n  hour: '2-digit',\n  minute: '2-digit'\n});\n\nconst message = `:rotating_light: *Workflow Error*\\n\\n*Workflow:* ${workflow.name}\\n*Failed Node:* ${exec.lastNodeExecuted || 'Unknown'}\\n*Error:* ${error?.message || 'Unknown error'}\\n*Time:* ${time}\\n*<${exec.url}|View Execution>*`;\n\nreturn { json: { message } };"
+      }
+    },
+    {
+      "id": "slack-error",
+      "name": "Send Error to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [480, 0],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "mode": "id",
+          "value": "D0ADELD95GR"
+        },
+        "text": "={{ $json.message }}",
+        "otherOptions": {}
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "lYs0WHzWk4c7z9Kk",
+          "name": "Slack"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format Error Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Message": {
+      "main": [
+        [
+          {
+            "node": "Send Error to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "id": "TA6Iq4wMW0KYsCiH",
+  "tags": []
+}

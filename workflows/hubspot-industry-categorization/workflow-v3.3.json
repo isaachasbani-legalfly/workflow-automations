@@ -567,8 +567,7 @@
       "position": [
         3328,
         736
-      ],
-      "onError": "continueRegularOutput"
+      ]
     },
     {
       "parameters": {
@@ -1181,7 +1180,8 @@
     "saveManualExecutions": true,
     "saveExecutionProgress": true,
     "callerPolicy": "workflowsFromSameOwner",
-    "availableInMCP": false
+    "availableInMCP": false,
+    "errorWorkflow": "TA6Iq4wMW0KYsCiH"
   },
   "versionId": "c50662f9-bd43-4cd2-8493-6389758c4a68",
   "meta": {
