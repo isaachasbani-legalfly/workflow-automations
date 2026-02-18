@@ -1172,7 +1172,7 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "saveDataErrorExecution": "all",
@@ -1183,7 +1183,7 @@
     "availableInMCP": false,
     "errorWorkflow": "TA6Iq4wMW0KYsCiH"
   },
-  "versionId": "c50662f9-bd43-4cd2-8493-6389758c4a68",
+  "versionId": "db0cfb9d-19d5-4a00-b8fe-7e0a8b00cc81",
   "meta": {
     "instanceId": "1c614ffbaa74dc7b329196566d86f2ebdc830e7ef4cc70cc01f324f4043c7c50"
   },
