@@ -30,7 +30,7 @@
         "select": "channel",
         "channelId": {
           "mode": "id",
-          "value": "D0ADELD95GR"
+          "value": "C0AFLLG51V4"
         },
         "text": "={{ $json.message }}",
         "otherOptions": {}

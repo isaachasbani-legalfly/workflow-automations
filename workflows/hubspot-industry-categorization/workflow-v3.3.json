@@ -17,47 +17,8 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.3,
       "position": [
-        -256,
-        160
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "hubspotAppToken",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() - 1)).getTime()) }, { propertyName: 'createdate', operator: 'LT', value: String(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())).getTime()) }] }], properties: ['name', 'domain', 'description', 'about_us', 'linkedin_company_page', 'industry', 'industry__form____contact_sync', 'industry__internal_'], limit: 100 }) }}",
-        "options": {}
-      },
-      "id": "search-companies",
-      "name": "Search Today's Companies",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        0,
-        160
-      ],
-      "credentials": {
-        "hubspotAppToken": {
-          "id": "5ww8XNGf4HTQu4UI",
-          "name": "hubspot"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const response = $input.first().json;\nconst results = response.results || [];\nreturn results.map(company => ({\n  json: {\n    id: String(company.id),\n    properties: company.properties || {}\n  }\n}));"
-      },
-      "id": "normalize-company",
-      "name": "Split Companies",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        240,
-        160
+        -1616,
+        176
       ]
     },
     {
@@ -89,8 +50,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        480,
-        160
+        576,
+        192
       ]
     },
     {
@@ -110,7 +71,7 @@
       "typeVersion": 2.2,
       "position": [
         1008,
-        144
+        176
       ],
       "credentials": {
         "hubspotAppToken": {
@@ -168,7 +129,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1440,
+        1408,
         144
       ]
     },
@@ -201,8 +162,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        1904,
-        176
+        1936,
+        144
       ]
     },
     {
@@ -215,8 +176,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2160,
-        48
+        2192,
+        16
       ]
     },
     {
@@ -235,8 +196,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2480,
-        -48
+        2512,
+        -80
       ],
       "credentials": {
         "googlePalmApi": {
@@ -255,8 +216,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3072,
-        -64
+        3104,
+        -96
       ]
     },
     {
@@ -288,8 +249,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        2096,
-        368
+        2128,
+        336
       ]
     },
     {
@@ -320,8 +281,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2416,
-        288
+        2448,
+        256
       ],
       "credentials": {
         "httpHeaderAuth": {
@@ -360,8 +321,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        2656,
-        288
+        2688,
+        256
       ]
     },
     {
@@ -374,8 +335,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2912,
-        224
+        2944,
+        192
       ]
     },
     {
@@ -394,8 +355,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3168,
-        224
+        3200,
+        192
       ],
       "credentials": {
         "googlePalmApi": {
@@ -414,8 +375,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3440,
-        224
+        3472,
+        192
       ]
     },
     {
@@ -428,8 +389,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2960,
-        464
+        2992,
+        432
       ],
       "onError": "continueRegularOutput"
     },
@@ -462,8 +423,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        3184,
-        464
+        3216,
+        432
       ]
     },
     {
@@ -476,8 +437,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3552,
-        464
+        3584,
+        432
       ]
     },
     {
@@ -496,8 +457,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3792,
-        464
+        3824,
+        432
       ],
       "credentials": {
         "googlePalmApi": {
@@ -516,8 +477,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4000,
-        464
+        4032,
+        432
       ]
     },
     {
@@ -545,8 +506,8 @@
       "type": "n8n-nodes-base.hubspot",
       "typeVersion": 2.2,
       "position": [
-        5072,
-        368
+        5104,
+        336
       ],
       "credentials": {
         "hubspotAppToken": {
@@ -565,8 +526,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3328,
-        736
+        3360,
+        704
       ]
     },
     {
@@ -579,8 +540,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3552,
-        736
+        3584,
+        704
       ]
     },
     {
@@ -599,8 +560,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3792,
-        736
+        3824,
+        704
       ],
       "credentials": {
         "googlePalmApi": {
@@ -619,8 +580,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4016,
-        736
+        4048,
+        704
       ]
     },
     {
@@ -633,8 +594,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5376,
-        368
+        5408,
+        336
       ]
     },
     {
@@ -647,8 +608,8 @@
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
       "position": [
-        5696,
-        368
+        5728,
+        336
       ]
     },
     {
@@ -661,8 +622,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6048,
-        368
+        6080,
+        336
       ]
     },
     {
@@ -670,7 +631,7 @@
         "select": "channel",
         "channelId": {
           "mode": "id",
-          "value": "D0ADELD95GR"
+          "value": "C0AFSAD1E5A"
         },
         "text": "={{ $json.message }}",
         "otherOptions": {}
@@ -680,8 +641,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
       "position": [
-        6368,
-        368
+        6400,
+        336
       ],
       "webhookId": "8dffdfa5-c4e2-45c1-9e96-73dcad13ae4d",
       "credentials": {
@@ -720,8 +681,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        2656,
-        560
+        2688,
+        528
       ]
     },
     {
@@ -767,8 +728,121 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        4384,
-        368
+        4416,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  json: {\n    after: null,\n    allCompanies: []\n  }\n};"
+      },
+      "id": "init-pagination",
+      "name": "Initialize State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1360,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  json: {\n    after: $json.after || null,\n    allCompanies: $json.allCompanies || []\n  }\n};"
+      },
+      "id": "pass-state",
+      "name": "Pass State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1072,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() - 1)).getTime()) }, { propertyName: 'createdate', operator: 'LT', value: String(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())).getTime()) }] }], properties: ['name', 'domain', 'description', 'about_us', 'linkedin_company_page', 'industry', 'industry__form____contact_sync', 'industry__internal_'], limit: 200, ...($json.after ? { after: $json.after } : {}) }) }}",
+        "options": {}
+      },
+      "id": "fetch-page",
+      "name": "Fetch Companies Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -800,
+        176
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const apiResponse = $json;\nconst passStateData = $('Pass State').item.json;\n\nconst prevCompanies = passStateData.allCompanies || [];\nconst newCompanies = apiResponse.results || [];\nconst cursor = apiResponse.paging?.next?.after || null;\n\nreturn {\n  json: {\n    after: cursor,\n    allCompanies: [...prevCompanies, ...newCompanies]\n  }\n};"
+      },
+      "id": "accumulate-results",
+      "name": "Accumulate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-more-check",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "leftValue": "={{ $json.after || '' }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-more",
+      "name": "IF Has More Pages",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -96,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allCompanies = $input.first().json.allCompanies || [];\nreturn allCompanies.map(company => ({\n  json: {\n    id: String(company.id),\n    properties: company.properties || {}\n  }\n}));"
+      },
+      "id": "split-all-companies",
+      "name": "Split All Companies",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        192
       ]
     }
   ],
@@ -795,39 +869,6 @@
     ]
   },
   "connections": {
-    "Schedule Trigger": {
-      "main": [
-        [
-          {
-            "node": "Search Today's Companies",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Search Today's Companies": {
-      "main": [
-        [
-          {
-            "node": "Split Companies",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Split Companies": {
-      "main": [
-        [
-          {
-            "node": "Check Demo Form",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Check Demo Form": {
       "main": [
         [
@@ -1170,6 +1211,90 @@
           }
         ]
       ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Initialize State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize State": {
+      "main": [
+        [
+          {
+            "node": "Pass State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pass State": {
+      "main": [
+        [
+          {
+            "node": "Fetch Companies Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Companies Page": {
+      "main": [
+        [
+          {
+            "node": "Accumulate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accumulate Results": {
+      "main": [
+        [
+          {
+            "node": "IF Has More Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Has More Pages": {
+      "main": [
+        [
+          {
+            "node": "Pass State",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split All Companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split All Companies": {
+      "main": [
+        [
+          {
+            "node": "Check Demo Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
@@ -1183,7 +1308,7 @@
     "availableInMCP": false,
     "errorWorkflow": "TA6Iq4wMW0KYsCiH"
   },
-  "versionId": "db0cfb9d-19d5-4a00-b8fe-7e0a8b00cc81",
+  "versionId": "ced78fd9-c7f5-48e1-a218-28d630d9f34e",
   "meta": {
     "instanceId": "1c614ffbaa74dc7b329196566d86f2ebdc830e7ef4cc70cc01f324f4043c7c50"
   },

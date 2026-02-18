@@ -1,9 +1,15 @@
 flowchart TD
     Start([Schedule Trigger\nmidnight daily])
 
-    Start --> Search["🔍 Search Yesterday's Companies\nHubSpot API - companies created yesterday"]
-    Search --> Split["✂️ Split Companies\nCode node - one item per company"]
-    Split --> CheckDemo{"Check Demo Form\nindustry__form____contact_sync filled?"}
+    Start --> InitState["🔧 Initialize State\nCode node - {after: null, allCompanies: []}"]
+    InitState --> PassState["Pass State\nCode node - forward cursor + companies"]
+    PassState --> FetchPage["🔍 Fetch Companies Page\nHubSpot API - limit 200 + cursor"]
+    FetchPage --> Accumulate["Accumulate Results\nCode node - merge new batch into allCompanies"]
+    Accumulate --> IfMore{"IF Has More Pages\nafter cursor not empty?"}
+    IfMore -->|"YES - loop back"| PassState
+    IfMore -->|"NO - all fetched"| SplitAll["✂️ Split All Companies\nCode node - one item per company"]
+
+    SplitAll --> CheckDemo{"Check Demo Form\nindustry__form____contact_sync filled?"}
 
     CheckDemo -->|"YES - filled, skip"| SkipFlow["⏭️ Silent Skip\nNo connection"]
     CheckDemo -->|"NO - empty, proceed"| GetDetails["📋 Get Company Details\nHubSpot node"]
@@ -57,8 +63,12 @@ flowchart TD
     SlackSummary --> Complete(["✅ Workflow Complete"])
 
     style Start fill:#e1f5fe
-    style Search fill:#f3e5f5
-    style Split fill:#f3e5f5
+    style InitState fill:#f3e5f5
+    style PassState fill:#f3e5f5
+    style FetchPage fill:#f3e5f5
+    style Accumulate fill:#f3e5f5
+    style IfMore fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style SplitAll fill:#f3e5f5
     style CheckDemo fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     style SkipFlow fill:#e8f5e9
     style GetDetails fill:#f3e5f5

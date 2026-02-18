@@ -1,6 +1,6 @@
 # HubSpot Company Industry Categorization
 
-This workflow automatically classifies newly created HubSpot companies into one of 16 industry categories using AI (Google Gemini). It runs every night, researches each company using whatever information is available, and writes the result back to HubSpot — then sends a Slack summary of everything it processed.
+This workflow automatically classifies newly created HubSpot companies into one of 16 industry categories using AI (Google Gemini). It runs every night, fetches all companies created the previous day using paginated API calls, researches each company using whatever information is available, and writes the result back to HubSpot — then sends a Slack summary of everything it processed.
 
 ---
 
@@ -18,8 +18,8 @@ Every day at **12:01 AM**, it picks up all companies created **the previous day*
 
 ## What it does, step by step
 
-### 1. Fetch yesterday's companies
-Queries HubSpot for all companies with a creation date in the previous 24-hour window (up to 100 per run).
+### 1. Fetch yesterday's companies (with pagination)
+Queries HubSpot for all companies with a creation date in the previous 24-hour window. Uses cursor-based pagination (200 companies per page) to ensure every company is captured regardless of daily volume. Pages are accumulated into a single list before processing begins.
 
 ### 2. Skip self-categorized companies
 If a company already has a value in `industry__form____contact_sync` — meaning the person who filled in the demo form already identified their industry — the workflow skips it silently. No point overwriting something the customer already told us.
@@ -31,9 +31,15 @@ For every remaining company, the workflow tries to gather enough information to 
 flowchart TD
     Start([Schedule Trigger\nmidnight daily])
 
-    Start --> Search["🔍 Search Yesterday's Companies\nHubSpot API - companies created yesterday"]
-    Search --> Split["✂️ Split Companies\nCode node - one item per company"]
-    Split --> CheckDemo{"Check Demo Form\nindustry__form____contact_sync filled?"}
+    Start --> InitState["🔧 Initialize State\nCode node - {after: null, allCompanies: []}"]
+    InitState --> PassState["Pass State\nCode node"]
+    PassState --> FetchPage["🔍 Fetch Companies Page\nHubSpot API - limit 200 + cursor"]
+    FetchPage --> Accumulate["Accumulate Results\nCode node - merge pages"]
+    Accumulate --> IfMore{"IF Has More Pages\nafter cursor not empty?"}
+    IfMore -->|"YES - loop back"| PassState
+    IfMore -->|"NO - all fetched"| SplitAll["✂️ Split All Companies\nCode node - one item per company"]
+
+    SplitAll --> CheckDemo{"Check Demo Form\nindustry__form____contact_sync filled?"}
 
     CheckDemo -->|"YES - filled, skip"| SkipFlow["⏭️ Silent Skip\nNo connection"]
     CheckDemo -->|"NO - empty, proceed"| GetDetails["📋 Get Company Details\nHubSpot node"]
@@ -151,7 +157,7 @@ The workflow classifies companies into one of these 16 categories:
 ## Files in this folder
 
 | File | Purpose |
-|------|---------|
+|------|---------||
 | `workflow-v3.3.json` | The n8n workflow export — source of truth |
 | `ARCHITECTURE-v3.3.md` | Full technical reference: all nodes, routing logic, design decisions |
 | `architecture.mmd` | Mermaid diagram source |

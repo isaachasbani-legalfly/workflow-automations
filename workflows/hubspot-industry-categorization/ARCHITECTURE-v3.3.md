@@ -4,6 +4,8 @@
 
 Workflow that categorizes HubSpot companies created **yesterday** into one of 16 internal industry categories using Gemini 2.5 Flash. Uses a **four-path enrichment cascade**: HubSpot description → LinkedIn (Amplemarket) → Website scraping (Jina) → Web search (DuckDuckGo via Jina). All paths converge, every categorized company is written to HubSpot, and a single daily Slack summary is sent.
 
+Companies are fetched using a **cursor-based pagination loop** (200 per page) to ensure all companies are processed regardless of volume.
+
 **Workflow ID**: `8DM3CwXLxOT3G8B7`
 **n8n URL**: `https://legalfly.app.n8n.cloud/workflow/8DM3CwXLxOT3G8B7`
 **Status**: Active (production)
@@ -16,9 +18,15 @@ Workflow that categorizes HubSpot companies created **yesterday** into one of 16
 flowchart TD
     Start([Schedule Trigger\nmidnight daily])
 
-    Start --> Search["Search Yesterday's Companies\nHubSpot API"]
-    Search --> Split["Split Companies\nCode node"]
-    Split --> CheckDemo{Check Demo Form\nindustry__form____contact_sync empty?}
+    Start --> InitState["Initialize State\nCode node - {after: null, allCompanies: []}"]
+    InitState --> PassState["Pass State\nCode node"]
+    PassState --> FetchPage["Fetch Companies Page\nHubSpot API - limit 200 + cursor"]
+    FetchPage --> Accumulate["Accumulate Results\nCode node - merge pages"]
+    Accumulate --> IfMore{IF Has More Pages\nafter cursor not empty?}
+    IfMore -->|TRUE: loop back| PassState
+    IfMore -->|FALSE: done| SplitAll[Split All Companies\nCode node]
+
+    SplitAll --> CheckDemo{Check Demo Form\nindustry__form____contact_sync empty?}
 
     CheckDemo -->|TRUE: empty - proceed| GetDetails[Get Company Details\nHubSpot node]
     CheckDemo -->|FALSE: filled - skip| End1[Silent Skip\nNo connection]
@@ -72,28 +80,39 @@ flowchart TD
 
 ## Node Breakdown
 
-### Trigger & Initial Processing
+### Trigger & Pagination
 
 | Node | Type | Config |
 |------|------|--------|
 | **Schedule Trigger** | scheduleTrigger | Cron: `1 0 * * *` (12:01 AM daily) |
-| **Search Yesterday's Companies** | httpRequest | POST `https://api.hubapi.com/crm/v3/objects/companies/search` — filters companies with `createdate GTE yesterday-midnight AND LT today-midnight` (UTC). Fetches: name, domain, description, about_us, linkedin_company_page, industry, industry__form____contact_sync, industry__internal_. Limit: 100 |
-| **Split Companies** | code | Maps HubSpot search results into individual items with `{id, properties}` |
-| **Check Demo Form** | if | `industry__form____contact_sync` is **empty** → TRUE (proceed). If filled, company was self-categorized via form — skip silently (no FALSE branch connected) |
-| **Get Company Details** | hubspot | Gets full company record by ID |
-| **Prepare Company Data** | set | Normalizes into: `companyId`, `companyName`, `domain`, `description`, `aboutUs`, `linkedinUrl`. Handles both object and string property formats |
+| **Initialize State** | code | Emits `{ after: null, allCompanies: [] }` — seeds the pagination loop |
+| **Pass State** | code | Forwards `{ after, allCompanies }` into the next fetch iteration |
+| **Fetch Companies Page** | httpRequest | POST `https://api.hubapi.com/crm/v3/objects/companies/search` — filters companies with `createdate GTE yesterday-midnight AND LT today-midnight` (UTC). Fetches: name, domain, description, about_us, linkedin_company_page, industry, industry__form____contact_sync, industry__internal_. `limit: 200`. Passes `after` cursor when present for subsequent pages |
+| **Accumulate Results** | code | Merges current page results into `allCompanies`; extracts `paging.next.after` cursor |
+| **IF Has More Pages** | if | `after` cursor not empty → TRUE (loop back to Pass State). Empty → FALSE (proceed to split) |
+| **Split All Companies** | code | Maps `allCompanies` array into individual items with `{ id, properties }` |
 
 ---
 
-### Routing Logic
+### Routing Logic (per company)
 
 | Node | Type | Condition | TRUE → | FALSE → |
 |------|------|-----------|--------|---------|
+| **Check Demo Form** | if | `industry__form____contact_sync` is **empty** | Get Company Details | Silent skip (no branch) |
 | **Check Description Exists** | if | `description.length >= 100` | Path 1: HubSpot | Path 2: LinkedIn |
 | **Check Has LinkedIn URL** | if | `linkedinUrl` not empty | Amplemarket API | Check Has Domain |
 | **Check LinkedIn Data Retrieved** | if | `name \|\| domain` not empty | Path 2: LinkedIn Gemini | Check Has Domain |
 | **Check Has Domain** | if | `domain` not empty | Path 3: Website Scraping | Path 4: Jina Search |
 | **Check Website Data Retrieved** | if | `data` not empty | Path 3: Website Gemini | Path 4: Jina Search |
+
+---
+
+### Get Company Details & Prepare Data
+
+| Node | Type | Config |
+|------|------|--------|
+| **Get Company Details** | hubspot | Gets full company record by ID |
+| **Prepare Company Data** | set | Normalizes into: `companyId`, `companyName`, `domain`, `description`, `aboutUs`, `linkedinUrl`. Handles both object and string property formats |
 
 ---
 
@@ -205,8 +224,12 @@ All four paths converge at **Preserve Pre-Update Data**:
 | ID | Name | Type |
 |----|------|------|
 | schedule-trigger | Schedule Trigger | scheduleTrigger |
-| search-companies | Search Yesterday's Companies | httpRequest |
-| normalize-company | Split Companies | code |
+| init-pagination | Initialize State | code |
+| pass-state | Pass State | code |
+| fetch-page | Fetch Companies Page | httpRequest |
+| accumulate-results | Accumulate Results | code |
+| if-has-more | IF Has More Pages | if |
+| split-all-companies | Split All Companies | code |
 | check-demo | Check Demo Form | if |
 | get-details | Get Company Details | hubspot |
 | prepare-data | Prepare Company Data | set |
@@ -237,7 +260,7 @@ All four paths converge at **Preserve Pre-Update Data**:
 | format-summary | Format Summary Message | code |
 | slack-summary | Send Summary Slack | slack |
 
-**Total**: 32 nodes
+**Total**: 36 nodes
 
 ---
 
@@ -254,11 +277,12 @@ All four paths converge at **Preserve Pre-Update Data**:
 
 ## Key Design Decisions
 
+- **Pagination loop**: Replaces the original single-page fetch (limit 100). The workflow now fetches companies page by page (200 per page) using HubSpot's cursor-based pagination (`paging.next.after`), accumulating all results before processing. This ensures no companies are missed regardless of daily volume.
 - **Yesterday's companies**: Runs at midnight and processes companies created the previous day — avoids the race condition of processing companies still being created throughout the current day.
 - **Demo form check**: Companies that self-categorized via a form are silently skipped — no FALSE branch connected, so they simply don't proceed.
 - **Description threshold**: 100 characters — below this, the description is too short to reliably classify.
 - **Preserve Pre-Update Data**: A Set node inserted before Update HubSpot snapshots the result data. This is necessary because the HubSpot update overwrites the execution item context, making fields unavailable to downstream nodes.
 - **No per-company Slack noise**: All results are aggregated into a single daily digest.
 - **`Others` → `Unknown`**: HubSpot's internal enum value for the "Others" category is `Unknown`. The workflow maps this on parse but displays `Others` in the Slack summary.
-- **DuckDuckGo via Jina Reader**: The search fallback now uses Jina Reader to fetch DuckDuckGo HTML search results (`r.jina.ai/https://duckduckgo.com/html/?q=...`), yielding cleaner parsed text than the Jina Search API (`s.jina.ai`).
+- **DuckDuckGo via Jina Reader**: The search fallback uses Jina Reader to fetch DuckDuckGo HTML search results (`r.jina.ai/https://duckduckgo.com/html/?q=...`), yielding cleaner parsed text than the Jina Search API (`s.jina.ai`).
 - **`onError: continueRegularOutput`** on Amplemarket and scraping nodes: API failures don't crash the workflow — they fall through to the next enrichment path.
