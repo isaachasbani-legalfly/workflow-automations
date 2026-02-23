@@ -109,7 +109,7 @@ If there's no domain either, the workflow runs a DuckDuckGo search for the compa
 Whichever path produces data, it gets sent to **Google Gemini 2.5 Flash** with a structured prompt asking it to pick exactly one of the 16 categories below. The temperature is set low (0.3) to keep responses consistent and predictable.
 
 ### 5. Update HubSpot
-The AI's answer is written back to the company record in HubSpot under the `industry__internal_` property.
+The AI's answer is written back to the company record in HubSpot under the `industry__internal_` property. For auditing purposes, the data source used for classification (`description`, `linkedin`, `website`, or `search`) is also written to `industry_internal_enrichment_source`.
 
 ### 6. Send a Slack summary
 At the end of each run, a single Slack message is sent to the configured channel listing every company that was processed — with its name, the category assigned, which data source was used, and a direct link to the HubSpot record.

@@ -395,21 +395,19 @@ This project uses a **two-phase natural language workflow creation process** opt
 
 ```
 workflows/
-├── _templates/                      # Reusable workflow patterns
-│   ├── webhook-to-slack.json
-│   ├── scheduled-task.json
-│   └── ai-chat-bot.json
-│
 └── [workflow-name]/                 # Individual workflow directory
-    ├── ARCHITECTURE.md              # Phase 1: Architecture design
-    ├── architecture.mmd             # Mermaid diagram
-    ├── workflow.json                # Phase 2: n8n workflow export
-    ├── deployment.json              # Deployment metadata
+    ├── README.md                    # Overview, credentials, n8n workflow ID & URL
+    ├── ARCHITECTURE-v{X.Y}.md      # Full technical reference: nodes, routing, design decisions (versioned)
+    ├── architecture.mmd             # Mermaid diagram source
+    ├── workflow-v{X.Y}.json        # n8n workflow export — source of truth (versioned)
     ├── CHANGELOG.md                 # Version history
-    └── test-data/                   # Test fixtures
-        ├── sample-request.json
-        └── expected-response.json
+    └── prompts/                     # ONLY for workflows that use AI prompts
+        └── prompt-{name}.md        # One file per Gemini/LLM prompt path
 ```
+
+**Reference implementation**: `workflows/hubspot-industry-categorization/` — all new workflows must follow this exact structure.
+
+**Versioning**: Files are versioned (e.g. `workflow-v1.0.json`, `ARCHITECTURE-v1.0.md`). When making significant changes, increment the version and update both files together.
 
 ### Natural Language Workflow Creation Flow
 
@@ -465,20 +463,14 @@ workflows/
    - `n8n_autofix_workflow` - Auto-fix if needed
    - Save workflow ID and metadata
 
-4. **Save Artifacts**
-   - Create `workflow.json` (n8n export)
-   - Create `deployment.json` with metadata:
-     ```json
-     {
-       "workflowId": "xyz123",
-       "workflowName": "HubSpot Deal to Slack",
-       "deployedAt": "2026-02-15T14:00:00Z",
-       "n8nUrl": "https://legalfly.app.n8n.cloud/workflow/xyz123",
-       "status": "active"
-     }
-     ```
-   - Create `CHANGELOG.md` with v1.0.0 entry
-   - Save test data files
+4. **Save Artifacts** (mirror the hubspot-industry-categorization structure)
+   - Fetch deployed workflow JSON via `n8n_get_workflow` and save as `workflow-v{X.Y}.json`
+   - Create `README.md` with: purpose, trigger, step-by-step description, credentials table, n8n workflow ID and URL
+   - Create `ARCHITECTURE-v{X.Y}.md` with: full node breakdown, routing logic, design decisions
+   - Create `architecture.mmd` with the Mermaid flowchart source
+   - Create `CHANGELOG.md` with v{X.Y} entry
+   - If workflow uses AI prompts: create `prompts/prompt-{name}.md` for each prompt path
+   - **Do NOT create**: `deployment.json`, `test-data/` folders, or any other files
 
 5. **Commit to Git**
    - Stage all workflow artifacts
@@ -491,58 +483,50 @@ workflows/
    - List all saved artifacts
    - Suggest next steps (testing, monitoring, iteration)
 
-### Architecture Document Template (ARCHITECTURE.md)
+### Architecture Document Template (ARCHITECTURE-v{X.Y}.md)
 
-Every workflow starts with an architecture document:
+The architecture file is a **full technical reference** written after deployment — not a planning doc. It documents every node, the routing logic, and the design decisions. Follow the `hubspot-industry-categorization/ARCHITECTURE-v3.3.md` as the reference implementation.
 
 ```markdown
-# [Workflow Name] - Architecture
+# [Workflow Name] — Architecture v{X.Y}
 
 ## Overview
-[Purpose and benefits]
-
-## Requirements
-- [ ] Requirement 1
-- [ ] Requirement 2
+[What the workflow does, why it exists, when it runs]
 
 ## Workflow Diagram
 
 \`\`\`mermaid
-[Mermaid flowchart showing all nodes and connections]
+[Full flowchart — all nodes, all branches, all routing decisions]
 \`\`\`
 
-## Nodes Breakdown
+## Node Reference
 
-### 1. [Node Name] (node-type)
+### [Node Name] (`node-id`)
+- **Type**: n8n-nodes-base.xxx
 - **Purpose**: What this node does
-- **Configuration**: Key settings
-- **Output**: What it produces
+- **Key config**: Important parameters, expressions used
+- **Output**: What it passes downstream
 
-[Continue for each node...]
+[One section per node, in execution order]
 
-## Data Flow
-[Describe how data moves through the workflow]
+## Routing Logic
+[Document all IF/Switch branches and what triggers each path]
 
 ## Error Handling
-[Describe error handling strategy]
+[Per-node error strategy: onError, retryOnFail, continueOnFail]
 
-## Dependencies
+## Design Decisions
+[Why key choices were made — e.g. why Gemini over another model, why batch size X]
 
-### Credentials Required
-- [Service]: [Scope/permissions needed]
+## Credentials Required
 
-### External Services
-- [Service]: [URL or details]
+| Service | Credential name | Used for |
+|---------|----------------|---------|
+| HubSpot | hubspot | ... |
 
-## Testing Strategy
-[How to test this workflow]
-
-## Deployment Plan
-[Steps to deploy to production]
-
-## Estimated Complexity
-- **Setup Time**: X minutes
-- **Node Count**: N nodes
+## n8n Instance
+- **Workflow ID**: `xyz123`
+- **URL**: https://legalfly.app.n8n.cloud/workflow/xyz123
 ```
 
 ### Key Principles for Natural Language Workflow Creation
@@ -574,11 +558,14 @@ Every workflow starts with an architecture document:
    - Level 3: `validate_workflow` - Complete workflow
    - Level 4: `n8n_test_workflow` - Runtime testing
 
-6. **Complete Documentation**
-   - Always save ARCHITECTURE.md
-   - Always save workflow.json
-   - Always save deployment.json
-   - Always update CHANGELOG.md
+6. **Complete Documentation** (follow hubspot-industry-categorization structure exactly)
+   - Always save `README.md` (primary doc — includes workflow ID, URL, credentials)
+   - Always save `ARCHITECTURE-v{X.Y}.md` (versioned technical reference)
+   - Always save `architecture.mmd` (Mermaid source)
+   - Always save `workflow-v{X.Y}.json` (fetched from n8n after deployment)
+   - Always update `CHANGELOG.md`
+   - Save `prompts/prompt-{name}.md` only if the workflow uses AI prompts
+   - Never create `deployment.json` or `test-data/`
    - Always commit to git
 
 ### Iteration & Improvements
@@ -644,14 +631,14 @@ Approve to proceed with building? Or request changes?
 Slack Help Auto-Reply
 - Workflow ID: abc123xyz
 - URL: https://legalfly.app.n8n.cloud/workflow/abc123xyz
-- Status: Active
+- Validation: 0 errors
 
 Files Saved:
-✓ workflows/slack-help-bot/ARCHITECTURE.md
-✓ workflows/slack-help-bot/workflow.json
-✓ workflows/slack-help-bot/deployment.json
+✓ workflows/slack-help-bot/README.md
+✓ workflows/slack-help-bot/ARCHITECTURE-v1.0.md
+✓ workflows/slack-help-bot/architecture.mmd
+✓ workflows/slack-help-bot/workflow-v1.0.json
 ✓ workflows/slack-help-bot/CHANGELOG.md
-✓ workflows/slack-help-bot/test-data/
 
 Git Committed:
 ✓ Initial workflow architecture and implementation

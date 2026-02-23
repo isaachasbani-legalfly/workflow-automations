@@ -1,0 +1,15 @@
+{
+  "workflowId": "SBCVJt431JqoysGl",
+  "workflowName": "Country Retroactive Enrichment",
+  "deployedAt": "2026-02-22T16:13:30.912Z",
+  "n8nUrl": "https://legalfly.app.n8n.cloud/workflow/SBCVJt431JqoysGl",
+  "status": "inactive",
+  "trigger": "manual",
+  "description": "Retroactive enrichment of HubSpot companies missing the country property. Processes 10 companies per run (testing). Classification priority: (1) domain TLD, (2) Amplemarket LinkedIn data, (3) Gemini website scraping. Unresolved companies are flagged via Slack for manual review.",
+  "slackChannel": "C0AG86U9927",
+  "batchSize": 10,
+  "hubspotProperties": {
+    "country": "Full country name (e.g. Germany)",
+    "countryenrichmentsource": "Audit: Domain code | Linkedin | Website | Manual review"
+  }
+}
