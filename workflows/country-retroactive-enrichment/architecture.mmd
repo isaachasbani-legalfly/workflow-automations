@@ -1,0 +1,46 @@
+flowchart TD
+    Start([Manual Trigger]) --> Init["Initialize State<br/>{after: null, allCompanies: [], pageCount: 0, maxPages: 2}"]
+    Init --> Pass["Pass State"]
+    Pass --> Fetch["Fetch Companies Page<br/>HubSpot Search API, limit:100"]
+    Fetch --> Accum["Accumulate Results<br/>merge pages, extract cursor"]
+    Accum --> More{IF More Pages<br/>after cursor not empty?}
+    More -->|TRUE: loop back| Pass
+    More -->|FALSE: done| Split["Split All Companies"]
+    Split --> Prepare["Prepare Company Data<br/>companyId, companyName, domain"]
+
+    Prepare --> CheckDomain{Check Has Domain?}
+    CheckDomain -->|YES| TLD["Extract TLD Country<br/>120+ country TLDs"]
+    CheckDomain -->|NO| NameScan["Extract Country from Name<br/>130+ country names"]
+    TLD --> CheckTLD{TLD Resolved?}
+    CheckTLD -->|YES| Result
+    CheckTLD -->|NO| NameScan
+    NameScan --> CheckName{Name Got Country?}
+    CheckName -->|YES| Result
+
+    CheckName -->|NO| CheckDomainAmp{Has Domain<br/>for Amplemarket?}
+    CheckDomainAmp -->|YES| AmpDomain["Amplemarket Domain API<br/>GET /companies/find?domain="]
+    CheckDomainAmp -->|NO| PrepBlind
+    AmpDomain --> ParseAmp["Parse Amplemarket Country"]
+    ParseAmp --> CheckAmp{Got Country?}
+    CheckAmp -->|YES| Result
+
+    CheckAmp -->|NO| PrepBlind["Prepare Gemini Blind Input"]
+    PrepBlind --> GeminiBlind["Gemini Blind Inference<br/>gemini-2.5-flash, temp 0.1<br/>name+domain only"]
+    GeminiBlind --> ParseBlind["Parse Gemini Blind Response<br/>JSON {country, confidence}"]
+    ParseBlind --> CheckBlind{HIGH/MEDIUM<br/>confidence?}
+    CheckBlind -->|YES| Result
+
+    CheckBlind -->|NO| PrepGrounded["Prepare Gemini Grounded Input"]
+    PrepGrounded --> GeminiGrounded["Gemini Grounded Inference<br/>gemini-2.5-flash + Google Search<br/>temp 0.1"]
+    GeminiGrounded --> ParseGrounded["Parse Gemini Grounded Response"]
+    ParseGrounded --> CheckGrounded{Got Country?}
+    CheckGrounded -->|YES| Result
+    CheckGrounded -->|NO| Unknown["Prepare Unknown<br/>country='Unknown'"]
+
+    Result["Prepare Result<br/>country + enrichmentSource"] --> Snapshot
+    Unknown --> Snapshot["Snapshot Data"]
+    Snapshot --> UpdateHS["Update HubSpot<br/>country + countryenrichmentsource"]
+    UpdateHS --> Restore["Restore Data"]
+    Restore --> Aggregate["Aggregate All Results"]
+    Aggregate --> Format["Format Summary<br/>source distribution stats"]
+    Format --> Slack["Send Slack"]

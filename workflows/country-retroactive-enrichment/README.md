@@ -6,34 +6,29 @@ Manual workflow to backfill the `country` property for HubSpot companies that ha
 
 ## When to use
 
-Run manually in n8n. Each execution processes **10 companies** (testing — increase to 200 for production runs).
+Run manually in n8n. Each execution processes up to **200 companies** (2 pages x 100, configurable via `maxPages` in Initialize State).
 
 ---
 
-## Classification logic
+## Enrichment Cascade (v2.0)
 
 ```
-Has domain?
-├── YES → Extract TLD → country-specific? (.de, .fr, .co.uk, .at, etc.)
-│   ├── YES → Write country (source: Domain code) ✅
-│   └── NO (generic: .com, .io, .net...) → Has LinkedIn URL?
-│       ├── YES → Amplemarket → Got country?
-│       │   ├── YES → Write country (source: Linkedin) ✅
-│       │   └── NO → Has domain for scraping?
-│       │       ├── YES → Jina + Gemini → Got country?
-│       │       │   ├── YES → Write country (source: Website) ✅
-│       │       │   └── NO → 🚩 Manual review
-│       │       └── NO → 🚩 Manual review
-│       └── NO → Has domain for scraping?
-│           ├── YES → Jina + Gemini → Got country?
-│           │   ├── YES → Write country (source: Website) ✅
-│           │   └── NO → 🚩 Manual review
-│           └── NO → 🚩 Manual review
-└── NO domain → Has LinkedIn URL?
-    ├── YES → Amplemarket → Got country?
-    │   ├── YES → Write country (source: Linkedin) ✅
-    │   └── NO → 🚩 Manual review
-    └── NO → 🚩 Manual review
+Phase 1 — Zero-cost (instant):
+  Has domain? → Extract TLD (.de → Germany, .co.uk → UK, etc.)
+  TLD failed? → Scan company name for country names / demonyms
+
+Phase 2 — Amplemarket (single domain call):
+  Has domain? → GET /companies/find?domain= → headquarters_country
+
+Phase 3 — Gemini Blind (no web search):
+  Name + domain → Gemini 2.5 Flash → {country, confidence: HIGH|MEDIUM|LOW}
+  HIGH/MEDIUM accepted. LOW → Phase 4
+
+Phase 4 — Gemini Grounded (Google Search):
+  Name + domain → Gemini 2.5 Flash + google_search tool → country
+
+Phase 5 — Fallback:
+  All methods failed → country = "Unknown"
 ```
 
 ---
@@ -42,30 +37,43 @@ Has domain?
 
 | Property | Values |
 |----------|--------|
-| `country` | Full country name (e.g. `Germany`, `United Kingdom`) |
-| `countryenrichmentsource` | `Domain code` / `Linkedin` / `Website` / `Manual review` |
+| `country` | Full country name (e.g. `Germany`, `United Kingdom`) or `Unknown` |
+| `countryenrichmentsource` | `TLD` / `Company name` / `Amplemarket` / `Gemini blind` / `Gemini grounded` / `Unresolved` |
 
 ---
 
 ## Slack summary
 
 Sent to channel `C0AG86U9927` at end of each run:
-- ✅ Classified companies — name, country, source
-- 🚩 Manual review — name + HubSpot link
+- Total companies processed
+- Source distribution stats (TLD, Company name, Amplemarket, Gemini blind, Gemini grounded, Unresolved)
+- List of enriched companies with country and source
 
 ---
 
-## Gemini website prompt
+## Credentials required
 
-When scraping, Gemini identifies HQ country using this signal priority:
-1. Physical address / registered office on the page
-2. Phone number country code
-3. VAT / company registration number format
-4. Language of content (weakest signal)
+| Service | Credential | Type |
+|---------|-----------|------|
+| HubSpot | `hubspot` | hubspotAppToken |
+| Google Gemini | `Gemini` | googlePalmApi |
+| Amplemarket | `amplemarket` | httpHeaderAuth |
+| Slack | `Slack` | slackApi |
+
+---
+
+## Version history
+
+| Version | Date | Key changes |
+|---------|------|-------------|
+| v2.0 | 2026-02-23 | Pagination loop, Gemini blind pass, Gemini Google Search grounding (replaces Jina.ai), "Unknown" fallback, source distribution stats |
+| v1.0 | 2026-02-14 | Initial 8-step cascade (TLD, name, LinkedIn Amplemarket, domain Amplemarket, Jina scraping, website LinkedIn, Gemini inference) |
 
 ---
 
 ## n8n instance
 
-**Workflow ID**: `SBCVJt431JqoysGl`
-**URL**: [https://legalfly.app.n8n.cloud/workflow/SBCVJt431JqoysGl](https://legalfly.app.n8n.cloud/workflow/SBCVJt431JqoysGl)
+| Version | Workflow ID | URL |
+|---------|------------|-----|
+| **v2.0** (current) | `h4Dwz3Z2bhksWYly` | [https://legalfly.app.n8n.cloud/workflow/h4Dwz3Z2bhksWYly](https://legalfly.app.n8n.cloud/workflow/h4Dwz3Z2bhksWYly) |
+| v1.0 (legacy) | `SBCVJt431JqoysGl` | [https://legalfly.app.n8n.cloud/workflow/SBCVJt431JqoysGl](https://legalfly.app.n8n.cloud/workflow/SBCVJt431JqoysGl) |
