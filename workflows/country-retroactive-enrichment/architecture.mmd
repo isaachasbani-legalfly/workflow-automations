@@ -1,7 +1,7 @@
 flowchart TD
     Start([Manual Trigger]) --> Init["Initialize State\n{after: null, allCompanies: [], maxPages: 1}"]
     Init --> Pass["Pass State"]
-    Pass --> Fetch["Fetch Companies Page\nHubSpot Search API, limit: 10"]
+    Pass --> Fetch["Fetch Companies Page\nHubSpot Search API, limit: 100"]
     Fetch --> Accum["Accumulate Results\nmerge pages, extract cursor"]
     Accum --> More{"IF More Pages\nafter cursor not empty?"}
     More -->|"TRUE: loop back"| Pass
@@ -24,11 +24,11 @@ flowchart TD
     ParseAmp --> CheckAmp{"Got Country?"}
     CheckAmp -->|"YES"| Result
 
-    CheckAmp -->|"NO"| JinaScrape["Jina Website Scrape\nGET r.jina.ai/{domain}\n10s timeout"]
+    CheckAmp -->|"NO"| JinaScrape["Jina Website Scrape\nGET r.jina.ai/{domain}\n10s timeout, batch: 2/5s"]
     JinaScrape --> CheckWebsite{"Website Data\ncontent + no warning + len > 200?"}
-    CheckWebsite -->|"YES"| ExtractLinkedIn
-    CheckWebsite -->|"NO"| JinaSearch["DuckDuckGo Web Search\nGET r.jina.ai/duckduckgo.com/?q={name}+headquarters+country+location\n10s timeout"]
-    JinaSearch --> ExtractLinkedIn["Extract LinkedIn URL\nparse linkedin.com/company/ from results"]
+    CheckWebsite -->|"YES"| ExtractLinkedIn["Extract LinkedIn URL\nparse linkedin.com/company/\nfrom website + search"]
+    CheckWebsite -->|"NO"| JinaSearch["DuckDuckGo Web Search\nGET r.jina.ai/duckduckgo.com/?q={name}\n+headquarters+country+location\nbatch: 2/5s"]
+    JinaSearch --> ExtractLinkedIn
     ExtractLinkedIn --> CheckLinkedIn{"Has LinkedIn URL?"}
     CheckLinkedIn -->|"YES"| AmpLinkedIn["Amplemarket LinkedIn Lookup\nGET /companies/find?linkedin_url="]
     CheckLinkedIn -->|"NO"| PrepGemini
@@ -36,7 +36,7 @@ flowchart TD
     ParseAmpLinkedIn --> CheckAmpLinkedIn{"Got Country\nfrom LinkedIn?"}
     CheckAmpLinkedIn -->|"YES"| Result
     CheckAmpLinkedIn -->|"NO"| PrepGemini
-    PrepGemini --> Gemini["Gemini Inference\ngemini-2.5-flash, temp 0.1\nNO tools, content-only"]
+    PrepGemini["Prepare Gemini Input\nstrict anti-hallucination prompt\n6000 char limit"] --> Gemini["Gemini Inference\ngemini-2.5-flash, temp 0.1\nNO tools, content-only"]
     Gemini --> ParseGemini["Parse Gemini Response\nJSON {country, evidence}"]
     ParseGemini --> CheckGemini{"Got Country?"}
     CheckGemini -->|"YES"| Result

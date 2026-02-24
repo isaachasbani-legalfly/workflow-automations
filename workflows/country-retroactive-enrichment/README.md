@@ -12,7 +12,7 @@ When companies are created in HubSpot, the `country` field often gets left blank
 
 ## When to run
 
-Manually in n8n. Each execution processes up to **200 companies** (configurable via `maxPages` and `limit` in Initialize State). Current default: **10 companies** (limit: 10, maxPages: 1).
+Manually in n8n. Each execution processes up to **200 companies** (configurable via `maxPages` and `limit` in Initialize State). Current default: **100 companies** (limit: 100, maxPages: 1).
 
 ---
 
@@ -28,7 +28,7 @@ For every company, the workflow tries to identify the country through four phase
 flowchart TD
     Start([Manual Trigger]) --> Init["Initialize State\n{after: null, allCompanies: [], maxPages: 1}"]
     Init --> Pass["Pass State"]
-    Pass --> Fetch["Fetch Companies Page\nHubSpot Search API, limit: 10"]
+    Pass --> Fetch["Fetch Companies Page\nHubSpot Search API, limit: 100"]
     Fetch --> Accum["Accumulate Results\nmerge pages, extract cursor"]
     Accum --> More{"IF More Pages\nafter cursor not empty?"}
     More -->|"TRUE: loop back"| Pass
@@ -112,7 +112,7 @@ At the end of each run, a single Slack message is sent listing every company tha
 |---------|-------------------|
 | HubSpot | Company search + update |
 | Google Gemini | Content analysis inference |
-| Amplemarket | Domain company lookup |
+| Amplemarket | Domain + LinkedIn company lookup |
 | Jina | Website scrape + DuckDuckGo search (inline Bearer token) |
 | Slack | Summary notification |
 
@@ -134,7 +134,7 @@ At the end of each run, a single Slack message is sent listing every company tha
 
 | Version | Date | Key changes |
 |---------|------|-------------|
-| v2.2 | 2026-02-24 | Better search query ("headquarters country location"), LinkedIn URL extraction → Amplemarket lookup. 36 nodes |
+| v2.2 | 2026-02-24 | Better search query, LinkedIn URL → Amplemarket lookup, stricter Gemini prompt (anti-hallucination, country normalization), Jina rate limit protection. 36 nodes |
 | v2.1 | 2026-02-24 | Replace Gemini blind + grounded with Jina scrape + DuckDuckGo search + Gemini content analysis. Fix HubSpot `country` write (countryRegion). Single Slack message via staticData. 31 nodes |
 | v2.0 | 2026-02-23 | Pagination loop, Gemini blind pass, Gemini Google Search grounding, "Unknown" fallback |
 | v1.0 | 2026-02-14 | Initial 8-step cascade (TLD, name, LinkedIn Amplemarket, domain Amplemarket, Jina scraping) |

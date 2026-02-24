@@ -4,9 +4,11 @@
 
 Manual workflow to backfill the `country` property for HubSpot companies that have no country set. Uses a **four-phase enrichment cascade**: TLD extraction, company name scan, Amplemarket domain API, Jina web scraping/search + Gemini inference. Companies that fail all phases get `country="Unknown"` written to HubSpot, preventing infinite retry loops.
 
-**v2.2 adds two improvements to reduce "Unknown" classifications:**
+**v2.2 adds improvements to reduce "Unknown" classifications and improve accuracy:**
 1. **Better search query**: DuckDuckGo search now includes "headquarters country location" for more targeted results
-2. **LinkedIn URL extraction**: Parses `linkedin.com/company/` URLs from search results and looks them up via Amplemarket's LinkedIn API — a new enrichment path between web search and Gemini inference
+2. **LinkedIn URL extraction**: Parses `linkedin.com/company/` URLs from both website scrape and search results, looks them up via Amplemarket's LinkedIn API — a new enrichment path before Gemini inference
+3. **Stricter Gemini prompt** (v2.2.2): Anti-hallucination rules (no guessing from language alone, no confusing similarly named companies, 80% confidence threshold), country name normalization (England → United Kingdom, Holland → Netherlands)
+4. **Jina rate limit protection** (v2.2.2): Both Jina nodes batched at 2 items / 5s to prevent HTTP 451 abuse detection blocks
 
 **Workflow ID**: `h4Dwz3Z2bhksWYly`
 **n8n URL**: `https://legalfly.app.n8n.cloud/workflow/h4Dwz3Z2bhksWYly`
@@ -20,7 +22,7 @@ Manual workflow to backfill the `country` property for HubSpot companies that ha
 flowchart TD
     Start([Manual Trigger]) --> Init["Initialize State\n{after: null, allCompanies: [], maxPages: 1}"]
     Init --> Pass["Pass State"]
-    Pass --> Fetch["Fetch Companies Page\nHubSpot Search API, limit:10"]
+    Pass --> Fetch["Fetch Companies Page\nHubSpot Search API, limit: 100"]
     Fetch --> Accum["Accumulate Results\nmerge pages, extract cursor"]
     Accum --> More{IF More Pages\nafter cursor not empty?}
     More -->|TRUE: loop back| Pass
@@ -45,9 +47,9 @@ flowchart TD
 
     CheckAmp -->|NO| JinaScrape["Jina Website Scrape\nGET r.jina.ai/{domain}\n10s timeout"]
     JinaScrape --> CheckWebsite{Website Data\ncontent + no warning + len>200?}
-    CheckWebsite -->|YES| PrepGemini["Prepare Gemini Input\nclean + truncate content"]
-    CheckWebsite -->|NO| JinaSearch["DuckDuckGo Web Search\nGET r.jina.ai/duckduckgo.com/?q={name}+headquarters+country+location"]
-    JinaSearch --> ExtractLinkedIn["Extract LinkedIn URL\nparse linkedin.com/company/ from results"]
+    CheckWebsite -->|YES| ExtractLinkedIn["Extract LinkedIn URL\nparse linkedin.com/company/\nfrom website + search"]
+    CheckWebsite -->|NO| JinaSearch["DuckDuckGo Web Search\nGET r.jina.ai/duckduckgo.com/?q={name}\n+headquarters+country+location"]
+    JinaSearch --> ExtractLinkedIn
     ExtractLinkedIn --> CheckLinkedIn{Has LinkedIn URL?}
     CheckLinkedIn -->|YES| AmpLinkedIn["Amplemarket LinkedIn Lookup\nGET /companies/find?linkedin_url="]
     CheckLinkedIn -->|NO| PrepGemini
@@ -80,7 +82,7 @@ flowchart TD
 | **Manual Trigger** (`v2-trigger`) | manualTrigger | Manual execution only |
 | **Initialize State** (`v2-init`) | code | Emits `{ after: null, allCompanies: [], pageCount: 0, maxPages: 1 }` — seeds the pagination loop |
 | **Pass State** (`v2-pass`) | code | Forwards `{ after, allCompanies, pageCount, maxPages }` into the next fetch iteration |
-| **Fetch Companies Page** (`v2-fetch`) | httpRequest | POST `https://api.hubapi.com/crm/v3/objects/companies/search` — filters `country NOT_HAS_PROPERTY`, fetches `name` and `domain`. `limit: 10`. Retry: 3x, 2s. Auth: `hubspotAppToken` |
+| **Fetch Companies Page** (`v2-fetch`) | httpRequest | POST `https://api.hubapi.com/crm/v3/objects/companies/search` — filters `country NOT_HAS_PROPERTY`, fetches `name` and `domain`. `limit: 100`. Retry: 3x, 2s. Auth: `hubspotAppToken` |
 | **Accumulate Results** (`v2-accumulate`) | code | Merges page results into `allCompanies`, extracts `paging.next.after` cursor, stops at `maxPages` |
 | **IF More Pages** (`v2-if-more`) | if | `after` cursor not empty → TRUE (loop back to Pass State). Empty → FALSE (proceed to split) |
 | **Split All Companies** (`v2-split`) | code | Maps `allCompanies` array into individual items with `{ id, properties }` |
@@ -115,15 +117,15 @@ flowchart TD
 
 | Node | Type | Config |
 |------|------|--------|
-| **Jina Website Scrape** (`v2-jina-scrape`) | httpRequest | `GET https://r.jina.ai/https://{domain}`. Returns markdown content. Headers: `Authorization: Bearer {JINA_KEY}`, `Accept: application/json`, `X-Return-Format: markdown`. Timeout: 10s, no retries. `onError: continueRegularOutput` |
+| **Jina Website Scrape** (`v2-jina-scrape`) | httpRequest | `GET https://r.jina.ai/https://{domain}`. Returns markdown content. Headers: `Authorization: Bearer {JINA_KEY}`, `Accept: application/json`, `X-No-Cache: true`. Timeout: 10s, no retries. Batching: 2 items/5s. `onError: continueRegularOutput` |
 | **Check Website Data** (`v2-check-website`) | if | 3-condition quality gate: content `notEmpty` AND no `warning` AND content length > 200. Catches 404s, Wix errors, empty pages |
-| **Jina Web Search** (`v2-jina-search`) | httpRequest | `GET https://r.jina.ai/https://duckduckgo.com/?q={companyName}+headquarters+country+location`. DuckDuckGo results via Jina Reader. Same auth headers. Timeout: 10s, retry 3x/5s. Batching: 2 items/3s. **v2.2**: query now includes "headquarters country location" for more targeted results |
+| **Jina Web Search** (`v2-jina-search`) | httpRequest | `GET https://r.jina.ai/https://duckduckgo.com/?q={companyName}+headquarters+country+location`. DuckDuckGo results via Jina Reader. Same auth headers. Timeout: 10s, no retries. Batching: 2 items/5s. `onError: continueRegularOutput`. **v2.2**: query includes "headquarters country location" for more targeted results |
 | **Extract LinkedIn URL** (`v2-extract-linkedin`) | code | **NEW in v2.2**. Parses both Jina Website Scrape and Jina Web Search content for `linkedin.com/company/` URLs using regex (try/catch for whichever source is in the execution path). Receives items from both Check Website Data TRUE and Jina Web Search. Passes through all company data + `linkedinUrl` field |
 | **Check Has LinkedIn URL** (`v2-check-linkedin`) | if | **NEW in v2.2**. `linkedinUrl` not empty → Amplemarket LinkedIn Lookup / empty → Prepare Gemini Input |
 | **Amplemarket LinkedIn Lookup** (`v2-amp-linkedin`) | httpRequest | **NEW in v2.2**. `GET https://api.amplemarket.com/companies/find?linkedin_url={linkedinUrl}`. Auth: `httpHeaderAuth` (credential: `amplemarket`). `onError: continueRegularOutput`, retry 3x/2s |
 | **Parse LinkedIn Amplemarket Country** (`v2-parse-amp-linkedin`) | code | **NEW in v2.2**. Extracts primary location country from `locations` array (same logic as Parse Amplemarket Country). Sets `countryFromAmplemarket` and `enrichmentViaLinkedIn: true` |
 | **Check LinkedIn Amplemarket Got Country** (`v2-check-amp-linkedin`) | if | **NEW in v2.2**. `countryFromAmplemarket` not empty → Prepare Result / empty → Prepare Gemini Input |
-| **Prepare Gemini Input** (`v2-prep-gemini`) | code | Tries website content first (secondary quality check), falls back to search. Cleans markdown images, cookie notices, DuckDuckGo boilerplate. Truncates to 3000 chars. Builds prompt with evidence requirement. Outputs `contentSource` (`website` or `search`) |
+| **Prepare Gemini Input** (`v2-prep-gemini`) | code | Tries website content first (secondary quality check), falls back to search. Cleans markdown images, cookie notices, DuckDuckGo boilerplate/ads. Truncates to 6000 chars. Builds strict anti-hallucination prompt with evidence requirement, 80% confidence threshold, and country name normalization rules. Outputs `contentSource` (`website` or `search`) |
 | **Gemini Inference** (`v2-gemini`) | httpRequest | `POST gemini-2.5-flash:generateContent`. Temperature 0.1. **NO tools** (no `google_search`). Content-only analysis. Auth: `googlePalmApi`. Retry 3x/2s |
 | **Parse Gemini Response** (`v2-parse-gemini`) | code | Extracts `{country, evidence}` from JSON response. Strips markdown code fences. Passes `contentSource` downstream |
 | **Check Gemini Got Country** (`v2-check-gemini`) | if | `geminiCountry` not empty → Prepare Result / empty → Prepare Unknown |
@@ -178,8 +180,8 @@ flowchart TD
 | **Fetch Companies Page** | `retryOnFail: true`, `maxTries: 3`, `waitBetweenTries: 2000` |
 | **Amplemarket Domain API** | `onError: continueRegularOutput`, retry 3x/2s |
 | **Amplemarket LinkedIn Lookup** | `onError: continueRegularOutput`, retry 3x/2s |
-| **Jina Website Scrape** | `onError: continueRegularOutput`, timeout 10s, **no retries** |
-| **Jina Web Search** | `onError: continueRegularOutput`, timeout 10s, retry 3x/5s |
+| **Jina Website Scrape** | `onError: continueRegularOutput`, timeout 10s, **no retries**, batching 2/5s |
+| **Jina Web Search** | `onError: continueRegularOutput`, timeout 10s, **no retries**, batching 2/5s |
 | **Gemini Inference** | `onError: continueRegularOutput`, retry 3x/2s |
 | **Update HubSpot** | `onError: continueRegularOutput`, retry 3x/2s |
 
@@ -195,9 +197,11 @@ flowchart TD
 - **Scrape-first, search-fallback**: When a domain exists, Jina scrapes the actual website. If scraping returns low-quality content, falls back to DuckDuckGo search.
 - **3-condition website quality gate**: Check Website Data verifies content is not empty, has no Jina warning (catches 404s, Wix errors), and exceeds 200 chars. Prevents garbage content from being sent to Gemini.
 - **DuckDuckGo boilerplate stripping**: Prepare Gemini Input strips navigation/UI boilerplate before the first numbered result, removes footer sections, and strips per-result action links.
-- **Content truncation to 3000 chars**: Controls Gemini token usage (~1200 tokens per call including prompt).
+- **Content truncation to 6000 chars**: Covers footer/about sections that often contain addresses and phone numbers. Still trivial for Gemini (< 2500 tokens vs 1M context).
+- **Strict Gemini prompt** (v2.2.2): Conservative "when in doubt, Unknown" stance. Anti-hallucination rules: don't guess from language alone (French ≠ France), don't confuse similarly named companies (apollosuccess.io ≠ apollo.io), don't default to US for English content. 80% confidence threshold. Country name normalization (England → United Kingdom, Holland → Netherlands).
 - **Evidence requirement**: Gemini must quote actual text from the content, not use its own knowledge.
 - **NO Gemini tools**: The Gemini call has no `google_search` tool — it can only analyze the content provided.
+- **Jina rate limit protection** (v2.2.2): Both Jina nodes batched at 2 items / 5s intervals. Without batching, rapid requests to many different domains triggered Jina's "DDoS attack suspected: Too many domains" abuse detection (HTTP 451), which blocked all access to duckduckgo.com as collateral damage.
 - **10s timeout, no retries on Jina scrape**: Dead domains would hang Jina indefinitely. 10s timeout with no retries prevents blocking.
 - **`countryRegion` for HubSpot writes**: `country` is a standard HubSpot property. Writing it via `customPropertiesUi` silently fails — must use the built-in `countryRegion` field under `updateFields` instead.
 - **`$getWorkflowStaticData('node')` for single Slack message**: When items take different paths through IF nodes, they arrive at downstream convergence nodes as separate batches. Neither `$('NodeName').all()` nor the Aggregate node reliably waits for all batches. Static data accumulates items across batches and only produces output when `length >= totalExpected`. Uses `$execution.id` to reset between runs.
@@ -212,7 +216,7 @@ flowchart TD
 | HubSpot | `hubspot` | hubspotAppToken | Company search + update |
 | Google Gemini | `Gemini` | googlePalmApi | Content analysis inference |
 | Amplemarket | `amplemarket` | httpHeaderAuth | Domain + LinkedIn company lookup |
-| Jina | *(inline Bearer token)* | sendHeaders | Website scrape + DuckDuckGo search |
+| Jina | `Jina` | httpHeaderAuth | Website scrape + DuckDuckGo search |
 | Slack | `Slack` | slackApi | Summary notification |
 
 ---
