@@ -1,43 +1,75 @@
 flowchart TD
-    Start([Manual Trigger]) --> Init["Initialize State<br/>{after: null, allCompanies: [], pageCount: 0, maxPages: 1}"]
+    Start([Manual Trigger]) --> Init["Initialize State\n{after: null, allCompanies: [], maxPages: 1}"]
     Init --> Pass["Pass State"]
-    Pass --> Fetch["Fetch Companies Page<br/>HubSpot Search API, limit:10"]
-    Fetch --> Accum["Accumulate Results<br/>merge pages, extract cursor"]
-    Accum --> More{IF More Pages<br/>after cursor not empty?}
-    More -->|TRUE: loop back| Pass
-    More -->|FALSE: done| Split["Split All Companies"]
-    Split --> Prepare["Prepare Company Data<br/>companyId, companyName, domain"]
+    Pass --> Fetch["Fetch Companies Page\nHubSpot Search API, limit: 10"]
+    Fetch --> Accum["Accumulate Results\nmerge pages, extract cursor"]
+    Accum --> More{"IF More Pages\nafter cursor not empty?"}
+    More -->|"TRUE: loop back"| Pass
+    More -->|"FALSE: done"| Split["Split All Companies"]
+    Split --> Prepare["Prepare Company Data\ncompanyId, companyName, domain"]
 
-    Prepare --> CheckDomain{Check Has Domain?}
-    CheckDomain -->|YES| TLD["Extract TLD Country<br/>120+ country TLDs"]
-    CheckDomain -->|NO| NameScan["Extract Country from Name<br/>130+ country names"]
-    TLD --> CheckTLD{TLD Resolved?}
-    CheckTLD -->|YES| Result
-    CheckTLD -->|NO| NameScan
-    NameScan --> CheckName{Name Got Country?}
-    CheckName -->|YES| Result
+    Prepare --> CheckDomain{"Check Has Domain\ndomain not empty?"}
+    CheckDomain -->|"YES"| TLD["Extract TLD Country\n120+ country TLDs"]
+    CheckDomain -->|"NO"| NameScan["Extract Country from Name\n130+ country names"]
+    TLD --> CheckTLD{"TLD Resolved?"}
+    CheckTLD -->|"YES"| Result
+    CheckTLD -->|"NO"| NameScan
+    NameScan --> CheckName{"Name Got Country?"}
+    CheckName -->|"YES"| Result
 
-    CheckName -->|NO| CheckDomainAmp{Has Domain<br/>for Amplemarket?}
-    CheckDomainAmp -->|YES| AmpDomain["Amplemarket Domain API<br/>GET /companies/find?domain="]
-    CheckDomainAmp -->|NO| JinaSearch
+    CheckName -->|"NO"| CheckDomainAmp{"Has Domain\nfor Amplemarket?"}
+    CheckDomainAmp -->|"YES"| AmpDomain["Amplemarket Domain API\nGET /companies/find?domain="]
+    CheckDomainAmp -->|"NO"| JinaSearch
     AmpDomain --> ParseAmp["Parse Amplemarket Country"]
-    ParseAmp --> CheckAmp{Got Country?}
-    CheckAmp -->|YES| Result
+    ParseAmp --> CheckAmp{"Got Country?"}
+    CheckAmp -->|"YES"| Result
 
-    CheckAmp -->|NO| JinaScrape["Jina Website Scrape<br/>GET r.jina.ai/{domain}<br/>10s timeout"]
-    JinaScrape --> CheckWebsite{Website Data<br/>content + no warning + len>200?}
-    CheckWebsite -->|YES| PrepGemini["Prepare Gemini Input<br/>clean + truncate content"]
-    CheckWebsite -->|NO| JinaSearch["DuckDuckGo Web Search<br/>GET r.jina.ai/duckduckgo.com/?q={name}<br/>10s timeout"]
+    CheckAmp -->|"NO"| JinaScrape["Jina Website Scrape\nGET r.jina.ai/{domain}\n10s timeout"]
+    JinaScrape --> CheckWebsite{"Website Data\ncontent + no warning + len > 200?"}
+    CheckWebsite -->|"YES"| PrepGemini["Prepare Gemini Input\nclean + truncate content"]
+    CheckWebsite -->|"NO"| JinaSearch["DuckDuckGo Web Search\nGET r.jina.ai/duckduckgo.com/?q={name}\n10s timeout"]
     JinaSearch --> PrepGemini
-    PrepGemini --> Gemini["Gemini Inference<br/>gemini-2.5-flash, temp 0.1<br/>NO tools, content-only"]
-    Gemini --> ParseGemini["Parse Gemini Response<br/>JSON {country, evidence}"]
-    ParseGemini --> CheckGemini{Got Country?}
-    CheckGemini -->|YES| Result
-    CheckGemini -->|NO| Unknown["Prepare Unknown<br/>country='Unknown'"]
+    PrepGemini --> Gemini["Gemini Inference\ngemini-2.5-flash, temp 0.1\nNO tools, content-only"]
+    Gemini --> ParseGemini["Parse Gemini Response\nJSON {country, evidence}"]
+    ParseGemini --> CheckGemini{"Got Country?"}
+    CheckGemini -->|"YES"| Result
+    CheckGemini -->|"NO"| Unknown["Prepare Unknown\ncountry = 'Unknown'"]
 
-    Result["Prepare Result<br/>country + enrichmentSource"] --> Snapshot
+    Result["Prepare Result\ncountry + enrichmentSource"] --> Snapshot
     Unknown --> Snapshot["Snapshot Data"]
-    Snapshot --> UpdateHS["Update HubSpot<br/>country + countryenrichmentsource"]
+    Snapshot --> UpdateHS["Update HubSpot\ncountry + countryenrichmentsource"]
     UpdateHS --> Restore["Restore Data"]
-    Restore --> Format["Format Summary<br/>single Slack message<br/>uses $('Restore Data').all()"]
-    Format --> Slack["Send Slack"]
+    Restore --> Format["Format Summary\nsingle Slack message\nuses $getWorkflowStaticData"]
+    Format --> Slack["Send Slack\nchannel C0AG86U9927"]
+
+    style Start fill:#e1f5fe
+    style Init fill:#f3e5f5
+    style Pass fill:#f3e5f5
+    style Fetch fill:#f3e5f5
+    style Accum fill:#f3e5f5
+    style More fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Split fill:#f3e5f5
+    style Prepare fill:#f3e5f5
+    style CheckDomain fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style TLD fill:#e8eaf6
+    style CheckTLD fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style NameScan fill:#e8eaf6
+    style CheckName fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style CheckDomainAmp fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style AmpDomain fill:#e3f2fd
+    style ParseAmp fill:#e8eaf6
+    style CheckAmp fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style JinaScrape fill:#e3f2fd
+    style CheckWebsite fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style JinaSearch fill:#e3f2fd
+    style PrepGemini fill:#e8eaf6
+    style Gemini fill:#c7e9f4,stroke:#0277bd,stroke-width:2px
+    style ParseGemini fill:#e8eaf6
+    style CheckGemini fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Result fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style Unknown fill:#ffcdd2
+    style Snapshot fill:#e8f5e9
+    style UpdateHS fill:#c8e6c9
+    style Restore fill:#e8f5e9
+    style Format fill:#e8f5e9
+    style Slack fill:#b3e5fc
