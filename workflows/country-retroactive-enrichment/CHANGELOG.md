@@ -2,30 +2,40 @@
 
 ## v2.1 (2026-02-24)
 
-Replace Gemini internal knowledge with Jina web scraping + Gemini content analysis.
+Replace Gemini internal knowledge with Jina web scraping + Gemini content analysis. Multiple iterations to optimize search, content quality, and Slack output.
 
 ### Added
-- **Jina Website Scrape**: Scrapes company website via `r.jina.ai` to get real markdown content
-- **Check Website Data**: IF node to verify scrape returned content
-- **Jina Web Search**: Fallback search via `s.jina.ai` for "{companyName} headquarters country" when scrape fails or no domain
-- **Prepare Gemini Input**: Cleans/truncates content (3000 chars website, 2000 chars search), builds evidence-based prompt
-- **Gemini Inference**: Single Gemini call with NO tools -- analyzes only the provided web content
+- **Jina Website Scrape**: Scrapes company website via `r.jina.ai` to get real markdown content (10s timeout, no retries)
+- **Check Website Data**: IF node with 3-condition quality gate (content notEmpty, no warning, length > 200)
+- **Jina Web Search**: DuckDuckGo search via `r.jina.ai/https://duckduckgo.com/?q={companyName}` — fallback when scrape fails or no domain
+- **Prepare Gemini Input**: Cleans/truncates content (3000 chars), strips DuckDuckGo boilerplate, builds evidence-based prompt
+- **Gemini Inference**: Single Gemini call with NO tools — analyzes only the provided web content
 - **Parse Gemini Response**: Extracts `{country, evidence}` from Gemini JSON response
 - **Check Gemini Got Country**: Routes to result or unknown fallback
 
 ### Changed
-- Enrichment source renamed from "Gemini blind" / "Gemini grounded" to "Jina+Gemini"
+- **Enrichment sources standardized**: Domain Code, Company Name, Amplemarket, Website, Web Search, Unresolved
+- **Web search uses DuckDuckGo** instead of `s.jina.ai` — better search results, no rate limits
+- **DuckDuckGo boilerplate stripping** in Prepare Gemini Input — removes navigation/footer before truncation
+- **Website scrape quality gate** — rejects 404 pages, Wix errors, and content < 200 chars
+- **Jina nodes have 10s timeout** and no retries to prevent hanging on dead domains
+- **Slack summary**: Single message per execution with enriched/unknown sections and HubSpot View links
+- **Format Summary uses `$('Restore Data').all()`** to collect all items across batches — sends one message
+- **Aggregate node removed** — Format Summary now runs in `runOnceForAllItems` mode
 - Gemini prompt now requires evidence (quoted text from page), not just a country name
 - Slack summary version updated to v2.1
-- Node count: 33 -> 32 (removed 8, added 7)
+- Node count: 33 -> 31
 
 ### Removed
-- **Gemini Blind Pass** (4 nodes): `v2-prep-blind`, `v2-gemini-blind`, `v2-parse-blind`, `v2-check-blind` -- hallucinated on obscure companies
-- **Gemini Grounded Pass** (4 nodes): `v2-prep-grounded`, `v2-gemini-grounded`, `v2-parse-grounded`, `v2-check-grounded` -- black box, couldn't see what pages Gemini read
+- **Gemini Blind Pass** (4 nodes): `v2-prep-blind`, `v2-gemini-blind`, `v2-parse-blind`, `v2-check-blind` — hallucinated on obscure companies
+- **Gemini Grounded Pass** (4 nodes): `v2-prep-grounded`, `v2-gemini-grounded`, `v2-parse-grounded`, `v2-check-grounded` — black box, couldn't see what pages Gemini read
+- **Aggregate All Results** node — replaced by `$('Restore Data').all()` pattern in Format Summary
 
 ### Why
-- Gemini Blind classified "dewitlawoffice" as Netherlands (actually Belgium) -- LLM internal knowledge is unreliable
-- Gemini Grounded with google_search tool was a black box -- no way to debug what pages were read
+- Gemini Blind classified "dewitlawoffice" as Netherlands (actually Belgium) — LLM internal knowledge is unreliable
+- Gemini Grounded with google_search tool was a black box — no way to debug what pages were read
+- `s.jina.ai` search API returned poor results — "kode legal" misclassified as US instead of UK
+- DuckDuckGo via `r.jina.ai` provides real, visible search results with better accuracy
 - Jina provides real, visible web content that Gemini can only analyze (not hallucinate about)
 
 ## v2.0 (2026-02-23)

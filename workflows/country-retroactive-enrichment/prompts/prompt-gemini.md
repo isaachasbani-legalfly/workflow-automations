@@ -1,6 +1,6 @@
 # Gemini Prompt — Country Identification from Web Content (v2.1)
 
-Used by the **Prepare Gemini Input** node (`v2-prep-gemini`). Gemini receives real web content scraped by Jina (website or search results) and must identify the country based ONLY on that content.
+Used by the **Prepare Gemini Input** node (`v2-prep-gemini`). Gemini receives real web content scraped by Jina (website or DuckDuckGo search results) and must identify the country based ONLY on that content.
 
 ## Template
 
@@ -39,24 +39,26 @@ RULES:
 |----------|--------|------------|
 | `companyName` | `$('Prepare Company Data').item.json.companyName` | -- |
 | `domain` | `$('Prepare Company Data').item.json.domain` | -- |
-| `truncatedContent` | Jina website scrape or search results | 3000 chars (website) / 2000 chars (search) |
+| `truncatedContent` | Jina website scrape or DuckDuckGo search results | 3000 chars |
 
 ## Content Sources
 
-1. **Website scrape** (primary): `$('Jina Website Scrape').item.json.data.content` -- markdown of the company's homepage
-2. **Web search** (fallback): `$('Jina Web Search').item.json.data[]` -- top 5 search results for "{companyName} headquarters country"
+1. **Website scrape** (primary): `$('Jina Website Scrape').item.json.data.content` — markdown of the company's homepage
+2. **DuckDuckGo search** (fallback): `$('Jina Web Search').item.json.data.content` — scraped DuckDuckGo results page for `{companyName}`
 
 ## Content Cleaning
 
 Before feeding to Gemini, the Prepare Gemini Input code node:
-- Strips markdown images (`![...](...)`)
-- Removes image URLs (`.png`, `.jpg`, `.svg`, etc.)
+- Strips markdown images (`![...](...)`), image URLs (`.png`, `.jpg`, `.svg`, etc.)
 - Removes cookie policy/notice/consent text
+- **Website scrape**: Secondary quality check (rejects warnings + content < 200 chars)
+- **DuckDuckGo search**: Strips navigation boilerplate before first numbered result, removes footer ("More results"), strips per-result action links (Block/Redo/Search domain)
 - Collapses triple+ newlines to double
-- Truncates to max chars limit
+- Truncates to 3000 chars
 
 ## Key Differences from v2.0
 
-- **v2.0 blind pass**: Used Gemini's internal knowledge (no web content) -- hallucinated on obscure companies
-- **v2.0 grounded pass**: Used `google_search` tool -- black box, couldn't see what pages were read
-- **v2.1**: Jina scrapes real content, feeds it to Gemini with NO tools -- full transparency and evidence-based
+- **v2.0 blind pass**: Used Gemini's internal knowledge (no web content) — hallucinated on obscure companies
+- **v2.0 grounded pass**: Used `google_search` tool — black box, couldn't see what pages were read
+- **v2.1**: Jina scrapes real content, feeds it to Gemini with NO tools — full transparency and evidence-based
+- **v2.1 search**: Uses DuckDuckGo via `r.jina.ai` instead of `s.jina.ai` — better search quality

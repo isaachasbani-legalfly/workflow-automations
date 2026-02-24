@@ -1,7 +1,7 @@
 flowchart TD
     Start([Manual Trigger]) --> Init["Initialize State<br/>{after: null, allCompanies: [], pageCount: 0, maxPages: 1}"]
     Init --> Pass["Pass State"]
-    Pass --> Fetch["Fetch Companies Page<br/>HubSpot Search API, limit:100"]
+    Pass --> Fetch["Fetch Companies Page<br/>HubSpot Search API, limit:10"]
     Fetch --> Accum["Accumulate Results<br/>merge pages, extract cursor"]
     Accum --> More{IF More Pages<br/>after cursor not empty?}
     More -->|TRUE: loop back| Pass
@@ -24,10 +24,10 @@ flowchart TD
     ParseAmp --> CheckAmp{Got Country?}
     CheckAmp -->|YES| Result
 
-    CheckAmp -->|NO| JinaScrape["Jina Website Scrape<br/>GET r.jina.ai/{domain}"]
-    JinaScrape --> CheckWebsite{Website Data<br/>has content?}
+    CheckAmp -->|NO| JinaScrape["Jina Website Scrape<br/>GET r.jina.ai/{domain}<br/>10s timeout"]
+    JinaScrape --> CheckWebsite{Website Data<br/>content + no warning + len>200?}
     CheckWebsite -->|YES| PrepGemini["Prepare Gemini Input<br/>clean + truncate content"]
-    CheckWebsite -->|NO| JinaSearch["Jina Web Search<br/>GET s.jina.ai/?q={name} HQ"]
+    CheckWebsite -->|NO| JinaSearch["DuckDuckGo Web Search<br/>GET r.jina.ai/duckduckgo.com/?q={name}<br/>10s timeout"]
     JinaSearch --> PrepGemini
     PrepGemini --> Gemini["Gemini Inference<br/>gemini-2.5-flash, temp 0.1<br/>NO tools, content-only"]
     Gemini --> ParseGemini["Parse Gemini Response<br/>JSON {country, evidence}"]
@@ -39,6 +39,5 @@ flowchart TD
     Unknown --> Snapshot["Snapshot Data"]
     Snapshot --> UpdateHS["Update HubSpot<br/>country + countryenrichmentsource"]
     UpdateHS --> Restore["Restore Data"]
-    Restore --> Aggregate["Aggregate All Results"]
-    Aggregate --> Format["Format Summary<br/>source distribution stats"]
+    Restore --> Format["Format Summary<br/>single Slack message<br/>uses $('Restore Data').all()"]
     Format --> Slack["Send Slack"]
