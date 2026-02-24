@@ -4,6 +4,20 @@ All notable changes to the Country Retroactive Enrichment workflow will be docum
 
 ---
 
+## [2.2.1] - 2026-02-24
+
+### Fixed — IF node operator + LinkedIn extraction from website scrape
+
+**Fix 1 — IF node operator name**: The two new IF nodes (`v2-check-linkedin`, `v2-check-amp-linkedin`) used `"isNotEmpty"` operator, but n8n v2.2 IF nodes require `"notEmpty"`. Updated both to `typeVersion: 2.2` with correct operator. This was causing all items to route to FALSE (bypassing Amplemarket LinkedIn lookup entirely).
+
+**Fix 2 — LinkedIn extraction from website scrape**: The Extract LinkedIn URL node previously only parsed DuckDuckGo search results. Now it also parses Jina Website Scrape content (company websites often have LinkedIn links in their footer). Check Website Data TRUE now routes to Extract LinkedIn URL instead of directly to Prepare Gemini Input.
+
+**Connection change**: Check Website Data TRUE → Extract LinkedIn URL (was → Prepare Gemini Input). Both website scrape and web search paths now merge into the same LinkedIn extraction chain before falling through to Gemini.
+
+**Workflow ID**: `h4Dwz3Z2bhksWYly`
+
+---
+
 ## [2.2.0] - 2026-02-24
 
 ### Added — Better search query + LinkedIn URL extraction for Amplemarket

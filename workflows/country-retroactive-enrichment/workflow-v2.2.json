@@ -298,8 +298,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1504,
-        512
+        1776,
+        320
       ]
     },
     {
@@ -331,8 +331,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2144,
-        624
+        1952,
+        656
       ]
     },
     {
@@ -356,8 +356,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3456,
-        448
+        2304,
+        496
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -380,8 +380,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3744,
-        448
+        2592,
+        496
       ]
     },
     {
@@ -413,8 +413,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        4048,
-        448
+        3072,
+        336
       ]
     },
     {
@@ -450,8 +450,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4432,
-        464
+        3280,
+        512
       ],
       "retryOnFail": false,
       "maxTries": 3,
@@ -512,8 +512,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        4752,
-        464
+        3600,
+        512
       ]
     },
     {
@@ -549,8 +549,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4752,
-        896
+        3088,
+        992
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -573,8 +573,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6452,
-        704
+        4976,
+        1136
       ]
     },
     {
@@ -593,8 +593,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        6756,
-        704
+        5360,
+        608
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -617,8 +617,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        7060,
-        704
+        5664,
+        608
       ]
     },
     {
@@ -650,8 +650,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        7348,
-        704
+        5952,
+        608
       ]
     },
     {
@@ -664,8 +664,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        7700,
-        -400
+        5216,
+        -224
       ]
     },
     {
@@ -678,8 +678,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        7700,
-        912
+        6304,
+        816
       ]
     },
     {
@@ -725,8 +725,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        8004,
-        304
+        6608,
+        352
       ]
     },
     {
@@ -755,8 +755,8 @@
       "type": "n8n-nodes-base.hubspot",
       "typeVersion": 2.2,
       "position": [
-        8308,
-        304
+        6912,
+        352
       ],
       "retryOnFail": true,
       "maxTries": 3,
@@ -779,8 +779,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        8612,
-        304
+        7216,
+        352
       ]
     },
     {
@@ -792,8 +792,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        9204,
-        304
+        7520,
+        352
       ]
     },
     {
@@ -812,8 +812,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        9508,
-        304
+        7824,
+        352
       ],
       "webhookId": "608f6350-459d-4aba-a5d6-4ebaa0c00ca7",
       "credentials": {
@@ -824,33 +824,26 @@
       }
     },
     {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const companyData = $('Prepare Company Data').item.json;\nlet content = '';\n\n// Try website scrape content (available when coming from Check Website Data TRUE path)\ntry {\n  const scrapeData = $('Jina Website Scrape').item.json;\n  const webContent = (scrapeData.data || {}).content || '';\n  if (webContent) content += webContent + '\\n';\n} catch(e) {}\n\n// Try search results content (available when coming from Jina Web Search path)\ntry {\n  const searchData = $('Jina Web Search').item.json;\n  const searchContent = (searchData.data || {}).content || '';\n  if (searchContent) content += searchContent;\n} catch(e) {}\n\nconst linkedinMatch = content.match(/https?:\\/\\/(?:www\\.)?linkedin\\.com\\/company\\/[a-zA-Z0-9_-]+/i);\nconst linkedinUrl = linkedinMatch ? linkedinMatch[0] : '';\n\nreturn {\n  json: {\n    ...companyData,\n    linkedinUrl\n  }\n};"
+      },
       "id": "v2-extract-linkedin",
       "name": "Extract LinkedIn URL",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5052,
-        896
-      ],
-      "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "const companyData = $('Prepare Company Data').item.json;\nconst searchResult = $json;\nconst content = (searchResult.data || {}).content || searchResult.content || '';\n\nconst linkedinMatch = content.match(/https?:\\/\\/(?:www\\.)?linkedin\\.com\\/company\\/[a-zA-Z0-9_-]+/i);\nconst linkedinUrl = linkedinMatch ? linkedinMatch[0] : '';\n\nreturn {\n  json: {\n    ...companyData,\n    linkedinUrl\n  }\n};"
-      }
+        3392,
+        992
+      ]
     },
     {
-      "id": "v2-check-linkedin",
-      "name": "Check Has LinkedIn URL",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        5302,
-        896
-      ],
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true,
+            "version": 2,
             "leftValue": "",
+            "caseSensitive": true,
             "typeValidation": "strict"
           },
           "conditions": [
@@ -860,23 +853,24 @@
               "rightValue": "",
               "operator": {
                 "type": "string",
-                "operation": "isNotEmpty"
+                "operation": "notEmpty"
               }
             }
           ],
           "combinator": "and"
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "v2-check-linkedin",
+      "name": "Check Has LinkedIn URL",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3728,
+        992
+      ]
     },
     {
-      "id": "v2-amp-linkedin",
-      "name": "Amplemarket LinkedIn Lookup",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        5552,
-        796
-      ],
       "parameters": {
         "url": "https://api.amplemarket.com/companies/find",
         "authentication": "genericCredentialType",
@@ -892,45 +886,46 @@
         },
         "options": {}
       },
+      "id": "v2-amp-linkedin",
+      "name": "Amplemarket LinkedIn Lookup",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3968,
+        768
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "credentials": {
         "httpHeaderAuth": {
           "id": "Jx7A2XtklZuWBopq",
           "name": "amplemarket"
         }
       },
-      "onError": "continueRegularOutput",
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000
+      "onError": "continueRegularOutput"
     },
     {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $json;\nconst companyData = $('Prepare Company Data').item.json;\nconst linkedinUrl = $('Extract LinkedIn URL').item.json.linkedinUrl || '';\n\nconst locations = data.locations || [];\nconst primary = locations.find(l => l.is_primary) || locations[0] || {};\nconst countryFromAmplemarket = primary.country || '';\n\nreturn {\n  json: {\n    ...companyData,\n    linkedinUrl,\n    countryFromAmplemarket,\n    enrichmentViaLinkedIn: true\n  }\n};"
+      },
       "id": "v2-parse-amp-linkedin",
       "name": "Parse LinkedIn Amplemarket Country",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5802,
-        796
-      ],
-      "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "const data = $json;\nconst companyData = $('Prepare Company Data').item.json;\nconst linkedinUrl = $('Extract LinkedIn URL').item.json.linkedinUrl || '';\n\nconst locations = data.locations || [];\nconst primary = locations.find(l => l.is_primary) || locations[0] || {};\nconst countryFromAmplemarket = primary.country || '';\n\nreturn {\n  json: {\n    ...companyData,\n    linkedinUrl,\n    countryFromAmplemarket,\n    enrichmentViaLinkedIn: true\n  }\n};"
-      }
+        4432,
+        768
+      ]
     },
     {
-      "id": "v2-check-amp-linkedin",
-      "name": "Check LinkedIn Amplemarket Got Country",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        6102,
-        796
-      ],
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true,
+            "version": 2,
             "leftValue": "",
+            "caseSensitive": true,
             "typeValidation": "strict"
           },
           "conditions": [
@@ -940,13 +935,22 @@
               "rightValue": "",
               "operator": {
                 "type": "string",
-                "operation": "isNotEmpty"
+                "operation": "notEmpty"
               }
             }
           ],
           "combinator": "and"
-        }
-      }
+        },
+        "options": {}
+      },
+      "id": "v2-check-amp-linkedin",
+      "name": "Check LinkedIn Amplemarket Got Country",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4736,
+        768
+      ]
     }
   ],
   "connections": {
@@ -1194,7 +1198,7 @@
       "main": [
         [
           {
-            "node": "Prepare Gemini Input",
+            "node": "Extract LinkedIn URL",
             "type": "main",
             "index": 0
           }
@@ -1417,9 +1421,9 @@
   "staticData": null,
   "meta": null,
   "pinData": {},
-  "versionId": "04869225-3a5f-4215-b7bf-8df5474737c5",
+  "versionId": "17e8f8c4-1a73-4cc5-8bbc-9feba26ed296",
   "activeVersionId": null,
-  "versionCounter": 52,
+  "versionCounter": 82,
   "triggerCount": 0,
   "shared": [
     {

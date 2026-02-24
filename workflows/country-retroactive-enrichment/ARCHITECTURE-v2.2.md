@@ -118,7 +118,7 @@ flowchart TD
 | **Jina Website Scrape** (`v2-jina-scrape`) | httpRequest | `GET https://r.jina.ai/https://{domain}`. Returns markdown content. Headers: `Authorization: Bearer {JINA_KEY}`, `Accept: application/json`, `X-Return-Format: markdown`. Timeout: 10s, no retries. `onError: continueRegularOutput` |
 | **Check Website Data** (`v2-check-website`) | if | 3-condition quality gate: content `notEmpty` AND no `warning` AND content length > 200. Catches 404s, Wix errors, empty pages |
 | **Jina Web Search** (`v2-jina-search`) | httpRequest | `GET https://r.jina.ai/https://duckduckgo.com/?q={companyName}+headquarters+country+location`. DuckDuckGo results via Jina Reader. Same auth headers. Timeout: 10s, retry 3x/5s. Batching: 2 items/3s. **v2.2**: query now includes "headquarters country location" for more targeted results |
-| **Extract LinkedIn URL** (`v2-extract-linkedin`) | code | **NEW in v2.2**. Parses Jina Web Search output for `linkedin.com/company/` URLs using regex. Passes through all company data + `linkedinUrl` field |
+| **Extract LinkedIn URL** (`v2-extract-linkedin`) | code | **NEW in v2.2**. Parses both Jina Website Scrape and Jina Web Search content for `linkedin.com/company/` URLs using regex (try/catch for whichever source is in the execution path). Receives items from both Check Website Data TRUE and Jina Web Search. Passes through all company data + `linkedinUrl` field |
 | **Check Has LinkedIn URL** (`v2-check-linkedin`) | if | **NEW in v2.2**. `linkedinUrl` not empty → Amplemarket LinkedIn Lookup / empty → Prepare Gemini Input |
 | **Amplemarket LinkedIn Lookup** (`v2-amp-linkedin`) | httpRequest | **NEW in v2.2**. `GET https://api.amplemarket.com/companies/find?linkedin_url={linkedinUrl}`. Auth: `httpHeaderAuth` (credential: `amplemarket`). `onError: continueRegularOutput`, retry 3x/2s |
 | **Parse LinkedIn Amplemarket Country** (`v2-parse-amp-linkedin`) | code | **NEW in v2.2**. Extracts primary location country from `locations` array (same logic as Parse Amplemarket Country). Sets `countryFromAmplemarket` and `enrichmentViaLinkedIn: true` |
@@ -163,7 +163,7 @@ flowchart TD
 | **Check Name Got Country** | countryFromName not empty | Prepare Result | Check Has Domain for Amplemarket |
 | **Check Has Domain for Amplemarket** | domain not empty | Amplemarket Domain API | Jina Web Search |
 | **Check Amplemarket Got Country** | countryFromAmplemarket not empty | Prepare Result | Jina Website Scrape |
-| **Check Website Data** | content notEmpty AND no warning AND len > 200 | Prepare Gemini Input | Jina Web Search |
+| **Check Website Data** | content notEmpty AND no warning AND len > 200 | Extract LinkedIn URL | Jina Web Search |
 | **Check Has LinkedIn URL** | linkedinUrl not empty | Amplemarket LinkedIn Lookup | Prepare Gemini Input |
 | **Check LinkedIn Amplemarket Got Country** | countryFromAmplemarket not empty | Prepare Result | Prepare Gemini Input |
 | **Check Gemini Got Country** | geminiCountry not empty | Prepare Result | Prepare Unknown |
@@ -191,7 +191,7 @@ flowchart TD
 - **Jina replaces Gemini grounded search**: v2.0's grounded search was a black box — couldn't see what pages Gemini read. Jina scrape/search outputs are visible and debuggable.
 - **DuckDuckGo replaces s.jina.ai**: The `s.jina.ai` search API returned poor results — "kode legal" was misclassified as US instead of UK. DuckDuckGo via `r.jina.ai` provides real search engine results with better accuracy.
 - **"headquarters country location" in search query** (v2.2): Generic company names returned irrelevant results (sidebar "Related Searches" content). Adding location-specific keywords focuses DuckDuckGo on geographically relevant content.
-- **LinkedIn URL extraction from search results** (v2.2): DuckDuckGo results often include LinkedIn company page URLs. These can be used to look up the company via Amplemarket's `linkedin_url` parameter, which returns the same `locations` array as the domain lookup. This provides a high-confidence enrichment path for companies where Amplemarket's domain lookup failed but a LinkedIn page exists.
+- **LinkedIn URL extraction from both website scrape and search results** (v2.2): Company websites often have LinkedIn links in their footer, and DuckDuckGo results often include LinkedIn company page URLs. These can be used to look up the company via Amplemarket's `linkedin_url` parameter, which returns the same `locations` array as the domain lookup. This provides a high-confidence enrichment path for companies where Amplemarket's domain lookup failed but a LinkedIn page exists.
 - **Scrape-first, search-fallback**: When a domain exists, Jina scrapes the actual website. If scraping returns low-quality content, falls back to DuckDuckGo search.
 - **3-condition website quality gate**: Check Website Data verifies content is not empty, has no Jina warning (catches 404s, Wix errors), and exceeds 200 chars. Prevents garbage content from being sent to Gemini.
 - **DuckDuckGo boilerplate stripping**: Prepare Gemini Input strips navigation/UI boilerplate before the first numbered result, removes footer sections, and strips per-result action links.

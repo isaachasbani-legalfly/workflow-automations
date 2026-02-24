@@ -53,7 +53,7 @@ flowchart TD
 
     CheckAmp -->|"NO"| JinaScrape["Jina Website Scrape\nGET r.jina.ai/{domain}\n10s timeout"]
     JinaScrape --> CheckWebsite{"Website Data\ncontent + no warning + len > 200?"}
-    CheckWebsite -->|"YES"| PrepGemini["Prepare Gemini Input\nclean + truncate content"]
+    CheckWebsite -->|"YES"| ExtractLI
     CheckWebsite -->|"NO"| JinaSearch["DuckDuckGo Web Search\nGET r.jina.ai/duckduckgo.com/?q={name}+headquarters+country+location\n10s timeout"]
     JinaSearch --> ExtractLI["Extract LinkedIn URL\nparse linkedin.com/company/ from results"]
     ExtractLI --> CheckLI{"Has LinkedIn URL?"}
