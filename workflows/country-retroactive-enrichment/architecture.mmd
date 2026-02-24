@@ -1,5 +1,5 @@
 flowchart TD
-    Start([Manual Trigger]) --> Init["Initialize State<br/>{after: null, allCompanies: [], pageCount: 0, maxPages: 2}"]
+    Start([Manual Trigger]) --> Init["Initialize State<br/>{after: null, allCompanies: [], pageCount: 0, maxPages: 1}"]
     Init --> Pass["Pass State"]
     Pass --> Fetch["Fetch Companies Page<br/>HubSpot Search API, limit:100"]
     Fetch --> Accum["Accumulate Results<br/>merge pages, extract cursor"]
@@ -19,23 +19,21 @@ flowchart TD
 
     CheckName -->|NO| CheckDomainAmp{Has Domain<br/>for Amplemarket?}
     CheckDomainAmp -->|YES| AmpDomain["Amplemarket Domain API<br/>GET /companies/find?domain="]
-    CheckDomainAmp -->|NO| PrepBlind
+    CheckDomainAmp -->|NO| JinaSearch
     AmpDomain --> ParseAmp["Parse Amplemarket Country"]
     ParseAmp --> CheckAmp{Got Country?}
     CheckAmp -->|YES| Result
 
-    CheckAmp -->|NO| PrepBlind["Prepare Gemini Blind Input"]
-    PrepBlind --> GeminiBlind["Gemini Blind Inference<br/>gemini-2.5-flash, temp 0.1<br/>name+domain only"]
-    GeminiBlind --> ParseBlind["Parse Gemini Blind Response<br/>JSON {country, confidence}"]
-    ParseBlind --> CheckBlind{HIGH/MEDIUM<br/>confidence?}
-    CheckBlind -->|YES| Result
-
-    CheckBlind -->|NO| PrepGrounded["Prepare Gemini Grounded Input"]
-    PrepGrounded --> GeminiGrounded["Gemini Grounded Inference<br/>gemini-2.5-flash + Google Search<br/>temp 0.1"]
-    GeminiGrounded --> ParseGrounded["Parse Gemini Grounded Response"]
-    ParseGrounded --> CheckGrounded{Got Country?}
-    CheckGrounded -->|YES| Result
-    CheckGrounded -->|NO| Unknown["Prepare Unknown<br/>country='Unknown'"]
+    CheckAmp -->|NO| JinaScrape["Jina Website Scrape<br/>GET r.jina.ai/{domain}"]
+    JinaScrape --> CheckWebsite{Website Data<br/>has content?}
+    CheckWebsite -->|YES| PrepGemini["Prepare Gemini Input<br/>clean + truncate content"]
+    CheckWebsite -->|NO| JinaSearch["Jina Web Search<br/>GET s.jina.ai/?q={name} HQ"]
+    JinaSearch --> PrepGemini
+    PrepGemini --> Gemini["Gemini Inference<br/>gemini-2.5-flash, temp 0.1<br/>NO tools, content-only"]
+    Gemini --> ParseGemini["Parse Gemini Response<br/>JSON {country, evidence}"]
+    ParseGemini --> CheckGemini{Got Country?}
+    CheckGemini -->|YES| Result
+    CheckGemini -->|NO| Unknown["Prepare Unknown<br/>country='Unknown'"]
 
     Result["Prepare Result<br/>country + enrichmentSource"] --> Snapshot
     Unknown --> Snapshot["Snapshot Data"]
