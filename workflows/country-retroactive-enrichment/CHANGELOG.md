@@ -4,6 +4,42 @@ All notable changes to the Country Retroactive Enrichment workflow will be docum
 
 ---
 
+## [2.2.0] - 2026-02-24
+
+### Added — Better search query + LinkedIn URL extraction for Amplemarket
+
+**Problem**: 49/100 companies still classified as "Unknown" after v2.1 fixes. Root causes:
+1. DuckDuckGo returns irrelevant "Related Searches" sidebar content for generic company names
+2. No mechanism to leverage LinkedIn company URLs that appear in search results
+
+**Fix 1 — Better search query**:
+- Added `headquarters country location` to DuckDuckGo search query
+- Before: `?q={companyName}` → After: `?q={companyName} headquarters country location`
+- More targeted results with location-relevant content
+
+**Fix 2 — LinkedIn URL → Amplemarket lookup** (5 new nodes):
+- **Extract LinkedIn URL** (`v2-extract-linkedin`): Parses `linkedin.com/company/` URLs from DuckDuckGo search results
+- **Check Has LinkedIn URL** (`v2-check-linkedin`): Routes items with LinkedIn URLs to Amplemarket
+- **Amplemarket LinkedIn Lookup** (`v2-amp-linkedin`): `GET /companies/find?linkedin_url=` — same API, different lookup key
+- **Parse LinkedIn Amplemarket Country** (`v2-parse-amp-linkedin`): Extracts primary location country from response
+- **Check LinkedIn Amplemarket Got Country** (`v2-check-amp-linkedin`): Routes to Prepare Result (success) or Prepare Gemini Input (fallback)
+
+**Flow change**: Jina Web Search no longer connects directly to Prepare Gemini Input. Instead:
+```
+Jina Web Search → Extract LinkedIn URL → Has LinkedIn?
+  YES → Amplemarket LinkedIn → Parse Country → Got Country?
+    YES → Prepare Result (done!)
+    NO  → Prepare Gemini Input (continue)
+  NO  → Prepare Gemini Input (continue)
+```
+
+**Compatibility**: The existing Prepare Result node already handles `countryFromAmplemarket` → source "Amplemarket". No changes needed downstream.
+
+**Workflow ID**: `h4Dwz3Z2bhksWYly`
+**Total nodes**: 36 (was 31)
+
+---
+
 ## [2.1.3] - 2026-02-24
 
 ### Fixed — Single Slack message via `$getWorkflowStaticData`

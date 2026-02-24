@@ -1,6 +1,6 @@
 # Country Retroactive Enrichment
 
-This workflow backfills the `country` property for HubSpot companies that have no country set. It runs manually, fetches all companies missing a country using paginated API calls, enriches each one through a four-phase cascade (TLD extraction, company name scan, Amplemarket API, web scraping + Gemini analysis), writes the result back to HubSpot, and sends a single Slack summary of everything it processed.
+This workflow backfills the `country` property for HubSpot companies that have no country set. It runs manually, fetches all companies missing a country using paginated API calls, enriches each one through a four-phase cascade (TLD extraction, company name scan, Amplemarket API via domain + LinkedIn, web scraping + Gemini analysis), writes the result back to HubSpot, and sends a single Slack summary of everything it processed.
 
 ---
 
@@ -54,8 +54,15 @@ flowchart TD
     CheckAmp -->|"NO"| JinaScrape["Jina Website Scrape\nGET r.jina.ai/{domain}\n10s timeout"]
     JinaScrape --> CheckWebsite{"Website Data\ncontent + no warning + len > 200?"}
     CheckWebsite -->|"YES"| PrepGemini["Prepare Gemini Input\nclean + truncate content"]
-    CheckWebsite -->|"NO"| JinaSearch["DuckDuckGo Web Search\nGET r.jina.ai/duckduckgo.com/?q={name}\n10s timeout"]
-    JinaSearch --> PrepGemini
+    CheckWebsite -->|"NO"| JinaSearch["DuckDuckGo Web Search\nGET r.jina.ai/duckduckgo.com/?q={name}+headquarters+country+location\n10s timeout"]
+    JinaSearch --> ExtractLI["Extract LinkedIn URL\nparse linkedin.com/company/ from results"]
+    ExtractLI --> CheckLI{"Has LinkedIn URL?"}
+    CheckLI -->|"YES"| AmpLI["Amplemarket LinkedIn Lookup\nGET /companies/find?linkedin_url="]
+    CheckLI -->|"NO"| PrepGemini
+    AmpLI --> ParseAmpLI["Parse LinkedIn Amplemarket Country"]
+    ParseAmpLI --> CheckAmpLI{"Got Country from LinkedIn?"}
+    CheckAmpLI -->|"YES"| Result
+    CheckAmpLI -->|"NO"| PrepGemini
     PrepGemini --> Gemini["Gemini Inference\ngemini-2.5-flash, temp 0.1\nNO tools, content-only"]
     Gemini --> ParseGemini["Parse Gemini Response\nJSON {country, evidence}"]
     ParseGemini --> CheckGemini{"Got Country?"}
@@ -77,7 +84,7 @@ If the company has a domain, extract the TLD (`.de` -> Germany, `.co.uk` -> UK).
 If the company has a domain, call Amplemarket's `/companies/find?domain=` endpoint and extract the primary location country.
 
 **Phase 3 — Jina + Gemini (web scraping + content analysis)**
-If the company has a domain, scrape its website via Jina Reader (`r.jina.ai`). If the scrape returns usable content (no warnings, > 200 chars), feed it to Gemini. Otherwise, fall back to a DuckDuckGo search for the company name via Jina Reader. Gemini analyzes the real web content to identify the country, quoting evidence from the page.
+If the company has a domain, scrape its website via Jina Reader (`r.jina.ai`). If the scrape returns usable content (no warnings, > 200 chars), feed it to Gemini. Otherwise, fall back to a DuckDuckGo search for the company name + "headquarters country location" via Jina Reader. If the search results contain a LinkedIn company URL, look it up via Amplemarket's LinkedIn API first. If that returns a country, use it directly. Otherwise, Gemini analyzes the real web content to identify the country, quoting evidence from the page.
 
 **Phase 4 — Unknown fallback**
 If all methods fail, set `country = "Unknown"` to prevent the company from being retried on the next run.
@@ -115,8 +122,8 @@ At the end of each run, a single Slack message is sent listing every company tha
 
 | File | Purpose |
 |------|---------|
-| `workflow-v2.1.json` | The n8n workflow export — source of truth |
-| `ARCHITECTURE-v2.1.md` | Full technical reference: all nodes, routing logic, design decisions |
+| `workflow-v2.2.json` | The n8n workflow export — source of truth |
+| `ARCHITECTURE-v2.2.md` | Full technical reference: all nodes, routing logic, design decisions |
 | `architecture.mmd` | Mermaid diagram source |
 | `CHANGELOG.md` | Version history |
 | `prompts/prompt-gemini.md` | Gemini prompt used for country identification from web content |
@@ -127,6 +134,7 @@ At the end of each run, a single Slack message is sent listing every company tha
 
 | Version | Date | Key changes |
 |---------|------|-------------|
+| v2.2 | 2026-02-24 | Better search query ("headquarters country location"), LinkedIn URL extraction → Amplemarket lookup. 36 nodes |
 | v2.1 | 2026-02-24 | Replace Gemini blind + grounded with Jina scrape + DuckDuckGo search + Gemini content analysis. Fix HubSpot `country` write (countryRegion). Single Slack message via staticData. 31 nodes |
 | v2.0 | 2026-02-23 | Pagination loop, Gemini blind pass, Gemini Google Search grounding, "Unknown" fallback |
 | v1.0 | 2026-02-14 | Initial 8-step cascade (TLD, name, LinkedIn Amplemarket, domain Amplemarket, Jina scraping) |

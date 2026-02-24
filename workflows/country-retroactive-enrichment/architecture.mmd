@@ -27,8 +27,15 @@ flowchart TD
     CheckAmp -->|"NO"| JinaScrape["Jina Website Scrape\nGET r.jina.ai/{domain}\n10s timeout"]
     JinaScrape --> CheckWebsite{"Website Data\ncontent + no warning + len > 200?"}
     CheckWebsite -->|"YES"| PrepGemini["Prepare Gemini Input\nclean + truncate content"]
-    CheckWebsite -->|"NO"| JinaSearch["DuckDuckGo Web Search\nGET r.jina.ai/duckduckgo.com/?q={name}\n10s timeout"]
-    JinaSearch --> PrepGemini
+    CheckWebsite -->|"NO"| JinaSearch["DuckDuckGo Web Search\nGET r.jina.ai/duckduckgo.com/?q={name}+headquarters+country+location\n10s timeout"]
+    JinaSearch --> ExtractLinkedIn["Extract LinkedIn URL\nparse linkedin.com/company/ from results"]
+    ExtractLinkedIn --> CheckLinkedIn{"Has LinkedIn URL?"}
+    CheckLinkedIn -->|"YES"| AmpLinkedIn["Amplemarket LinkedIn Lookup\nGET /companies/find?linkedin_url="]
+    CheckLinkedIn -->|"NO"| PrepGemini
+    AmpLinkedIn --> ParseAmpLinkedIn["Parse LinkedIn Amplemarket Country"]
+    ParseAmpLinkedIn --> CheckAmpLinkedIn{"Got Country\nfrom LinkedIn?"}
+    CheckAmpLinkedIn -->|"YES"| Result
+    CheckAmpLinkedIn -->|"NO"| PrepGemini
     PrepGemini --> Gemini["Gemini Inference\ngemini-2.5-flash, temp 0.1\nNO tools, content-only"]
     Gemini --> ParseGemini["Parse Gemini Response\nJSON {country, evidence}"]
     ParseGemini --> CheckGemini{"Got Country?"}
@@ -62,6 +69,11 @@ flowchart TD
     style JinaScrape fill:#e3f2fd
     style CheckWebsite fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     style JinaSearch fill:#e3f2fd
+    style ExtractLinkedIn fill:#e8eaf6
+    style CheckLinkedIn fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style AmpLinkedIn fill:#e3f2fd
+    style ParseAmpLinkedIn fill:#e8eaf6
+    style CheckAmpLinkedIn fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     style PrepGemini fill:#e8eaf6
     style Gemini fill:#c7e9f4,stroke:#0277bd,stroke-width:2px
     style ParseGemini fill:#e8eaf6
