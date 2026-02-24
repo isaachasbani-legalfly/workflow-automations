@@ -4,6 +4,27 @@ All notable changes to the Country Retroactive Enrichment workflow will be docum
 
 ---
 
+## [2.2.2] - 2026-02-24
+
+### Improved — Stricter Gemini prompt + Jina rate limit protection
+
+**Fix 1 — Stricter Gemini prompt** (anti-hallucination):
+- Added explicit "when in doubt, output Unknown" conservative stance
+- Added anti-confusion rules: "do NOT confuse with similarly named companies" (e.g., apollosuccess.io ≠ apollo.io)
+- Added anti-guessing rules: language alone is not evidence (French ≠ France, English ≠ US)
+- Added 80% confidence threshold — weak evidence → Unknown
+- Added country name normalization: "England"/"Scotland"/"Wales" → "United Kingdom", "Holland" → "Netherlands", "USA" → "United States"
+- Added rules against defaulting to US for English-language content
+
+**Fix 2 — Jina rate limit protection**:
+- Jina Website Scrape batch interval: 3s → 5s
+- Jina Web Search: added batching (2 items / 5s) — previously had no batching
+- Root cause: execution #324 had ALL 60 Jina Web Search requests fail with HTTP 451 "DDoS attack suspected: Too many domains" because the scrape node's rapid requests to many domains triggered Jina's abuse detection, which then blocked access to duckduckgo.com as collateral damage
+
+**Workflow ID**: `h4Dwz3Z2bhksWYly`
+
+---
+
 ## [2.2.1] - 2026-02-24
 
 ### Fixed — IF node operator + LinkedIn extraction from website scrape

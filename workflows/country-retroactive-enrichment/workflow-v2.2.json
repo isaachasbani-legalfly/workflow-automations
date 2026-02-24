@@ -419,7 +419,7 @@
     },
     {
       "parameters": {
-        "url": "=https://r.jina.ai/https://{{ $('Prepare Company Data').item.json.domain }}",
+        "url": "=https://r.jina.ai/https://{{ $json.domain }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -430,8 +430,8 @@
               "value": "application/json"
             },
             {
-              "name": "X-Return-Format",
-              "value": "markdown"
+              "name": "X-No-Cache",
+              "value": "true"
             }
           ]
         },
@@ -439,7 +439,7 @@
           "batching": {
             "batch": {
               "batchSize": 2,
-              "batchInterval": 3000
+              "batchInterval": 5000
             }
           },
           "timeout": 10000
@@ -512,7 +512,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        3600,
+        3696,
         512
       ]
     },
@@ -529,8 +529,8 @@
               "value": "application/json"
             },
             {
-              "name": "X-Return-Format",
-              "value": "markdown"
+              "name": "X-No-Cache",
+              "value": "true"
             }
           ]
         },
@@ -538,7 +538,7 @@
           "batching": {
             "batch": {
               "batchSize": 2,
-              "batchInterval": 3000
+              "batchInterval": 5000
             }
           },
           "timeout": 10000
@@ -566,7 +566,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const companyData = $('Prepare Company Data').item.json;\nconst companyName = companyData.companyName || '';\nconst domain = companyData.domain || '';\nlet content = '';\nlet contentSource = '';\n\n// Try website scrape first\ntry {\n  const scrapeData = $('Jina Website Scrape').item.json;\n  const webContent = (scrapeData.data || {}).content || '';\n  const hasWarning = !!(scrapeData.data || {}).warning;\n  if (!hasWarning && typeof webContent === 'string' && webContent.trim().length > 200) {\n    content = webContent;\n    contentSource = 'website';\n  }\n} catch(e) {}\n\n// Fall back to search\nif (!content) {\n  try {\n    const searchData = $('Jina Web Search').item.json;\n    const webContent = (searchData.data || {}).content || '';\n    if (typeof webContent === 'string' && webContent.trim().length > 50) {\n      content = webContent;\n      contentSource = 'search';\n    }\n  } catch(e) {}\n}\n\n// Clean content\n// Strip markdown images\ncontent = content.replace(/!\\[.*?\\]\\(.*?\\)/g, '');\n// Strip image URLs\ncontent = content.replace(/https?:\\/\\/[^\\s)]+\\.(png|jpg|jpeg|gif|svg|webp|ico)[^\\s)]*/gi, '');\n// Strip cookie notices\ncontent = content.replace(/cookie[s]?\\s*(policy|notice|consent|banner|settings)[^\\n]*/gi, '');\n\n// DuckDuckGo-specific: strip ads and boilerplate\nif (contentSource === 'search') {\n  // Strip DuckDuckGo sponsored ad blocks (contain tracking URLs)\n  content = content.replace(/Report Ad[^\\n]*/g, '');\n  content = content.replace(/\\[.*?\\]\\(https:\\/\\/duckduckgo\\.com\\/y\\.js[^)]*\\)/g, '');\n  // Strip entire ad lines that reference duckduckgo.com/y.js\n  content = content.replace(/^.*duckduckgo\\.com\\/y\\.js.*$/gm, '');\n  // Strip ad domain labels (e.g., \"1.   ebay.com\")\n  content = content.replace(/^\\d+\\.\\s+\\S+\\.\\S+\\s*$/gm, '');\n  \n  // Find first numbered search result (after ad stripping)\n  const match = content.match(/\\n\\d+\\.\\s/);\n  if (match && match.index > 300) {\n    content = content.substring(match.index);\n  }\n  // Strip DuckDuckGo footer\n  content = content.replace(/\\nMore results[\\s\\S]*/, '');\n  content = content.replace(/Close menu[\\s\\S]*/, '');\n  // Strip per-result action links\n  content = content.replace(/\\[Only include results[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Redo search[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Block this site[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/Share feedback about this site/g, '');\n  // Strip DuckDuckGo domain search links\n  content = content.replace(/\\[Search domain[^\\]]*\\]\\([^)]*\\)/g, '');\n  // Strip DuckDuckGo search domain icons\n  content = content.replace(/\\[\\]\\(https:\\/\\/duckduckgo\\.com\\/\\?q=[^)]*\\)/g, '');\n}\n\n// Collapse whitespace\ncontent = content.replace(/\\n{3,}/g, '\\n\\n').trim();\n\n// Truncate (6000 chars \u2014 increased from 3000 for better coverage of footer/about content)\nconst maxChars = 6000;\nif (content.length > maxChars) content = content.substring(0, maxChars) + '... [truncated]';\n\nconst prompt = `You are an expert at identifying the headquarters country of companies.\nBelow is web content scraped from this company's online presence.\n\nCOMPANY: ${companyName}\nDOMAIN: ${domain || 'Not provided'}\n\nWEB CONTENT:\n${content || 'No content available'}\n\nBased ONLY on the web content above, identify the headquarters country.\n\nLOOK FOR (in order of reliability):\n1. Physical address or registered office mentioned on the page\n2. Phone number with international country code\n3. VAT number, company registration number, or tax ID format\n4. Legal entity type (e.g., GmbH, Ltd, BV, NV, SRL, SA, AB, Pty, Inc, LLC)\n5. Language and regional formatting clues (currency symbols, date formats)\n\nRESPONSE (JSON only, no markdown):\n{\"country\": \"<full country name>\", \"evidence\": \"<quote the specific text from the content that confirmed this>\"}\n\nRULES:\n- Base your answer ONLY on the provided web content \u2014 do NOT use your own knowledge\n- Use full English country names (e.g., \"United Kingdom\", not \"UK\")\n- The evidence field MUST quote actual text from the page, not your reasoning\n- If the content doesn't contain clear country indicators: {\"country\": \"Unknown\", \"evidence\": \"No country indicators found in content\"}`;\nreturn { json: { companyId: companyData.companyId, companyName, domain, contentSource, contentLength: content.length, prompt } };"
+        "jsCode": "const companyData = $('Prepare Company Data').item.json;\nconst companyName = companyData.companyName || '';\nconst domain = companyData.domain || '';\nlet content = '';\nlet contentSource = '';\n\n// Try website scrape first\ntry {\n  const scrapeData = $('Jina Website Scrape').item.json;\n  const webContent = (scrapeData.data || {}).content || '';\n  const hasWarning = !!(scrapeData.data || {}).warning;\n  if (!hasWarning && typeof webContent === 'string' && webContent.trim().length > 200) {\n    content = webContent;\n    contentSource = 'website';\n  }\n} catch(e) {}\n\n// Fall back to search\nif (!content) {\n  try {\n    const searchData = $('Jina Web Search').item.json;\n    const webContent = (searchData.data || {}).content || '';\n    if (typeof webContent === 'string' && webContent.trim().length > 50) {\n      content = webContent;\n      contentSource = 'search';\n    }\n  } catch(e) {}\n}\n\n// Clean content\n// Strip markdown images\ncontent = content.replace(/!\\[.*?\\]\\(.*?\\)/g, '');\n// Strip image URLs\ncontent = content.replace(/https?:\\/\\/[^\\s)]+\\.(png|jpg|jpeg|gif|svg|webp|ico)[^\\s)]*/gi, '');\n// Strip cookie notices\ncontent = content.replace(/cookie[s]?\\s*(policy|notice|consent|banner|settings)[^\\n]*/gi, '');\n\n// DuckDuckGo-specific: strip ads and boilerplate\nif (contentSource === 'search') {\n  // Strip DuckDuckGo sponsored ad blocks (contain tracking URLs)\n  content = content.replace(/Report Ad[^\\n]*/g, '');\n  content = content.replace(/\\[.*?\\]\\(https:\\/\\/duckduckgo\\.com\\/y\\.js[^)]*\\)/g, '');\n  // Strip entire ad lines that reference duckduckgo.com/y.js\n  content = content.replace(/^.*duckduckgo\\.com\\/y\\.js.*$/gm, '');\n  // Strip ad domain labels (e.g., \"1.   ebay.com\")\n  content = content.replace(/^\\d+\\.\\s+\\S+\\.\\S+\\s*$/gm, '');\n  \n  // Find first numbered search result (after ad stripping)\n  const match = content.match(/\\n\\d+\\.\\s/);\n  if (match && match.index > 300) {\n    content = content.substring(match.index);\n  }\n  // Strip DuckDuckGo footer\n  content = content.replace(/\\nMore results[\\s\\S]*/, '');\n  content = content.replace(/Close menu[\\s\\S]*/, '');\n  // Strip per-result action links\n  content = content.replace(/\\[Only include results[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Redo search[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Block this site[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/Share feedback about this site/g, '');\n  // Strip DuckDuckGo domain search links\n  content = content.replace(/\\[Search domain[^\\]]*\\]\\([^)]*\\)/g, '');\n  // Strip DuckDuckGo search domain icons\n  content = content.replace(/\\[\\]\\(https:\\/\\/duckduckgo\\.com\\/\\?q=[^)]*\\)/g, '');\n}\n\n// Collapse whitespace\ncontent = content.replace(/\\n{3,}/g, '\\n\\n').trim();\n\n// Truncate (6000 chars)\nconst maxChars = 6000;\nif (content.length > maxChars) content = content.substring(0, maxChars) + '... [truncated]';\n\nconst prompt = `You are a strict country-identification system. Your ONLY job is to determine a company's headquarters country from the web content provided below. You must be CONSERVATIVE \u2014 when in doubt, output \"Unknown\".\n\nCOMPANY: ${companyName}\nDOMAIN: ${domain || 'Not provided'}\n\nWEB CONTENT:\n${content || 'No content available'}\n\n---\n\nIDENTIFICATION RULES (in order of reliability):\n1. Physical address or registered office explicitly mentioned on the page\n2. Phone number with international country code (e.g., +33 = France, +44 = UK, +32 = Belgium)\n3. VAT/tax ID format (e.g., BE0xxx = Belgium, DE xxx = Germany, GB xxx = UK)\n4. Company registration or legal entity type (GmbH = Germany/Austria/Switzerland, BV/NV = Netherlands/Belgium, Ltd/PLC = UK, SRL/SA = various, Inc/LLC = USA)\n5. Explicit statement like \"headquartered in [city], [country]\" or \"based in [country]\"\n\nSTRICT RULES:\n- Base your answer ONLY on the provided web content \u2014 NEVER use your own knowledge about company names or domains\n- Do NOT guess based on language alone (e.g., French content does not mean France \u2014 it could be Belgium, Switzerland, Canada, etc.)\n- Do NOT assume a company is American just because the content is in English or mentions US-related services\n- Do NOT confuse a company with another similarly named well-known company (e.g., \"apollosuccess.io\" is NOT \"apollo.io\", \"wixsiteautomations.com\" is NOT \"wix.com\")\n- The evidence field MUST contain a direct quote from the web content, NOT your reasoning\n- If the content is mostly navigation menus, login pages, or generic marketing text with no location indicators \u2192 output Unknown\n- If the content only contains search result snippets with no clear consensus on ONE country \u2192 output Unknown\n- If you are less than 80% confident \u2192 output Unknown\n\nCOUNTRY NAME RULES:\n- Use full English country names\n- NEVER use \"England\", \"Scotland\", \"Wales\", or \"Northern Ireland\" \u2014 always use \"United Kingdom\"\n- NEVER use \"Holland\" \u2014 use \"Netherlands\"\n- NEVER use \"USA\" or \"US\" \u2014 use \"United States\"\n- NEVER use \"UAE\" \u2014 use \"United Arab Emirates\"\n- NEVER use \"Czech Republic\" \u2014 use \"Czechia\"\n\nRESPONSE FORMAT (JSON only, no markdown, no explanation):\n{\"country\": \"<full country name>\", \"evidence\": \"<exact quote from content>\"}\n\nIf unknown:\n{\"country\": \"Unknown\", \"evidence\": \"No clear country indicators found in content\"}`;\nreturn { json: { companyId: companyData.companyId, companyName, domain, contentSource, contentLength: content.length, prompt } };"
       },
       "id": "v2-prep-gemini",
       "name": "Prepare Gemini Input",
@@ -1421,9 +1421,8 @@
   "staticData": null,
   "meta": null,
   "pinData": {},
-  "versionId": "17e8f8c4-1a73-4cc5-8bbc-9feba26ed296",
   "activeVersionId": null,
-  "versionCounter": 82,
+  "versionCounter": 86,
   "triggerCount": 0,
   "shared": [
     {

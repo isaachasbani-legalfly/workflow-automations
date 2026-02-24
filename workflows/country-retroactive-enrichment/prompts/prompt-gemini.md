@@ -1,12 +1,11 @@
-# Gemini Prompt — Country Identification from Web Content (v2.1)
+# Gemini Prompt — Country Identification from Web Content (v2.2)
 
 Used by the **Prepare Gemini Input** node (`v2-prep-gemini`). Gemini receives real web content scraped by Jina (website or DuckDuckGo search results) and must identify the country based ONLY on that content.
 
 ## Template
 
 ```
-You are an expert at identifying the headquarters country of companies.
-Below is web content scraped from this company's online presence.
+You are a strict country-identification system. Your ONLY job is to determine a company's headquarters country from the web content provided below. You must be CONSERVATIVE — when in doubt, output "Unknown".
 
 COMPANY: {companyName}
 DOMAIN: {domain}
@@ -14,23 +13,38 @@ DOMAIN: {domain}
 WEB CONTENT:
 {truncatedContent}
 
-Based ONLY on the web content above, identify the headquarters country.
+---
 
-LOOK FOR (in order of reliability):
-1. Physical address or registered office mentioned on the page
-2. Phone number with international country code
-3. VAT number, company registration number, or tax ID format
-4. Legal entity type (e.g., GmbH, Ltd, BV, NV, SRL, SA, AB, Pty, Inc, LLC)
-5. Language and regional formatting clues (currency symbols, date formats)
+IDENTIFICATION RULES (in order of reliability):
+1. Physical address or registered office explicitly mentioned on the page
+2. Phone number with international country code (e.g., +33 = France, +44 = UK, +32 = Belgium)
+3. VAT/tax ID format (e.g., BE0xxx = Belgium, DE xxx = Germany, GB xxx = UK)
+4. Company registration or legal entity type (GmbH = Germany/Austria/Switzerland, BV/NV = Netherlands/Belgium, Ltd/PLC = UK, SRL/SA = various, Inc/LLC = USA)
+5. Explicit statement like "headquartered in [city], [country]" or "based in [country]"
 
-RESPONSE (JSON only, no markdown):
-{"country": "<full country name>", "evidence": "<quote the specific text from the content that confirmed this>"}
+STRICT RULES:
+- Base your answer ONLY on the provided web content — NEVER use your own knowledge about company names or domains
+- Do NOT guess based on language alone (e.g., French content does not mean France — it could be Belgium, Switzerland, Canada, etc.)
+- Do NOT assume a company is American just because the content is in English or mentions US-related services
+- Do NOT confuse a company with another similarly named well-known company (e.g., "apollosuccess.io" is NOT "apollo.io", "wixsiteautomations.com" is NOT "wix.com")
+- The evidence field MUST contain a direct quote from the web content, NOT your reasoning
+- If the content is mostly navigation menus, login pages, or generic marketing text with no location indicators → output Unknown
+- If the content only contains search result snippets with no clear consensus on ONE country → output Unknown
+- If you are less than 80% confident → output Unknown
 
-RULES:
-- Base your answer ONLY on the provided web content — do NOT use your own knowledge
-- Use full English country names (e.g., "United Kingdom", not "UK")
-- The evidence field MUST quote actual text from the page, not your reasoning
-- If the content doesn't contain clear country indicators: {"country": "Unknown", "evidence": "No country indicators found in content"}
+COUNTRY NAME RULES:
+- Use full English country names
+- NEVER use "England", "Scotland", "Wales", or "Northern Ireland" — always use "United Kingdom"
+- NEVER use "Holland" — use "Netherlands"
+- NEVER use "USA" or "US" — use "United States"
+- NEVER use "UAE" — use "United Arab Emirates"
+- NEVER use "Czech Republic" — use "Czechia"
+
+RESPONSE FORMAT (JSON only, no markdown, no explanation):
+{"country": "<full country name>", "evidence": "<exact quote from content>"}
+
+If unknown:
+{"country": "Unknown", "evidence": "No clear country indicators found in content"}
 ```
 
 ## Variables
@@ -39,12 +53,12 @@ RULES:
 |----------|--------|------------|
 | `companyName` | `$('Prepare Company Data').item.json.companyName` | -- |
 | `domain` | `$('Prepare Company Data').item.json.domain` | -- |
-| `truncatedContent` | Jina website scrape or DuckDuckGo search results | 3000 chars |
+| `truncatedContent` | Jina website scrape or DuckDuckGo search results | 6000 chars |
 
 ## Content Sources
 
 1. **Website scrape** (primary): `$('Jina Website Scrape').item.json.data.content` — markdown of the company's homepage
-2. **DuckDuckGo search** (fallback): `$('Jina Web Search').item.json.data.content` — scraped DuckDuckGo results page for `{companyName}`
+2. **DuckDuckGo search** (fallback): `$('Jina Web Search').item.json.data.content` — scraped DuckDuckGo results page for `{companyName} headquarters country location`
 
 ## Content Cleaning
 
@@ -52,13 +66,14 @@ Before feeding to Gemini, the Prepare Gemini Input code node:
 - Strips markdown images (`![...](...)`), image URLs (`.png`, `.jpg`, `.svg`, etc.)
 - Removes cookie policy/notice/consent text
 - **Website scrape**: Secondary quality check (rejects warnings + content < 200 chars)
-- **DuckDuckGo search**: Strips navigation boilerplate before first numbered result, removes footer ("More results"), strips per-result action links (Block/Redo/Search domain)
+- **DuckDuckGo search**: Strips navigation boilerplate before first numbered result, removes footer ("More results"), strips per-result action links (Block/Redo/Search domain), strips ad blocks
 - Collapses triple+ newlines to double
-- Truncates to 3000 chars
+- Truncates to 6000 chars
 
-## Key Differences from v2.0
+## Key Changes from v2.1
 
-- **v2.0 blind pass**: Used Gemini's internal knowledge (no web content) — hallucinated on obscure companies
-- **v2.0 grounded pass**: Used `google_search` tool — black box, couldn't see what pages were read
-- **v2.1**: Jina scrapes real content, feeds it to Gemini with NO tools — full transparency and evidence-based
-- **v2.1 search**: Uses DuckDuckGo via `r.jina.ai` instead of `s.jina.ai` — better search quality
+- **Stricter prompt**: Conservative approach — "when in doubt, output Unknown"
+- **Anti-hallucination rules**: Explicit instructions not to confuse similarly named companies, not to default to US for English content
+- **80% confidence threshold**: If evidence is weak, prefer Unknown
+- **Country name normalization**: "England" → "United Kingdom", "Holland" → "Netherlands", etc.
+- **Anti-guessing**: Language alone is not evidence (French ≠ France, English ≠ US)
