@@ -25,7 +25,8 @@ flowchart TD
     CheckAmp -->|"YES"| Result
 
     CheckAmp -->|"NO"| JinaScrape["Jina Website Scrape\nGET r.jina.ai/{domain}\n10s timeout, batch: 2/5s"]
-    JinaScrape --> CheckWebsite{"Website Data\ncontent + no warning + len > 200?"}
+    JinaScrape --> CheckQuality["Check Website Quality\nCode: !error && !warning && len>200\noutputs _websiteOk"]
+    CheckQuality --> CheckWebsite{"Website Content OK?"}
     CheckWebsite -->|"YES"| ExtractLinkedIn["Extract LinkedIn URL\nparse linkedin.com/company/\nfrom website + search"]
     CheckWebsite -->|"NO"| JinaSearch["DuckDuckGo Web Search\nGET r.jina.ai/duckduckgo.com/?q={name}\n+headquarters+country+location\nbatch: 2/5s"]
     JinaSearch --> ExtractLinkedIn
@@ -67,6 +68,7 @@ flowchart TD
     style ParseAmp fill:#e8eaf6
     style CheckAmp fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     style JinaScrape fill:#e3f2fd
+    style CheckQuality fill:#e8eaf6
     style CheckWebsite fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     style JinaSearch fill:#e3f2fd
     style ExtractLinkedIn fill:#e8eaf6

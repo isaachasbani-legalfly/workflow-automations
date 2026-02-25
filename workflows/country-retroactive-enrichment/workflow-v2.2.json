@@ -464,58 +464,6 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "version": 2,
-            "leftValue": "",
-            "caseSensitive": true,
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "cw1",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty"
-              },
-              "leftValue": "={{ ($json.data || {}).content || '' }}",
-              "rightValue": ""
-            },
-            {
-              "id": "cw2",
-              "operator": {
-                "type": "string",
-                "operation": "isEmpty",
-                "singleValue": true
-              },
-              "leftValue": "={{ ($json.data || {}).warning || '' }}",
-              "rightValue": ""
-            },
-            {
-              "id": "cw3",
-              "operator": {
-                "type": "number",
-                "operation": "gt"
-              },
-              "leftValue": "={{ (($json.data || {}).content || '').length }}",
-              "rightValue": 200
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "v2-check-website",
-      "name": "Check Website Data",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        3696,
-        512
-      ]
-    },
-    {
-      "parameters": {
         "url": "=https://r.jina.ai/https://duckduckgo.com/?q={{ encodeURIComponent($('Prepare Company Data').item.json.companyName + ' headquarters country location') }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
@@ -564,7 +512,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const companyData = $('Prepare Company Data').item.json;\nconst companyName = companyData.companyName || '';\nconst domain = companyData.domain || '';\nlet content = '';\nlet contentSource = '';\n\n// Try website scrape first\ntry {\n  const scrapeData = $('Jina Website Scrape').item.json;\n  const webContent = (scrapeData.data || {}).content || '';\n  const hasWarning = !!(scrapeData.data || {}).warning;\n  if (!hasWarning && typeof webContent === 'string' && webContent.trim().length > 200) {\n    content = webContent;\n    contentSource = 'website';\n  }\n} catch(e) {}\n\n// Fall back to search\nif (!content) {\n  try {\n    const searchData = $('Jina Web Search').item.json;\n    const webContent = (searchData.data || {}).content || '';\n    if (typeof webContent === 'string' && webContent.trim().length > 50) {\n      content = webContent;\n      contentSource = 'search';\n    }\n  } catch(e) {}\n}\n\n// Clean content\n// Strip markdown images\ncontent = content.replace(/!\\[.*?\\]\\(.*?\\)/g, '');\n// Strip image URLs\ncontent = content.replace(/https?:\\/\\/[^\\s)]+\\.(png|jpg|jpeg|gif|svg|webp|ico)[^\\s)]*/gi, '');\n// Strip cookie notices\ncontent = content.replace(/cookie[s]?\\s*(policy|notice|consent|banner|settings)[^\\n]*/gi, '');\n\n// DuckDuckGo-specific: strip ads and boilerplate\nif (contentSource === 'search') {\n  // Strip DuckDuckGo sponsored ad blocks (contain tracking URLs)\n  content = content.replace(/Report Ad[^\\n]*/g, '');\n  content = content.replace(/\\[.*?\\]\\(https:\\/\\/duckduckgo\\.com\\/y\\.js[^)]*\\)/g, '');\n  // Strip entire ad lines that reference duckduckgo.com/y.js\n  content = content.replace(/^.*duckduckgo\\.com\\/y\\.js.*$/gm, '');\n  // Strip ad domain labels (e.g., \"1.   ebay.com\")\n  content = content.replace(/^\\d+\\.\\s+\\S+\\.\\S+\\s*$/gm, '');\n  \n  // Find first numbered search result (after ad stripping)\n  const match = content.match(/\\n\\d+\\.\\s/);\n  if (match && match.index > 300) {\n    content = content.substring(match.index);\n  }\n  // Strip DuckDuckGo footer\n  content = content.replace(/\\nMore results[\\s\\S]*/, '');\n  content = content.replace(/Close menu[\\s\\S]*/, '');\n  // Strip per-result action links\n  content = content.replace(/\\[Only include results[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Redo search[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Block this site[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/Share feedback about this site/g, '');\n  // Strip DuckDuckGo domain search links\n  content = content.replace(/\\[Search domain[^\\]]*\\]\\([^)]*\\)/g, '');\n  // Strip DuckDuckGo search domain icons\n  content = content.replace(/\\[\\]\\(https:\\/\\/duckduckgo\\.com\\/\\?q=[^)]*\\)/g, '');\n}\n\n// Collapse whitespace\ncontent = content.replace(/\\n{3,}/g, '\\n\\n').trim();\n\n// Truncate (6000 chars \u2014 increased from 3000 for better coverage of footer/about content)\nconst maxChars = 6000;\nif (content.length > maxChars) content = content.substring(0, maxChars) + '... [truncated]';\n\nconst prompt = `You are an expert at identifying the headquarters country of companies.\nBelow is web content scraped from this company's online presence.\n\nCOMPANY: ${companyName}\nDOMAIN: ${domain || 'Not provided'}\n\nWEB CONTENT:\n${content || 'No content available'}\n\nBased ONLY on the web content above, identify the headquarters country.\n\nLOOK FOR (in order of reliability):\n1. Physical address or registered office mentioned on the page\n2. Phone number with international country code\n3. VAT number, company registration number, or tax ID format\n4. Legal entity type (e.g., GmbH, Ltd, BV, NV, SRL, SA, AB, Pty, Inc, LLC)\n5. Language and regional formatting clues (currency symbols, date formats)\n\nRESPONSE (JSON only, no markdown):\n{\"country\": \"<full country name>\", \"evidence\": \"<quote the specific text from the content that confirmed this>\"}\n\nRULES:\n- Base your answer ONLY on the provided web content \u2014 do NOT use your own knowledge\n- Use full English country names (e.g., \"United Kingdom\", not \"UK\")\n- The evidence field MUST quote actual text from the page, not your reasoning\n- If the content doesn't contain clear country indicators: {\"country\": \"Unknown\", \"evidence\": \"No country indicators found in content\"}`;\nreturn { json: { companyId: companyData.companyId, companyName, domain, contentSource, contentLength: content.length, prompt } };"
+        "jsCode": "const companyData = $('Prepare Company Data').item.json;\nconst companyName = companyData.companyName || '';\nconst domain = companyData.domain || '';\nlet content = '';\nlet contentSource = '';\n\n// Try website scrape first\ntry {\n  const scrapeData = $('Jina Website Scrape').item.json;\n  const webContent = (scrapeData.data || {}).content || '';\n  const hasWarning = !!(scrapeData.data || {}).warning;\n  if (!hasWarning && typeof webContent === 'string' && webContent.trim().length > 200) {\n    content = webContent;\n    contentSource = 'website';\n  }\n} catch(e) {}\n\n// Fall back to search\nif (!content) {\n  try {\n    const searchData = $('Jina Web Search').item.json;\n    const webContent = (searchData.data || {}).content || '';\n    if (typeof webContent === 'string' && webContent.trim().length > 50) {\n      content = webContent;\n      contentSource = 'search';\n    }\n  } catch(e) {}\n}\n\n// Clean content\ncontent = content.replace(/!\\[.*?\\]\\(.*?\\)/g, '');\ncontent = content.replace(/https?:\\/\\/[^\\s)]+\\.(png|jpg|jpeg|gif|svg|webp|ico)[^\\s)]*/gi, '');\ncontent = content.replace(/cookie[s]?\\s*(policy|notice|consent|banner|settings)[^\\n]*/gi, '');\n\nif (contentSource === 'search') {\n  content = content.replace(/Report Ad[^\\n]*/g, '');\n  content = content.replace(/\\[.*?\\]\\(https:\\/\\/duckduckgo\\.com\\/y\\.js[^)]*\\)/g, '');\n  content = content.replace(/^.*duckduckgo\\.com\\/y\\.js.*$/gm, '');\n  content = content.replace(/^\\d+\\.\\s+\\S+\\.\\S+\\s*$/gm, '');\n  const match = content.match(/\\n\\d+\\.\\s/);\n  if (match && match.index > 300) {\n    content = content.substring(match.index);\n  }\n  content = content.replace(/\\nMore results[\\s\\S]*/, '');\n  content = content.replace(/Close menu[\\s\\S]*/, '');\n  content = content.replace(/\\[Only include results[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Redo search[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Block this site[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/Share feedback about this site/g, '');\n  content = content.replace(/\\[Search domain[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[\\]\\(https:\\/\\/duckduckgo\\.com\\/\\?q=[^)]*\\)/g, '');\n}\n\ncontent = content.replace(/\\n{3,}/g, '\\n\\n').trim();\n\nconst maxChars = 6000;\nif (content.length > maxChars) content = content.substring(0, maxChars) + '... [truncated]';\n\nconst prompt = `You are an expert at identifying the headquarters country of companies from web content.\n\nCOMPANY: ${companyName}\nDOMAIN: ${domain || 'Not provided'}\n\nWEB CONTENT:\n${content || 'No content available'}\n\n---\n\nBased ONLY on the web content above, identify the headquarters country.\n\nLOOK FOR (in order of reliability):\n1. Physical address or registered office mentioned on the page\n2. Phone number with international country code (e.g., +33 = France, +44 = UK, +32 = Belgium)\n3. VAT/tax ID format (e.g., BE0xxx = Belgium, DE xxx = Germany, GB xxx = UK)\n4. Company registration or legal entity type (GmbH = Germany/Austria/Switzerland, BV/NV = Netherlands/Belgium, Ltd/PLC = UK, SRL/SA = various, Inc/LLC = USA)\n5. Explicit statement like \"headquartered in [city], [country]\" or \"based in [country]\"\n6. Language and regional formatting clues (currency symbols, date formats)\n\nRULES:\n- Base your answer ONLY on the provided web content — do NOT use your own knowledge about company names or domains\n- Do NOT confuse a company with another similarly named well-known company (e.g., \"apollosuccess.io\" is NOT \"apollo.io\", \"wixsiteautomations.com\" is NOT \"wix.com\")\n- The evidence field MUST contain a direct quote from the web content, NOT your reasoning\n- If the content is only error pages, login screens, or cookie banners with zero location clues: output Unknown\n\nCOUNTRY NAME RULES:\n- Use full English country names\n- NEVER use \"England\", \"Scotland\", \"Wales\", or \"Northern Ireland\" — always use \"United Kingdom\"\n- NEVER use \"Holland\" — use \"Netherlands\"\n- NEVER use \"USA\" or \"US\" — use \"United States\"\n- NEVER use \"UAE\" — use \"United Arab Emirates\"\n\nRESPONSE (JSON only, no markdown, no explanation):\n{\"country\": \"<full country name>\", \"evidence\": \"<exact quote from content>\"}\n\nIf unknown:\n{\"country\": \"Unknown\", \"evidence\": \"No country indicators found in content\"}`;\nreturn { json: { companyId: companyData.companyId, companyName, domain, contentSource, contentLength: content.length, prompt } };"
       },
       "id": "v2-prep-gemini",
       "name": "Prepare Gemini Input",
@@ -783,7 +731,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Use static data to accumulate results across batches from different IF branches\nconst staticData = $getWorkflowStaticData('node');\nconst execId = $execution.id;\n\n// Reset if new execution\nif (staticData._execId !== execId) {\n  staticData._execId = execId;\n  staticData._results = [];\n  staticData._sent = false;\n}\n\n// Add current batch items\nconst currentItems = $input.all().map(i => i.json);\nstaticData._results.push(...currentItems);\n\nconst totalExpected = $('Split All Companies').all().length;\n\n// Only send when all items collected and not already sent\nif (staticData._results.length >= totalExpected && !staticData._sent) {\n  staticData._sent = true;\n  const allResults = [...staticData._results];\n  const resolved = allResults.filter(i => i.resolved);\n  const unknown = allResults.filter(i => !i.resolved);\n  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n  const hubspotBase = 'https://app.hubspot.com/contacts/142047914/company/';\n  let msg = `*\\ud83c\\udf0d Country Enrichment \\u2014 ${today}*\\n*${allResults.length} companies processed*\\n`;\n  if (resolved.length > 0) {\n    msg += `\\n\\u2705 *${resolved.length} enriched:*\\n`;\n    for (const c of resolved) {\n      msg += `\\u2022 *${c.companyName}* \\u2192 ${c.country} _(${c.enrichmentSource})_ \\u2014 <${hubspotBase}${c.companyId}|View>\\n`;\n    }\n  }\n  if (unknown.length > 0) {\n    msg += `\\n\\ud83d\\udea9 *${unknown.length} unknown:*\\n`;\n    for (const c of unknown) {\n      msg += `\\u2022 *${c.companyName}* \\u2014 <${hubspotBase}${c.companyId}|View>\\n`;\n    }\n  }\n  return [{ json: { message: msg } }];\n}\n\n// Not all items yet \u2014 return empty (Slack won't trigger)\nreturn [];"
+        "jsCode": "// Use static data to accumulate results across batches from different IF branches\nconst staticData = $getWorkflowStaticData('node');\nconst execId = $execution.id;\n\n// Reset if new execution\nif (staticData._execId !== execId) {\n  staticData._execId = execId;\n  staticData._results = [];\n  staticData._sent = false;\n}\n\n// Add current batch items\nconst currentItems = $input.all().map(i => i.json);\nstaticData._results.push(...currentItems);\n\nconst totalExpected = $('Split All Companies').all().length;\n\n// Only send when all items collected and not already sent\nif (staticData._results.length >= totalExpected && !staticData._sent) {\n  staticData._sent = true;\n  const allResults = [...staticData._results];\n  const resolved = allResults.filter(i => i.resolved);\n  const unknown = allResults.filter(i => !i.resolved);\n  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n  const hubspotBase = 'https://app.hubspot.com/contacts/142047914/company/';\n  let msg = `*\\ud83c\\udf0d Country Enrichment \\u2014 ${today}*\\n*${allResults.length} companies processed*\\n`;\n  if (resolved.length > 0) {\n    msg += `\\n\\u2705 *${resolved.length} enriched:*\\n`;\n    for (const c of resolved) {\n      msg += `\\u2022 *${c.companyName}* \\u2192 ${c.country} _(${c.enrichmentSource})_ \\u2014 <${hubspotBase}${c.companyId}|View>\\n`;\n    }\n  }\n  if (unknown.length > 0) {\n    msg += `\\n\\ud83d\\udea9 *${unknown.length} unknown:*\\n`;\n    for (const c of unknown) {\n      msg += `\\u2022 *${c.companyName}* \\u2014 <${hubspotBase}${c.companyId}|View>\\n`;\n    }\n  }\n  return [{ json: { message: msg } }];\n}\n\n// Not all items yet — return empty (Slack won't trigger)\nreturn [];"
       },
       "id": "v2-format",
       "name": "Format Summary",
@@ -948,6 +896,54 @@
       "position": [
         4736,
         768
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $json.data || {};\nconst content = data.content || '';\nconst warning = data.warning || '';\nconst hasError = !!$json.error;\nconst isGoodContent = !hasError && !warning && content.length > 200;\nreturn { json: { ...$json, _websiteOk: isGoodContent } };"
+      },
+      "id": "v2-check-website-code",
+      "name": "Check Website Quality",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3696,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "wc1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json._websiteOk }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "v2-check-website-if",
+      "name": "Website Content OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3968,
+        512
       ]
     }
   ],
@@ -1182,35 +1178,6 @@
         ]
       ]
     },
-    "Jina Website Scrape": {
-      "main": [
-        [
-          {
-            "node": "Check Website Data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check Website Data": {
-      "main": [
-        [
-          {
-            "node": "Extract LinkedIn URL",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Jina Web Search",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Prepare Gemini Input": {
       "main": [
         [
@@ -1407,6 +1374,46 @@
           }
         ]
       ]
+    },
+    "Jina Website Scrape": {
+      "main": [
+        [
+          {
+            "node": "Check Website Quality",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Website Quality": {
+      "main": [
+        [
+          {
+            "node": "Website Content OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Website Content OK?": {
+      "main": [
+        [
+          {
+            "node": "Extract LinkedIn URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Jina Web Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
@@ -1418,7 +1425,7 @@
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": false
   },
-  "versionId": "986e85e5-3454-4ed8-b5f9-82f3ea0185d1",
+  "versionId": "683b8e55-75dc-401e-8ddc-0cc7f44a2881",
   "meta": {
     "instanceId": "1c614ffbaa74dc7b329196566d86f2ebdc830e7ef4cc70cc01f324f4043c7c50"
   },

@@ -7,7 +7,7 @@ Manual workflow to backfill the `country` property for HubSpot companies that ha
 **v2.2 adds improvements to reduce "Unknown" classifications and improve accuracy:**
 1. **Better search query**: DuckDuckGo search now includes "headquarters country location" for more targeted results
 2. **LinkedIn URL extraction**: Parses `linkedin.com/company/` URLs from both website scrape and search results, looks them up via Amplemarket's LinkedIn API — a new enrichment path before Gemini inference
-3. **Stricter Gemini prompt** (v2.2.2): Anti-hallucination rules (no guessing from language alone, no confusing similarly named companies, 80% confidence threshold), country name normalization (England → United Kingdom, Holland → Netherlands)
+3. **Gemini prompt with anti-confusion + country normalization** (v2.2.3): Anti-hallucination rules (no guessing from language alone, no confusing similarly named companies), country name normalization (England → United Kingdom, Holland → Netherlands). Rebalanced from v2.2.2's overly strict "80% confidence threshold" which caused 60% unknowns
 4. **Jina rate limit protection** (v2.2.2): Both Jina nodes batched at 2 items / 5s to prevent HTTP 451 abuse detection blocks
 
 **Workflow ID**: `h4Dwz3Z2bhksWYly`
@@ -46,7 +46,8 @@ flowchart TD
     CheckAmp -->|YES| Result
 
     CheckAmp -->|NO| JinaScrape["Jina Website Scrape\nGET r.jina.ai/{domain}\n10s timeout"]
-    JinaScrape --> CheckWebsite{Website Data\ncontent + no warning + len>200?}
+    JinaScrape --> CheckQuality["Check Website Quality\nCode: !error && !warning && len>200\noutputs _websiteOk"]
+    CheckQuality --> CheckWebsite{Website Content OK?}
     CheckWebsite -->|YES| ExtractLinkedIn["Extract LinkedIn URL\nparse linkedin.com/company/\nfrom website + search"]
     CheckWebsite -->|NO| JinaSearch["DuckDuckGo Web Search\nGET r.jina.ai/duckduckgo.com/?q={name}\n+headquarters+country+location"]
     JinaSearch --> ExtractLinkedIn
@@ -118,14 +119,15 @@ flowchart TD
 | Node | Type | Config |
 |------|------|--------|
 | **Jina Website Scrape** (`v2-jina-scrape`) | httpRequest | `GET https://r.jina.ai/https://{domain}`. Returns markdown content. Headers: `Authorization: Bearer {JINA_KEY}`, `Accept: application/json`, `X-No-Cache: true`. Timeout: 10s, no retries. Batching: 2 items/5s. `onError: continueRegularOutput` |
-| **Check Website Data** (`v2-check-website`) | if | 3-condition quality gate: content `notEmpty` AND no `warning` AND content length > 200. Catches 404s, Wix errors, empty pages |
+| **Check Website Quality** (`v2-check-website-code`) | code | **v2.2.3**: Replaced broken IF node. Evaluates `!hasError && !warning && content.length > 200` in JavaScript, outputs `_websiteOk: true/false`. The previous IF node (`Check Website Data`) systematically returned FALSE for all items due to n8n expression evaluation issues |
+| **Website Content OK?** (`v2-check-website-if`) | if | **v2.2.3**: Simple boolean check on `$json._websiteOk === true`. TRUE → Extract LinkedIn URL, FALSE → Jina Web Search |
 | **Jina Web Search** (`v2-jina-search`) | httpRequest | `GET https://r.jina.ai/https://duckduckgo.com/?q={companyName}+headquarters+country+location`. DuckDuckGo results via Jina Reader. Same auth headers. Timeout: 10s, no retries. Batching: 2 items/5s. `onError: continueRegularOutput`. **v2.2**: query includes "headquarters country location" for more targeted results |
 | **Extract LinkedIn URL** (`v2-extract-linkedin`) | code | **NEW in v2.2**. Parses both Jina Website Scrape and Jina Web Search content for `linkedin.com/company/` URLs using regex (try/catch for whichever source is in the execution path). Receives items from both Check Website Data TRUE and Jina Web Search. Passes through all company data + `linkedinUrl` field |
 | **Check Has LinkedIn URL** (`v2-check-linkedin`) | if | **NEW in v2.2**. `linkedinUrl` not empty → Amplemarket LinkedIn Lookup / empty → Prepare Gemini Input |
 | **Amplemarket LinkedIn Lookup** (`v2-amp-linkedin`) | httpRequest | **NEW in v2.2**. `GET https://api.amplemarket.com/companies/find?linkedin_url={linkedinUrl}`. Auth: `httpHeaderAuth` (credential: `amplemarket`). `onError: continueRegularOutput`, retry 3x/2s |
 | **Parse LinkedIn Amplemarket Country** (`v2-parse-amp-linkedin`) | code | **NEW in v2.2**. Extracts primary location country from `locations` array (same logic as Parse Amplemarket Country). Sets `countryFromAmplemarket` and `enrichmentViaLinkedIn: true` |
 | **Check LinkedIn Amplemarket Got Country** (`v2-check-amp-linkedin`) | if | **NEW in v2.2**. `countryFromAmplemarket` not empty → Prepare Result / empty → Prepare Gemini Input |
-| **Prepare Gemini Input** (`v2-prep-gemini`) | code | Tries website content first (secondary quality check), falls back to search. Cleans markdown images, cookie notices, DuckDuckGo boilerplate/ads. Truncates to 6000 chars. Builds strict anti-hallucination prompt with evidence requirement, 80% confidence threshold, and country name normalization rules. Outputs `contentSource` (`website` or `search`) |
+| **Prepare Gemini Input** (`v2-prep-gemini`) | code | Tries website content first (secondary quality check), falls back to search. Cleans markdown images, cookie notices, DuckDuckGo boilerplate/ads. Truncates to 6000 chars. Builds prompt with anti-confusion rules, country name normalization (England → UK), and evidence requirement. Outputs `contentSource` (`website` or `search`) |
 | **Gemini Inference** (`v2-gemini`) | httpRequest | `POST gemini-2.5-flash:generateContent`. Temperature 0.1. **NO tools** (no `google_search`). Content-only analysis. Auth: `googlePalmApi`. Retry 3x/2s |
 | **Parse Gemini Response** (`v2-parse-gemini`) | code | Extracts `{country, evidence}` from JSON response. Strips markdown code fences. Passes `contentSource` downstream |
 | **Check Gemini Got Country** (`v2-check-gemini`) | if | `geminiCountry` not empty → Prepare Result / empty → Prepare Unknown |
@@ -165,7 +167,7 @@ flowchart TD
 | **Check Name Got Country** | countryFromName not empty | Prepare Result | Check Has Domain for Amplemarket |
 | **Check Has Domain for Amplemarket** | domain not empty | Amplemarket Domain API | Jina Web Search |
 | **Check Amplemarket Got Country** | countryFromAmplemarket not empty | Prepare Result | Jina Website Scrape |
-| **Check Website Data** | content notEmpty AND no warning AND len > 200 | Extract LinkedIn URL | Jina Web Search |
+| **Website Content OK?** | `_websiteOk` is true (evaluated by Check Website Quality code node) | Extract LinkedIn URL | Jina Web Search |
 | **Check Has LinkedIn URL** | linkedinUrl not empty | Amplemarket LinkedIn Lookup | Prepare Gemini Input |
 | **Check LinkedIn Amplemarket Got Country** | countryFromAmplemarket not empty | Prepare Result | Prepare Gemini Input |
 | **Check Gemini Got Country** | geminiCountry not empty | Prepare Result | Prepare Unknown |
@@ -198,7 +200,8 @@ flowchart TD
 - **3-condition website quality gate**: Check Website Data verifies content is not empty, has no Jina warning (catches 404s, Wix errors), and exceeds 200 chars. Prevents garbage content from being sent to Gemini.
 - **DuckDuckGo boilerplate stripping**: Prepare Gemini Input strips navigation/UI boilerplate before the first numbered result, removes footer sections, and strips per-result action links.
 - **Content truncation to 6000 chars**: Covers footer/about sections that often contain addresses and phone numbers. Still trivial for Gemini (< 2500 tokens vs 1M context).
-- **Strict Gemini prompt** (v2.2.2): Conservative "when in doubt, Unknown" stance. Anti-hallucination rules: don't guess from language alone (French ≠ France), don't confuse similarly named companies (apollosuccess.io ≠ apollo.io), don't default to US for English content. 80% confidence threshold. Country name normalization (England → United Kingdom, Holland → Netherlands).
+- **Gemini prompt rebalanced** (v2.2.3): Anti-confusion rules (don't confuse similarly named companies, e.g. apollosuccess.io ≠ apollo.io), don't guess from language alone (French ≠ France), don't default to US for English content. Country name normalization (England → United Kingdom, Holland → Netherlands). The v2.2.2 "80% confidence threshold" and "when in doubt, Unknown" were removed — they caused 60% unknown rate (execution #341: 52/100 unknowns vs 9/100 with the previous prompt).
+- **Check Website Data replaced with Code node** (v2.2.3): The original IF node with 3 conditions (content notEmpty, no warning, length > 200) systematically returned FALSE for all items, even with valid content and `looseTypeValidation: true`. Root cause: likely an n8n expression evaluation bug with nested `($json.data || {}).content` expressions in IF node conditions. Replaced with a Code node (`Check Website Quality`) that evaluates the same logic in JavaScript, followed by a simple boolean IF node (`Website Content OK?`).
 - **Evidence requirement**: Gemini must quote actual text from the content, not use its own knowledge.
 - **NO Gemini tools**: The Gemini call has no `google_search` tool — it can only analyze the content provided.
 - **Jina rate limit protection** (v2.2.2): Both Jina nodes batched at 2 items / 5s intervals. Without batching, rapid requests to many different domains triggered Jina's "DDoS attack suspected: Too many domains" abuse detection (HTTP 451), which blocked all access to duckduckgo.com as collateral damage.
@@ -243,7 +246,8 @@ flowchart TD
 | v2-parse-amp | Parse Amplemarket Country | code |
 | v2-check-amp | Check Amplemarket Got Country | if |
 | v2-jina-scrape | Jina Website Scrape | httpRequest |
-| v2-check-website | Check Website Data | if |
+| v2-check-website-code | Check Website Quality | code |
+| v2-check-website-if | Website Content OK? | if |
 | v2-jina-search | Jina Web Search | httpRequest |
 | v2-extract-linkedin | Extract LinkedIn URL | code |
 | v2-check-linkedin | Check Has LinkedIn URL | if |
@@ -262,7 +266,7 @@ flowchart TD
 | v2-format | Format Summary | code |
 | v2-slack | Send Slack | slack |
 
-**Total**: 36 nodes
+**Total**: 37 nodes
 
 ---
 

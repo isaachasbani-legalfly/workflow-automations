@@ -52,7 +52,8 @@ flowchart TD
     CheckAmp -->|"YES"| Result
 
     CheckAmp -->|"NO"| JinaScrape["Jina Website Scrape\nGET r.jina.ai/{domain}\n10s timeout"]
-    JinaScrape --> CheckWebsite{"Website Data\ncontent + no warning + len > 200?"}
+    JinaScrape --> CheckQuality["Check Website Quality\nCode: !error && !warning && len>200"]
+    CheckQuality --> CheckWebsite{"Website Content OK?"}
     CheckWebsite -->|"YES"| ExtractLI
     CheckWebsite -->|"NO"| JinaSearch["DuckDuckGo Web Search\nGET r.jina.ai/duckduckgo.com/?q={name}+headquarters+country+location\n10s timeout"]
     JinaSearch --> ExtractLI["Extract LinkedIn URL\nparse linkedin.com/company/ from results"]
@@ -134,7 +135,7 @@ At the end of each run, a single Slack message is sent listing every company tha
 
 | Version | Date | Key changes |
 |---------|------|-------------|
-| v2.2 | 2026-02-24 | Better search query, LinkedIn URL → Amplemarket lookup, stricter Gemini prompt (anti-hallucination, country normalization), Jina rate limit protection. 36 nodes |
+| v2.2 | 2026-02-25 | Better search query, LinkedIn URL → Amplemarket lookup, Gemini prompt with country normalization + anti-confusion rules, Jina rate limit protection, Check Website Data replaced with Code node (IF node always returned FALSE). 37 nodes |
 | v2.1 | 2026-02-24 | Replace Gemini blind + grounded with Jina scrape + DuckDuckGo search + Gemini content analysis. Fix HubSpot `country` write (countryRegion). Single Slack message via staticData. 31 nodes |
 | v2.0 | 2026-02-23 | Pagination loop, Gemini blind pass, Gemini Google Search grounding, "Unknown" fallback |
 | v1.0 | 2026-02-14 | Initial 8-step cascade (TLD, name, LinkedIn Amplemarket, domain Amplemarket, Jina scraping) |

@@ -4,6 +4,27 @@ All notable changes to the Country Retroactive Enrichment workflow will be docum
 
 ---
 
+## [2.2.3] - 2026-02-25
+
+### Fixed — Check Website Data always FALSE + Gemini prompt rebalanced
+
+**Fix 1 — Replace Check Website Data IF node with Code + IF combo**:
+- The n8n IF node (`v2-check-website`) with 3 conditions (content notEmpty, no warning, length > 200) was systematically routing ALL items to FALSE, even when website content was valid (e.g., 562 tokens, no warning). Adding `looseTypeValidation: true` did not fix it — likely an n8n expression evaluation bug with complex nested expressions.
+- **Replaced with two nodes**:
+  - **Check Website Quality** (`v2-check-website-code`): Code node that evaluates `!hasError && !warning && content.length > 200` in JavaScript, outputs `_websiteOk: true/false`
+  - **Website Content OK?** (`v2-check-website-if`): Simple IF node checking `$json._websiteOk === true`
+- This ensures website scrape content is actually used when available, instead of always falling through to DuckDuckGo search
+
+**Fix 2 — Gemini prompt rebalanced** (too many Unknowns):
+- The v2.2.2 prompt with "80% confidence threshold" and "when in doubt, output Unknown" was too aggressive — execution #341 had 52/100 unknowns (vs 9/100 with the previous prompt)
+- Removed: "80% confidence threshold", "when in doubt, output Unknown", extreme conservatism
+- Kept: country name normalization (England → UK), anti-confusion rules (apollosuccess.io ≠ apollo.io), anti-language-guessing (French ≠ France), evidence requirement
+
+**Workflow ID**: `h4Dwz3Z2bhksWYly`
+**Total nodes**: 37 (was 36 — removed 1 IF, added 1 Code + 1 IF)
+
+---
+
 ## [2.2.2] - 2026-02-24
 
 ### Improved — Stricter Gemini prompt + Jina rate limit protection
