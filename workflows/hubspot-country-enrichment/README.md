@@ -107,6 +107,12 @@ At the end of each run, a single Slack message is sent listing every company tha
 
 ---
 
+## Error handling
+
+On failure, the workflow triggers the **Error Handler - Slack Notification** workflow (`TA6Iq4wMW0KYsCiH`), which posts the error details, failed node, and execution link to Slack.
+
+---
+
 ## Credentials required
 
 | Service | What it's used for |

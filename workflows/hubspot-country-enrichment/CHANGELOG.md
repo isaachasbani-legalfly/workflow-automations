@@ -6,10 +6,11 @@ All notable changes to the Country Retroactive Enrichment workflow will be docum
 
 ## [2.2.4] - 2026-02-25
 
-### Changed — Nightly scheduled execution
+### Changed — Nightly scheduled execution + error handler
 
 - Replaced Manual Trigger with **Schedule Trigger** (v1.3): runs daily at 01:00 Europe/London
 - Activated workflow for automatic execution
+- Connected **Error Handler - Slack Notification** (`TA6Iq4wMW0KYsCiH`) via `settings.errorWorkflow` — failures now post to Slack with error details and execution link
 - All existing CRM companies now have countries filled — workflow now catches new companies without a country as they come in
 
 **Workflow ID**: `h4Dwz3Z2bhksWYly`

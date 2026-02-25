@@ -212,6 +212,12 @@ flowchart TD
 
 ---
 
+## Error Workflow
+
+On failure, execution errors are routed to the **Error Handler - Slack Notification** workflow (`TA6Iq4wMW0KYsCiH`), configured via `settings.errorWorkflow`. The error handler posts to Slack with workflow name, failed node, error message, timestamp, and a link to the failed execution.
+
+---
+
 ## Credentials Required
 
 | Service | Credential Name | Type | Used For |
