@@ -154,7 +154,7 @@ flowchart TD
 | **Update HubSpot** (`v2-update-hs`) | hubspot | Writes `country` via the standard `countryRegion` field in `updateFields` + `countryenrichmentsource` via `customPropertiesUi`. Auth: `hubspotAppToken`. Retry 3x/2s |
 | **Restore Data** (`v2-restore`) | code | Re-reads from Snapshot Data and re-emits result fields for the summary |
 | **Format Summary** (`v2-format`) | code | Uses `$getWorkflowStaticData('node')` to accumulate results across batches from different IF branches. Resets per execution via `$execution.id`. Returns `[]` until all items collected (compared against `$('Split All Companies').all().length`), then builds a single Slack message with enriched/unknown sections and HubSpot View links |
-| **Send Slack** (`v2-slack`) | slack | Posts to channel `C0AG86U9927`. Text: `={{ $json.message }}` |
+| **Send Slack** (`v2-slack`) | slack | Posts to channel `C0AFSAD1E5A`. Text: `={{ $json.message }}` |
 
 ---
 

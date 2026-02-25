@@ -736,7 +736,7 @@
         "select": "channel",
         "channelId": {
           "__rl": true,
-          "value": "C0AG86U9927",
+          "value": "C0AFSAD1E5A",
           "mode": "id"
         },
         "text": "={{ $json.message }}",
