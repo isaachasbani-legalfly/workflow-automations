@@ -1,0 +1,30 @@
+flowchart TD
+    Start([Schedule Trigger\n02:00 daily London])
+
+    Start --> Fetch[Fetch Companies\nHubSpot API - numberofemployees empty\nlimit 100]
+    Fetch --> Split[Split Companies\nCode node]
+    Split --> Prepare[Prepare Company Data\nSet node - companyId, name, domain, linkedinUrl]
+    Prepare --> CheckLI{Check Has LinkedIn URL\nlinkedinUrl not empty?}
+
+    CheckLI -->|TRUE| AmpLI[Amplemarket LinkedIn\nGET /companies/find?linkedin_url=]
+    CheckLI -->|FALSE| CheckDomain{Check Has Domain\ndomain not empty?}
+
+    CheckDomain -->|TRUE| AmpDomain[Amplemarket Domain\nGET /companies/find?domain=]
+    CheckDomain -->|FALSE| Unknown[Prepare Unknown\nUnresolved]
+
+    AmpLI --> ParseAmp[Parse Amplemarket\nExtract employee count]
+    AmpDomain --> ParseAmp
+
+    ParseAmp --> CheckCount{Check Got Count\nemployeeCount > 0?}
+
+    CheckCount -->|TRUE| PrepPrompt[Prepare Gemini Prompt\nBranch/subsidiary detection]
+    CheckCount -->|FALSE| Unknown
+
+    PrepPrompt --> Gemini[Gemini Branch Check\ngemini-2.5-flash temp 0.1]
+    Gemini --> ParseGemini[Parse Gemini\nExtract result + enrichment source]
+
+    ParseGemini --> UpdateHS[Update HubSpot\nnumberofemployees + enrichment source]
+    Unknown --> UpdateHS
+
+    UpdateHS --> Format[Format Summary\nBuild Slack message]
+    Format --> Slack[Send Slack Summary\nChannel C0AFSAD1E5A]
