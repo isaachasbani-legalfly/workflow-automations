@@ -1,5 +1,5 @@
 flowchart TD
-    Start([Manual Trigger]) --> Init["Initialize State\n{after: null, allCompanies: [], maxPages: 1}"]
+    Start([Schedule Trigger\nDaily 01:00 London]) --> Init["Initialize State\n{after: null, allCompanies: [], maxPages: 1}"]
     Init --> Pass["Pass State"]
     Pass --> Fetch["Fetch Companies Page\nHubSpot Search API, limit: 100"]
     Fetch --> Accum["Accumulate Results\nmerge pages, extract cursor"]

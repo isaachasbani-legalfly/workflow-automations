@@ -1,6 +1,6 @@
 # Country Retroactive Enrichment
 
-This workflow backfills the `country` property for HubSpot companies that have no country set. It runs manually, fetches all companies missing a country using paginated API calls, enriches each one through a four-phase cascade (TLD extraction, company name scan, Amplemarket API via domain + LinkedIn, web scraping + Gemini analysis), writes the result back to HubSpot, and sends a single Slack summary of everything it processed.
+This workflow backfills the `country` property for HubSpot companies that have no country set. It runs nightly at 1:00 AM London time, fetches all companies missing a country using paginated API calls, enriches each one through a four-phase cascade (TLD extraction, company name scan, Amplemarket API via domain + LinkedIn, web scraping + Gemini analysis), writes the result back to HubSpot, and sends a single Slack summary of everything it processed.
 
 ---
 
@@ -10,9 +10,9 @@ When companies are created in HubSpot, the `country` field often gets left blank
 
 ---
 
-## When to run
+## When it runs
 
-Manually in n8n. Each execution processes up to **200 companies** (configurable via `maxPages` and `limit` in Initialize State). Current default: **100 companies** (limit: 100, maxPages: 1).
+Nightly at **01:00 London time** (Europe/London) via Schedule Trigger. Each execution processes up to **200 companies** (configurable via `maxPages` and `limit` in Initialize State). Current default: **100 companies** (limit: 100, maxPages: 1).
 
 ---
 
@@ -26,7 +26,7 @@ For every company, the workflow tries to identify the country through four phase
 
 ```mermaid
 flowchart TD
-    Start([Manual Trigger]) --> Init["Initialize State\n{after: null, allCompanies: [], maxPages: 1}"]
+    Start([Schedule Trigger\nDaily 01:00 London]) --> Init["Initialize State\n{after: null, allCompanies: [], maxPages: 1}"]
     Init --> Pass["Pass State"]
     Pass --> Fetch["Fetch Companies Page\nHubSpot Search API, limit: 100"]
     Fetch --> Accum["Accumulate Results\nmerge pages, extract cursor"]
@@ -135,6 +135,7 @@ At the end of each run, a single Slack message is sent listing every company tha
 
 | Version | Date | Key changes |
 |---------|------|-------------|
+| v2.2.4 | 2026-02-25 | Converted from manual trigger to nightly Schedule Trigger (01:00 London). Workflow now runs automatically |
 | v2.2 | 2026-02-25 | Better search query, LinkedIn URL → Amplemarket lookup, Gemini prompt with country normalization + anti-confusion rules, Jina rate limit protection, Check Website Data replaced with Code node (IF node always returned FALSE). 37 nodes |
 | v2.1 | 2026-02-24 | Replace Gemini blind + grounded with Jina scrape + DuckDuckGo search + Gemini content analysis. Fix HubSpot `country` write (countryRegion). Single Slack message via staticData. 31 nodes |
 | v2.0 | 2026-02-23 | Pagination loop, Gemini blind pass, Gemini Google Search grounding, "Unknown" fallback |

@@ -1,17 +1,8 @@
 {
+  "id": "h4Dwz3Z2bhksWYly",
   "name": "Country Retroactive Enrichment v2.1",
+  "active": true,
   "nodes": [
-    {
-      "parameters": {},
-      "id": "v2-trigger",
-      "name": "Manual Trigger",
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
-      "position": [
-        -1808,
-        304
-      ]
-    },
     {
       "parameters": {
         "jsCode": "return {\n  json: {\n    after: null,\n    allCompanies: [],\n    pageCount: 0,\n    maxPages: 1\n  }\n};"
@@ -512,7 +503,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const companyData = $('Prepare Company Data').item.json;\nconst companyName = companyData.companyName || '';\nconst domain = companyData.domain || '';\nlet content = '';\nlet contentSource = '';\n\n// Try website scrape first\ntry {\n  const scrapeData = $('Jina Website Scrape').item.json;\n  const webContent = (scrapeData.data || {}).content || '';\n  const hasWarning = !!(scrapeData.data || {}).warning;\n  if (!hasWarning && typeof webContent === 'string' && webContent.trim().length > 200) {\n    content = webContent;\n    contentSource = 'website';\n  }\n} catch(e) {}\n\n// Fall back to search\nif (!content) {\n  try {\n    const searchData = $('Jina Web Search').item.json;\n    const webContent = (searchData.data || {}).content || '';\n    if (typeof webContent === 'string' && webContent.trim().length > 50) {\n      content = webContent;\n      contentSource = 'search';\n    }\n  } catch(e) {}\n}\n\n// Clean content\ncontent = content.replace(/!\\[.*?\\]\\(.*?\\)/g, '');\ncontent = content.replace(/https?:\\/\\/[^\\s)]+\\.(png|jpg|jpeg|gif|svg|webp|ico)[^\\s)]*/gi, '');\ncontent = content.replace(/cookie[s]?\\s*(policy|notice|consent|banner|settings)[^\\n]*/gi, '');\n\nif (contentSource === 'search') {\n  content = content.replace(/Report Ad[^\\n]*/g, '');\n  content = content.replace(/\\[.*?\\]\\(https:\\/\\/duckduckgo\\.com\\/y\\.js[^)]*\\)/g, '');\n  content = content.replace(/^.*duckduckgo\\.com\\/y\\.js.*$/gm, '');\n  content = content.replace(/^\\d+\\.\\s+\\S+\\.\\S+\\s*$/gm, '');\n  const match = content.match(/\\n\\d+\\.\\s/);\n  if (match && match.index > 300) {\n    content = content.substring(match.index);\n  }\n  content = content.replace(/\\nMore results[\\s\\S]*/, '');\n  content = content.replace(/Close menu[\\s\\S]*/, '');\n  content = content.replace(/\\[Only include results[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Redo search[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Block this site[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/Share feedback about this site/g, '');\n  content = content.replace(/\\[Search domain[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[\\]\\(https:\\/\\/duckduckgo\\.com\\/\\?q=[^)]*\\)/g, '');\n}\n\ncontent = content.replace(/\\n{3,}/g, '\\n\\n').trim();\n\nconst maxChars = 6000;\nif (content.length > maxChars) content = content.substring(0, maxChars) + '... [truncated]';\n\nconst prompt = `You are an expert at identifying the headquarters country of companies from web content.\n\nCOMPANY: ${companyName}\nDOMAIN: ${domain || 'Not provided'}\n\nWEB CONTENT:\n${content || 'No content available'}\n\n---\n\nBased ONLY on the web content above, identify the headquarters country.\n\nLOOK FOR (in order of reliability):\n1. Physical address or registered office mentioned on the page\n2. Phone number with international country code (e.g., +33 = France, +44 = UK, +32 = Belgium)\n3. VAT/tax ID format (e.g., BE0xxx = Belgium, DE xxx = Germany, GB xxx = UK)\n4. Company registration or legal entity type (GmbH = Germany/Austria/Switzerland, BV/NV = Netherlands/Belgium, Ltd/PLC = UK, SRL/SA = various, Inc/LLC = USA)\n5. Explicit statement like \"headquartered in [city], [country]\" or \"based in [country]\"\n6. Language and regional formatting clues (currency symbols, date formats)\n\nRULES:\n- Base your answer ONLY on the provided web content — do NOT use your own knowledge about company names or domains\n- Do NOT confuse a company with another similarly named well-known company (e.g., \"apollosuccess.io\" is NOT \"apollo.io\", \"wixsiteautomations.com\" is NOT \"wix.com\")\n- The evidence field MUST contain a direct quote from the web content, NOT your reasoning\n- If the content is only error pages, login screens, or cookie banners with zero location clues: output Unknown\n\nCOUNTRY NAME RULES:\n- Use full English country names\n- NEVER use \"England\", \"Scotland\", \"Wales\", or \"Northern Ireland\" — always use \"United Kingdom\"\n- NEVER use \"Holland\" — use \"Netherlands\"\n- NEVER use \"USA\" or \"US\" — use \"United States\"\n- NEVER use \"UAE\" — use \"United Arab Emirates\"\n\nRESPONSE (JSON only, no markdown, no explanation):\n{\"country\": \"<full country name>\", \"evidence\": \"<exact quote from content>\"}\n\nIf unknown:\n{\"country\": \"Unknown\", \"evidence\": \"No country indicators found in content\"}`;\nreturn { json: { companyId: companyData.companyId, companyName, domain, contentSource, contentLength: content.length, prompt } };"
+        "jsCode": "const companyData = $('Prepare Company Data').item.json;\nconst companyName = companyData.companyName || '';\nconst domain = companyData.domain || '';\nlet content = '';\nlet contentSource = '';\n\n// Try website scrape first\ntry {\n  const scrapeData = $('Jina Website Scrape').item.json;\n  const webContent = (scrapeData.data || {}).content || '';\n  const hasWarning = !!(scrapeData.data || {}).warning;\n  if (!hasWarning && typeof webContent === 'string' && webContent.trim().length > 200) {\n    content = webContent;\n    contentSource = 'website';\n  }\n} catch(e) {}\n\n// Fall back to search\nif (!content) {\n  try {\n    const searchData = $('Jina Web Search').item.json;\n    const webContent = (searchData.data || {}).content || '';\n    if (typeof webContent === 'string' && webContent.trim().length > 50) {\n      content = webContent;\n      contentSource = 'search';\n    }\n  } catch(e) {}\n}\n\n// Clean content\ncontent = content.replace(/!\\[.*?\\]\\(.*?\\)/g, '');\ncontent = content.replace(/https?:\\/\\/[^\\s)]+\\.(png|jpg|jpeg|gif|svg|webp|ico)[^\\s)]*/gi, '');\ncontent = content.replace(/cookie[s]?\\s*(policy|notice|consent|banner|settings)[^\\n]*/gi, '');\n\nif (contentSource === 'search') {\n  content = content.replace(/Report Ad[^\\n]*/g, '');\n  content = content.replace(/\\[.*?\\]\\(https:\\/\\/duckduckgo\\.com\\/y\\.js[^)]*\\)/g, '');\n  content = content.replace(/^.*duckduckgo\\.com\\/y\\.js.*$/gm, '');\n  content = content.replace(/^\\d+\\.\\s+\\S+\\.\\S+\\s*$/gm, '');\n  const match = content.match(/\\n\\d+\\.\\s/);\n  if (match && match.index > 300) {\n    content = content.substring(match.index);\n  }\n  content = content.replace(/\\nMore results[\\s\\S]*/, '');\n  content = content.replace(/Close menu[\\s\\S]*/, '');\n  content = content.replace(/\\[Only include results[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Redo search[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Block this site[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/Share feedback about this site/g, '');\n  content = content.replace(/\\[Search domain[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[\\]\\(https:\\/\\/duckduckgo\\.com\\/\\?q=[^)]*\\)/g, '');\n}\n\ncontent = content.replace(/\\n{3,}/g, '\\n\\n').trim();\n\nconst maxChars = 6000;\nif (content.length > maxChars) content = content.substring(0, maxChars) + '... [truncated]';\n\nconst prompt = `You are an expert at identifying the headquarters country of companies from web content.\n\nCOMPANY: ${companyName}\nDOMAIN: ${domain || 'Not provided'}\n\nWEB CONTENT:\n${content || 'No content available'}\n\n---\n\nBased ONLY on the web content above, identify the headquarters country.\n\nLOOK FOR (in order of reliability):\n1. Physical address or registered office mentioned on the page\n2. Phone number with international country code (e.g., +33 = France, +44 = UK, +32 = Belgium)\n3. VAT/tax ID format (e.g., BE0xxx = Belgium, DE xxx = Germany, GB xxx = UK)\n4. Company registration or legal entity type (GmbH = Germany/Austria/Switzerland, BV/NV = Netherlands/Belgium, Ltd/PLC = UK, SRL/SA = various, Inc/LLC = USA)\n5. Explicit statement like \"headquartered in [city], [country]\" or \"based in [country]\"\n6. Language and regional formatting clues (currency symbols, date formats)\n\nRULES:\n- Base your answer ONLY on the provided web content \u2014 do NOT use your own knowledge about company names or domains\n- Do NOT confuse a company with another similarly named well-known company (e.g., \"apollosuccess.io\" is NOT \"apollo.io\", \"wixsiteautomations.com\" is NOT \"wix.com\")\n- The evidence field MUST contain a direct quote from the web content, NOT your reasoning\n- If the content is only error pages, login screens, or cookie banners with zero location clues: output Unknown\n\nCOUNTRY NAME RULES:\n- Use full English country names\n- NEVER use \"England\", \"Scotland\", \"Wales\", or \"Northern Ireland\" \u2014 always use \"United Kingdom\"\n- NEVER use \"Holland\" \u2014 use \"Netherlands\"\n- NEVER use \"USA\" or \"US\" \u2014 use \"United States\"\n- NEVER use \"UAE\" \u2014 use \"United Arab Emirates\"\n\nRESPONSE (JSON only, no markdown, no explanation):\n{\"country\": \"<full country name>\", \"evidence\": \"<exact quote from content>\"}\n\nIf unknown:\n{\"country\": \"Unknown\", \"evidence\": \"No country indicators found in content\"}`;\nreturn { json: { companyId: companyData.companyId, companyName, domain, contentSource, contentLength: content.length, prompt } };"
       },
       "id": "v2-prep-gemini",
       "name": "Prepare Gemini Input",
@@ -731,7 +722,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Use static data to accumulate results across batches from different IF branches\nconst staticData = $getWorkflowStaticData('node');\nconst execId = $execution.id;\n\n// Reset if new execution\nif (staticData._execId !== execId) {\n  staticData._execId = execId;\n  staticData._results = [];\n  staticData._sent = false;\n}\n\n// Add current batch items\nconst currentItems = $input.all().map(i => i.json);\nstaticData._results.push(...currentItems);\n\nconst totalExpected = $('Split All Companies').all().length;\n\n// Only send when all items collected and not already sent\nif (staticData._results.length >= totalExpected && !staticData._sent) {\n  staticData._sent = true;\n  const allResults = [...staticData._results];\n  const resolved = allResults.filter(i => i.resolved);\n  const unknown = allResults.filter(i => !i.resolved);\n  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n  const hubspotBase = 'https://app.hubspot.com/contacts/142047914/company/';\n  let msg = `*\\ud83c\\udf0d Country Enrichment \\u2014 ${today}*\\n*${allResults.length} companies processed*\\n`;\n  if (resolved.length > 0) {\n    msg += `\\n\\u2705 *${resolved.length} enriched:*\\n`;\n    for (const c of resolved) {\n      msg += `\\u2022 *${c.companyName}* \\u2192 ${c.country} _(${c.enrichmentSource})_ \\u2014 <${hubspotBase}${c.companyId}|View>\\n`;\n    }\n  }\n  if (unknown.length > 0) {\n    msg += `\\n\\ud83d\\udea9 *${unknown.length} unknown:*\\n`;\n    for (const c of unknown) {\n      msg += `\\u2022 *${c.companyName}* \\u2014 <${hubspotBase}${c.companyId}|View>\\n`;\n    }\n  }\n  return [{ json: { message: msg } }];\n}\n\n// Not all items yet — return empty (Slack won't trigger)\nreturn [];"
+        "jsCode": "// Use static data to accumulate results across batches from different IF branches\nconst staticData = $getWorkflowStaticData('node');\nconst execId = $execution.id;\n\n// Reset if new execution\nif (staticData._execId !== execId) {\n  staticData._execId = execId;\n  staticData._results = [];\n  staticData._sent = false;\n}\n\n// Add current batch items\nconst currentItems = $input.all().map(i => i.json);\nstaticData._results.push(...currentItems);\n\nconst totalExpected = $('Split All Companies').all().length;\n\n// Only send when all items collected and not already sent\nif (staticData._results.length >= totalExpected && !staticData._sent) {\n  staticData._sent = true;\n  const allResults = [...staticData._results];\n  const resolved = allResults.filter(i => i.resolved);\n  const unknown = allResults.filter(i => !i.resolved);\n  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n  const hubspotBase = 'https://app.hubspot.com/contacts/142047914/company/';\n  let msg = `*\\ud83c\\udf0d Country Enrichment \\u2014 ${today}*\\n*${allResults.length} companies processed*\\n`;\n  if (resolved.length > 0) {\n    msg += `\\n\\u2705 *${resolved.length} enriched:*\\n`;\n    for (const c of resolved) {\n      msg += `\\u2022 *${c.companyName}* \\u2192 ${c.country} _(${c.enrichmentSource})_ \\u2014 <${hubspotBase}${c.companyId}|View>\\n`;\n    }\n  }\n  if (unknown.length > 0) {\n    msg += `\\n\\ud83d\\udea9 *${unknown.length} unknown:*\\n`;\n    for (const c of unknown) {\n      msg += `\\u2022 *${c.companyName}* \\u2014 <${hubspotBase}${c.companyId}|View>\\n`;\n    }\n  }\n  return [{ json: { message: msg } }];\n}\n\n// Not all items yet \u2014 return empty (Slack won't trigger)\nreturn [];"
       },
       "id": "v2-format",
       "name": "Format Summary",
@@ -899,10 +890,6 @@
       ]
     },
     {
-      "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "const data = $json.data || {};\nconst content = data.content || '';\nconst warning = data.warning || '';\nconst hasError = !!$json.error;\nconst isGoodContent = !hasError && !warning && content.length > 200;\nreturn { json: { ...$json, _websiteOk: isGoodContent } };"
-      },
       "id": "v2-check-website-code",
       "name": "Check Website Quality",
       "type": "n8n-nodes-base.code",
@@ -910,9 +897,21 @@
       "position": [
         3696,
         512
-      ]
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $json.data || {};\nconst content = data.content || '';\nconst warning = data.warning || '';\nconst hasError = !!$json.error;\nconst isGoodContent = !hasError && !warning && content.length > 200;\nreturn { json: { ...$json, _websiteOk: isGoodContent } };"
+      }
     },
     {
+      "id": "v2-check-website-if",
+      "name": "Website Content OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3960,
+        512
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -935,31 +934,33 @@
           ],
           "combinator": "and"
         },
-        "options": {}
-      },
-      "id": "v2-check-website-if",
-      "name": "Website Content OK?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
+        "options": {
+          "looseTypeValidation": true
+        }
+      }
+    },
+    {
+      "id": "v2-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
       "position": [
-        3968,
-        512
-      ]
+        -1808,
+        304
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 1,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
     }
   ],
-  "pinData": {},
   "connections": {
-    "Manual Trigger": {
-      "main": [
-        [
-          {
-            "node": "Initialize State",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Initialize State": {
       "main": [
         [
@@ -1414,21 +1415,1534 @@
           }
         ]
       ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Initialize State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "active": false,
   "settings": {
     "executionOrder": "v1",
     "saveDataErrorExecution": "all",
     "saveDataSuccessExecution": "all",
     "saveManualExecutions": true,
     "callerPolicy": "workflowsFromSameOwner",
-    "availableInMCP": false
+    "availableInMCP": false,
+    "timezone": "Europe/London"
   },
-  "versionId": "683b8e55-75dc-401e-8ddc-0cc7f44a2881",
-  "meta": {
-    "instanceId": "1c614ffbaa74dc7b329196566d86f2ebdc830e7ef4cc70cc01f324f4043c7c50"
+  "staticData": {
+    "node:Schedule Trigger": {
+      "recurrenceRules": []
+    }
   },
-  "id": "h4Dwz3Z2bhksWYly",
-  "tags": []
+  "meta": null,
+  "pinData": {},
+  "versionId": "5e983ec5-c7f3-4338-bd28-93bd54f6d9b8",
+  "activeVersionId": "5e983ec5-c7f3-4338-bd28-93bd54f6d9b8",
+  "versionCounter": 95,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-02-23T18:48:26.471Z",
+      "createdAt": "2026-02-23T18:48:26.471Z",
+      "role": "workflow:owner",
+      "workflowId": "h4Dwz3Z2bhksWYly",
+      "projectId": "BgmK2k8flov6mZfH",
+      "project": {
+        "updatedAt": "2026-01-28T14:25:33.079Z",
+        "createdAt": "2026-01-28T14:24:51.243Z",
+        "id": "BgmK2k8flov6mZfH",
+        "name": "Isaac  Hasbani <isaac.hasbani@legalfly.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "126c4214-1ca8-49c9-bb08-e723e54971d6",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-01-28T14:24:51.246Z",
+            "createdAt": "2026-01-28T14:24:51.246Z",
+            "userId": "126c4214-1ca8-49c9-bb08-e723e54971d6",
+            "projectId": "BgmK2k8flov6mZfH",
+            "user": {
+              "updatedAt": "2026-02-25T00:03:17.000Z",
+              "createdAt": "2026-01-28T14:24:51.237Z",
+              "id": "126c4214-1ca8-49c9-bb08-e723e54971d6",
+              "email": "isaac.hasbani@legalfly.com",
+              "firstName": "Isaac ",
+              "lastName": "Hasbani",
+              "personalizationAnswers": null,
+              "settings": {
+                "firstSuccessfulWorkflowId": "msnUQJ07NgfOdXls4nbW9",
+                "userActivated": true,
+                "userActivatedAt": 1770242998305,
+                "easyAIWorkflowOnboarded": true,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1771197305297
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-02-25",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-02-25T13:34:17.363Z",
+    "createdAt": "2026-02-25T13:34:17.363Z",
+    "versionId": "5e983ec5-c7f3-4338-bd28-93bd54f6d9b8",
+    "workflowId": "h4Dwz3Z2bhksWYly",
+    "nodes": [
+      {
+        "parameters": {
+          "jsCode": "return {\n  json: {\n    after: null,\n    allCompanies: [],\n    pageCount: 0,\n    maxPages: 1\n  }\n};"
+        },
+        "id": "v2-init",
+        "name": "Initialize State",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -1504,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "return {\n  json: {\n    after: $json.after || null,\n    allCompanies: $json.allCompanies || [],\n    pageCount: $json.pageCount || 0,\n    maxPages: $json.maxPages || 2\n  }\n};"
+        },
+        "id": "v2-pass",
+        "name": "Pass State",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -1200,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "hubspotAppToken",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'country', operator: 'NOT_HAS_PROPERTY' }] }], properties: ['name', 'domain'], limit: 100, ...($json.after ? { after: $json.after } : {}) }) }}",
+          "options": {}
+        },
+        "id": "v2-fetch",
+        "name": "Fetch Companies Page",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          -896,
+          304
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 2000,
+        "credentials": {
+          "hubspotAppToken": {
+            "id": "5ww8XNGf4HTQu4UI",
+            "name": "hubspot"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const apiResponse = $json;\nconst passStateData = $('Pass State').item.json;\n\nconst prevCompanies = passStateData.allCompanies || [];\nconst newCompanies = apiResponse.results || [];\nconst pageCount = (passStateData.pageCount || 0) + 1;\nconst maxPages = passStateData.maxPages || 2;\n\nconst rawCursor = apiResponse.paging?.next?.after || null;\nconst cursor = (pageCount < maxPages) ? rawCursor : null;\n\nreturn {\n  json: {\n    after: cursor,\n    allCompanies: [...prevCompanies, ...newCompanies],\n    pageCount,\n    maxPages\n  }\n};"
+        },
+        "id": "v2-accumulate",
+        "name": "Accumulate Results",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -608,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "more-check",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                },
+                "leftValue": "={{ $json.after || '' }}",
+                "rightValue": ""
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "v2-if-more",
+        "name": "IF More Pages",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -304,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const allCompanies = $input.first().json.allCompanies || [];\nif (allCompanies.length === 0) return [{ json: { _empty: true } }];\nreturn allCompanies.map(company => ({\n  json: {\n    id: String(company.id),\n    properties: company.properties || {}\n  }\n}));"
+        },
+        "id": "v2-split",
+        "name": "Split All Companies",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          0,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "f1",
+                "name": "companyId",
+                "type": "string",
+                "value": "={{ $json.id }}"
+              },
+              {
+                "id": "f2",
+                "name": "companyName",
+                "type": "string",
+                "value": "={{ ($json.properties || {}).name || '' }}"
+              },
+              {
+                "id": "f3",
+                "name": "domain",
+                "type": "string",
+                "value": "={{ ($json.properties || {}).domain || '' }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "v2-prepare",
+        "name": "Prepare Company Data",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          304,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "d1",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                },
+                "leftValue": "={{ $json.domain }}",
+                "rightValue": ""
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "v2-check-domain",
+        "name": "Check Has Domain",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          608,
+          304
+        ]
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const tldMap = {\n  '.ac': 'Ascension Island', '.ad': 'Andorra', '.ae': 'United Arab Emirates', '.af': 'Afghanistan',\n  '.ag': 'Antigua and Barbuda', '.al': 'Albania', '.am': 'Armenia', '.ao': 'Angola',\n  '.ar': 'Argentina', '.at': 'Austria', '.au': 'Australia', '.az': 'Azerbaijan',\n  '.ba': 'Bosnia and Herzegovina', '.bb': 'Barbados', '.bd': 'Bangladesh', '.be': 'Belgium',\n  '.bf': 'Burkina Faso', '.bg': 'Bulgaria', '.bh': 'Bahrain', '.bi': 'Burundi',\n  '.bj': 'Benin', '.bn': 'Brunei', '.bo': 'Bolivia', '.br': 'Brazil',\n  '.bs': 'Bahamas', '.bt': 'Bhutan', '.bw': 'Botswana', '.by': 'Belarus',\n  '.bz': 'Belize', '.ca': 'Canada', '.cd': 'Democratic Republic of the Congo',\n  '.cf': 'Central African Republic', '.cg': 'Republic of the Congo', '.ch': 'Switzerland',\n  '.ci': 'Ivory Coast', '.cl': 'Chile', '.cm': 'Cameroon', '.cn': 'China',\n  '.co': 'Colombia', '.cr': 'Costa Rica', '.cu': 'Cuba', '.cv': 'Cape Verde',\n  '.cy': 'Cyprus', '.cz': 'Czech Republic', '.de': 'Germany', '.dj': 'Djibouti',\n  '.dk': 'Denmark', '.dm': 'Dominica', '.do': 'Dominican Republic', '.dz': 'Algeria',\n  '.ec': 'Ecuador', '.ee': 'Estonia', '.eg': 'Egypt', '.er': 'Eritrea',\n  '.es': 'Spain', '.et': 'Ethiopia', '.fi': 'Finland', '.fj': 'Fiji',\n  '.fr': 'France', '.ga': 'Gabon', '.gd': 'Grenada', '.ge': 'Georgia',\n  '.gh': 'Ghana', '.gm': 'Gambia', '.gn': 'Guinea', '.gq': 'Equatorial Guinea',\n  '.gr': 'Greece', '.gt': 'Guatemala', '.gw': 'Guinea-Bissau', '.gy': 'Guyana',\n  '.hk': 'Hong Kong', '.hn': 'Honduras', '.hr': 'Croatia', '.ht': 'Haiti',\n  '.hu': 'Hungary', '.id': 'Indonesia', '.ie': 'Ireland', '.il': 'Israel',\n  '.in': 'India', '.iq': 'Iraq', '.ir': 'Iran', '.is': 'Iceland',\n  '.it': 'Italy', '.jm': 'Jamaica', '.jo': 'Jordan', '.jp': 'Japan',\n  '.ke': 'Kenya', '.kg': 'Kyrgyzstan', '.kh': 'Cambodia', '.kr': 'South Korea',\n  '.kw': 'Kuwait', '.kz': 'Kazakhstan', '.la': 'Laos', '.lb': 'Lebanon',\n  '.lc': 'Saint Lucia', '.li': 'Liechtenstein', '.lk': 'Sri Lanka', '.lr': 'Liberia',\n  '.ls': 'Lesotho', '.lt': 'Lithuania', '.lu': 'Luxembourg', '.lv': 'Latvia',\n  '.ly': 'Libya', '.ma': 'Morocco', '.mc': 'Monaco', '.md': 'Moldova',\n  '.me': 'Montenegro', '.mg': 'Madagascar', '.mk': 'North Macedonia', '.ml': 'Mali',\n  '.mm': 'Myanmar', '.mn': 'Mongolia', '.mo': 'Macau', '.mr': 'Mauritania',\n  '.mt': 'Malta', '.mu': 'Mauritius', '.mv': 'Maldives', '.mw': 'Malawi',\n  '.mx': 'Mexico', '.my': 'Malaysia', '.mz': 'Mozambique', '.na': 'Namibia',\n  '.ne': 'Niger', '.ng': 'Nigeria', '.ni': 'Nicaragua', '.nl': 'Netherlands',\n  '.no': 'Norway', '.np': 'Nepal', '.nz': 'New Zealand', '.om': 'Oman',\n  '.pa': 'Panama', '.pe': 'Peru', '.pg': 'Papua New Guinea', '.ph': 'Philippines',\n  '.pk': 'Pakistan', '.pl': 'Poland', '.pt': 'Portugal', '.py': 'Paraguay',\n  '.qa': 'Qatar', '.ro': 'Romania', '.rs': 'Serbia', '.ru': 'Russia',\n  '.rw': 'Rwanda', '.sa': 'Saudi Arabia', '.sc': 'Seychelles', '.sd': 'Sudan',\n  '.se': 'Sweden', '.sg': 'Singapore', '.si': 'Slovenia', '.sk': 'Slovakia',\n  '.sl': 'Sierra Leone', '.sn': 'Senegal', '.so': 'Somalia', '.sr': 'Suriname',\n  '.sv': 'El Salvador', '.sy': 'Syria', '.th': 'Thailand', '.tj': 'Tajikistan',\n  '.tn': 'Tunisia', '.to': 'Tonga', '.tr': 'Turkey', '.tt': 'Trinidad and Tobago',\n  '.tw': 'Taiwan', '.tz': 'Tanzania', '.ua': 'Ukraine', '.ug': 'Uganda',\n  '.uk': 'United Kingdom', '.uy': 'Uruguay', '.uz': 'Uzbekistan',\n  '.ve': 'Venezuela', '.vn': 'Vietnam', '.ye': 'Yemen', '.za': 'South Africa',\n  '.zm': 'Zambia', '.zw': 'Zimbabwe',\n  '.co.uk': 'United Kingdom', '.co.jp': 'Japan', '.co.kr': 'South Korea',\n  '.co.in': 'India', '.co.za': 'South Africa', '.co.nz': 'New Zealand',\n  '.com.au': 'Australia', '.com.br': 'Brazil', '.com.mx': 'Mexico',\n  '.com.ar': 'Argentina', '.com.tr': 'Turkey', '.com.cn': 'China',\n  '.com.sg': 'Singapore', '.com.hk': 'Hong Kong', '.com.my': 'Malaysia',\n  '.com.ph': 'Philippines', '.com.pk': 'Pakistan', '.com.ng': 'Nigeria',\n  '.com.eg': 'Egypt', '.com.sa': 'Saudi Arabia', '.com.co': 'Colombia',\n  '.com.pe': 'Peru', '.com.uy': 'Uruguay', '.com.ec': 'Ecuador'\n};\n\nconst genericTLDs = ['.com', '.org', '.net', '.io', '.co', '.app', '.dev', '.tech', '.ai', '.info', '.biz', '.xyz', '.online', '.site', '.cloud', '.digital', '.global', '.world', '.pro', '.solutions'];\n\nconst data = $('Prepare Company Data').item.json;\nconst domain = (data.domain || '').toLowerCase().trim();\nlet countryFromTLD = '';\n\nif (domain) {\n  for (const [tld, country] of Object.entries(tldMap)) {\n    if (tld.includes('.') && tld.split('.').length > 2 && domain.endsWith(tld)) {\n      countryFromTLD = country;\n      break;\n    }\n  }\n  if (!countryFromTLD) {\n    const lastDot = domain.lastIndexOf('.');\n    if (lastDot !== -1) {\n      const tld = domain.substring(lastDot);\n      if (!genericTLDs.includes(tld) && tldMap[tld]) {\n        countryFromTLD = tldMap[tld];\n      }\n    }\n  }\n}\n\nreturn { json: { ...data, countryFromTLD } };"
+        },
+        "id": "v2-tld",
+        "name": "Extract TLD Country",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          912,
+          112
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "t1",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                },
+                "leftValue": "={{ $json.countryFromTLD }}",
+                "rightValue": ""
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "v2-check-tld",
+        "name": "Check TLD Resolved",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1200,
+          112
+        ]
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const countries = [\n  'Afghanistan','Albania','Algeria','Andorra','Angola','Argentina','Armenia',\n  'Australia','Austria','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium',\n  'Belize','Bolivia','Bosnia','Botswana','Brazil','Brunei','Bulgaria',\n  'Cambodia','Cameroon','Canada','Chile','China','Colombia','Costa Rica',\n  'Croatia','Cuba','Cyprus','Czech Republic','Denmark','Dominican Republic',\n  'Ecuador','Egypt','El Salvador','Estonia','Ethiopia','Finland','France',\n  'Georgia','Germany','Ghana','Greece','Guatemala','Honduras','Hong Kong',\n  'Hungary','Iceland','India','Indonesia','Iran','Iraq','Ireland','Israel',\n  'Italy','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Kuwait',\n  'Kyrgyzstan','Latvia','Lebanon','Libya','Liechtenstein','Lithuania',\n  'Luxembourg','Macau','Malaysia','Maldives','Malta','Mexico','Moldova',\n  'Monaco','Mongolia','Montenegro','Morocco','Mozambique','Myanmar','Nepal',\n  'Netherlands','New Zealand','Nicaragua','Nigeria','North Korea',\n  'North Macedonia','Norway','Oman','Pakistan','Panama','Paraguay','Peru',\n  'Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda',\n  'Saudi Arabia','Senegal','Serbia','Singapore','Slovakia','Slovenia',\n  'Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan',\n  'Sweden','Switzerland','Syria','Taiwan','Tajikistan','Tanzania','Thailand',\n  'Turkey','Turkmenistan','Uganda','Ukraine','United Arab Emirates',\n  'United Kingdom','United States','Uruguay','Uzbekistan','Venezuela',\n  'Vietnam','Yemen','Zambia','Zimbabwe'\n];\n\nconst data = $('Prepare Company Data').item.json;\nconst name = (data.companyName || '').toLowerCase();\nlet countryFromName = '';\n\nfor (const c of countries) {\n  if (name.includes(c.toLowerCase())) {\n    countryFromName = c;\n    break;\n  }\n}\n\nreturn { json: { ...data, countryFromName } };"
+        },
+        "id": "v2-name-scan",
+        "name": "Extract Country from Name",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1200,
+          512
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "cn1",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                },
+                "leftValue": "={{ $json.countryFromName }}",
+                "rightValue": ""
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "v2-check-name",
+        "name": "Check Name Got Country",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1776,
+          320
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "da1",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                },
+                "leftValue": "={{ $json.domain || $('Prepare Company Data').item.json.domain }}",
+                "rightValue": ""
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "v2-check-domain-amp",
+        "name": "Check Has Domain for Amplemarket",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1952,
+          656
+        ]
+      },
+      {
+        "parameters": {
+          "url": "https://api.amplemarket.com/companies/find",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "domain",
+                "value": "={{ $('Prepare Company Data').item.json.domain }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "v2-amp-domain",
+        "name": "Amplemarket Domain API",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2304,
+          496
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 2000,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Jx7A2XtklZuWBopq",
+            "name": "amplemarket"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const data = $json;\nconst companyData = $('Prepare Company Data').item.json;\n\nconst locations = data.locations || [];\nconst primary = locations.find(l => l.is_primary) || locations[0] || {};\nconst countryFromAmplemarket = primary.country || '';\n\nreturn {\n  json: {\n    ...companyData,\n    countryFromAmplemarket\n  }\n};"
+        },
+        "id": "v2-parse-amp",
+        "name": "Parse Amplemarket Country",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2592,
+          496
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "ac1",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                },
+                "leftValue": "={{ $json.countryFromAmplemarket }}",
+                "rightValue": ""
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "v2-check-amp",
+        "name": "Check Amplemarket Got Country",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3072,
+          336
+        ]
+      },
+      {
+        "parameters": {
+          "url": "=https://r.jina.ai/https://{{ $json.domain }}",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Accept",
+                "value": "application/json"
+              },
+              {
+                "name": "X-No-Cache",
+                "value": "true"
+              }
+            ]
+          },
+          "options": {
+            "batching": {
+              "batch": {
+                "batchSize": 2,
+                "batchInterval": 5000
+              }
+            },
+            "timeout": 10000
+          }
+        },
+        "id": "v2-jina-scrape",
+        "name": "Jina Website Scrape",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3280,
+          512
+        ],
+        "retryOnFail": false,
+        "maxTries": 3,
+        "waitBetweenTries": 2000,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "dL2gHp8kej8GIfXX",
+            "name": "Jina"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "url": "=https://r.jina.ai/https://duckduckgo.com/?q={{ encodeURIComponent($('Prepare Company Data').item.json.companyName + ' headquarters country location') }}",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Accept",
+                "value": "application/json"
+              },
+              {
+                "name": "X-No-Cache",
+                "value": "true"
+              }
+            ]
+          },
+          "options": {
+            "batching": {
+              "batch": {
+                "batchSize": 2,
+                "batchInterval": 5000
+              }
+            },
+            "timeout": 10000
+          }
+        },
+        "id": "v2-jina-search",
+        "name": "Jina Web Search",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3088,
+          992
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "dL2gHp8kej8GIfXX",
+            "name": "Jina"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const companyData = $('Prepare Company Data').item.json;\nconst companyName = companyData.companyName || '';\nconst domain = companyData.domain || '';\nlet content = '';\nlet contentSource = '';\n\n// Try website scrape first\ntry {\n  const scrapeData = $('Jina Website Scrape').item.json;\n  const webContent = (scrapeData.data || {}).content || '';\n  const hasWarning = !!(scrapeData.data || {}).warning;\n  if (!hasWarning && typeof webContent === 'string' && webContent.trim().length > 200) {\n    content = webContent;\n    contentSource = 'website';\n  }\n} catch(e) {}\n\n// Fall back to search\nif (!content) {\n  try {\n    const searchData = $('Jina Web Search').item.json;\n    const webContent = (searchData.data || {}).content || '';\n    if (typeof webContent === 'string' && webContent.trim().length > 50) {\n      content = webContent;\n      contentSource = 'search';\n    }\n  } catch(e) {}\n}\n\n// Clean content\ncontent = content.replace(/!\\[.*?\\]\\(.*?\\)/g, '');\ncontent = content.replace(/https?:\\/\\/[^\\s)]+\\.(png|jpg|jpeg|gif|svg|webp|ico)[^\\s)]*/gi, '');\ncontent = content.replace(/cookie[s]?\\s*(policy|notice|consent|banner|settings)[^\\n]*/gi, '');\n\nif (contentSource === 'search') {\n  content = content.replace(/Report Ad[^\\n]*/g, '');\n  content = content.replace(/\\[.*?\\]\\(https:\\/\\/duckduckgo\\.com\\/y\\.js[^)]*\\)/g, '');\n  content = content.replace(/^.*duckduckgo\\.com\\/y\\.js.*$/gm, '');\n  content = content.replace(/^\\d+\\.\\s+\\S+\\.\\S+\\s*$/gm, '');\n  const match = content.match(/\\n\\d+\\.\\s/);\n  if (match && match.index > 300) {\n    content = content.substring(match.index);\n  }\n  content = content.replace(/\\nMore results[\\s\\S]*/, '');\n  content = content.replace(/Close menu[\\s\\S]*/, '');\n  content = content.replace(/\\[Only include results[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Redo search[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[Block this site[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/Share feedback about this site/g, '');\n  content = content.replace(/\\[Search domain[^\\]]*\\]\\([^)]*\\)/g, '');\n  content = content.replace(/\\[\\]\\(https:\\/\\/duckduckgo\\.com\\/\\?q=[^)]*\\)/g, '');\n}\n\ncontent = content.replace(/\\n{3,}/g, '\\n\\n').trim();\n\nconst maxChars = 6000;\nif (content.length > maxChars) content = content.substring(0, maxChars) + '... [truncated]';\n\nconst prompt = `You are an expert at identifying the headquarters country of companies from web content.\n\nCOMPANY: ${companyName}\nDOMAIN: ${domain || 'Not provided'}\n\nWEB CONTENT:\n${content || 'No content available'}\n\n---\n\nBased ONLY on the web content above, identify the headquarters country.\n\nLOOK FOR (in order of reliability):\n1. Physical address or registered office mentioned on the page\n2. Phone number with international country code (e.g., +33 = France, +44 = UK, +32 = Belgium)\n3. VAT/tax ID format (e.g., BE0xxx = Belgium, DE xxx = Germany, GB xxx = UK)\n4. Company registration or legal entity type (GmbH = Germany/Austria/Switzerland, BV/NV = Netherlands/Belgium, Ltd/PLC = UK, SRL/SA = various, Inc/LLC = USA)\n5. Explicit statement like \"headquartered in [city], [country]\" or \"based in [country]\"\n6. Language and regional formatting clues (currency symbols, date formats)\n\nRULES:\n- Base your answer ONLY on the provided web content \u2014 do NOT use your own knowledge about company names or domains\n- Do NOT confuse a company with another similarly named well-known company (e.g., \"apollosuccess.io\" is NOT \"apollo.io\", \"wixsiteautomations.com\" is NOT \"wix.com\")\n- The evidence field MUST contain a direct quote from the web content, NOT your reasoning\n- If the content is only error pages, login screens, or cookie banners with zero location clues: output Unknown\n\nCOUNTRY NAME RULES:\n- Use full English country names\n- NEVER use \"England\", \"Scotland\", \"Wales\", or \"Northern Ireland\" \u2014 always use \"United Kingdom\"\n- NEVER use \"Holland\" \u2014 use \"Netherlands\"\n- NEVER use \"USA\" or \"US\" \u2014 use \"United States\"\n- NEVER use \"UAE\" \u2014 use \"United Arab Emirates\"\n\nRESPONSE (JSON only, no markdown, no explanation):\n{\"country\": \"<full country name>\", \"evidence\": \"<exact quote from content>\"}\n\nIf unknown:\n{\"country\": \"Unknown\", \"evidence\": \"No country indicators found in content\"}`;\nreturn { json: { companyId: companyData.companyId, companyName, domain, contentSource, contentLength: content.length, prompt } };"
+        },
+        "id": "v2-prep-gemini",
+        "name": "Prepare Gemini Input",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          4976,
+          1136
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "googlePalmApi",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: $json.prompt }] }], generationConfig: { temperature: 0.1 } }) }}",
+          "options": {}
+        },
+        "id": "v2-gemini",
+        "name": "Gemini Inference",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          5360,
+          608
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 2000,
+        "credentials": {
+          "googlePalmApi": {
+            "id": "QnUjlFnc4gypgplL",
+            "name": "Gemini"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const geminiText = ($json?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();\nconst companyData = $('Prepare Company Data').item.json;\nconst contentSource = $('Prepare Gemini Input').item.json.contentSource || '';\n\nlet geminiCountry = '';\nlet geminiEvidence = '';\n\ntry {\n  const cleaned = geminiText.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  const parsed = JSON.parse(cleaned);\n  const country = parsed.country || '';\n  geminiEvidence = parsed.evidence || '';\n  if (country && country !== 'Unknown') {\n    geminiCountry = country;\n  }\n} catch (e) {}\n\nreturn {\n  json: {\n    companyId: companyData.companyId,\n    companyName: companyData.companyName,\n    domain: companyData.domain,\n    geminiCountry,\n    geminiEvidence,\n    contentSource\n  }\n};"
+        },
+        "id": "v2-parse-gemini",
+        "name": "Parse Gemini Response",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          5664,
+          608
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "cg1",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                },
+                "leftValue": "={{ $json.geminiCountry }}",
+                "rightValue": ""
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "v2-check-gemini",
+        "name": "Check Gemini Got Country",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          5952,
+          608
+        ]
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const d = $input.item.json;\nconst country = d.countryFromTLD || d.countryFromName || d.countryFromAmplemarket || d.geminiCountry || '';\nlet enrichmentSource = '';\nif (d.countryFromTLD) enrichmentSource = 'Domain Code';\nelse if (d.countryFromName) enrichmentSource = 'Company Name';\nelse if (d.countryFromAmplemarket) enrichmentSource = 'Amplemarket';\nelse if (d.geminiCountry) enrichmentSource = d.contentSource === 'website' ? 'Website' : 'Web Search';\nreturn { json: { companyId: d.companyId, companyName: d.companyName, domain: d.domain || '', country, enrichmentSource, resolved: true } };"
+        },
+        "id": "v2-result",
+        "name": "Prepare Result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          5216,
+          -224
+        ]
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const companyData = $('Prepare Company Data').item.json;\nreturn {\n  json: {\n    companyId: companyData.companyId,\n    companyName: companyData.companyName,\n    country: 'Unknown',\n    enrichmentSource: 'Unresolved',\n    resolved: false\n  }\n};"
+        },
+        "id": "v2-unknown",
+        "name": "Prepare Unknown",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          6304,
+          816
+        ]
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "s1",
+                "name": "companyId",
+                "type": "string",
+                "value": "={{ $json.companyId }}"
+              },
+              {
+                "id": "s2",
+                "name": "companyName",
+                "type": "string",
+                "value": "={{ $json.companyName }}"
+              },
+              {
+                "id": "s3",
+                "name": "country",
+                "type": "string",
+                "value": "={{ $json.country }}"
+              },
+              {
+                "id": "s4",
+                "name": "enrichmentSource",
+                "type": "string",
+                "value": "={{ $json.enrichmentSource }}"
+              },
+              {
+                "id": "s5",
+                "name": "resolved",
+                "type": "boolean",
+                "value": "={{ $json.resolved }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "v2-snapshot",
+        "name": "Snapshot Data",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          6608,
+          352
+        ]
+      },
+      {
+        "parameters": {
+          "authentication": "appToken",
+          "resource": "company",
+          "operation": "update",
+          "companyId": {
+            "mode": "id",
+            "value": "={{ $json.companyId }}"
+          },
+          "updateFields": {
+            "countryRegion": "={{ $json.country }}",
+            "customPropertiesUi": {
+              "customPropertiesValues": [
+                {
+                  "property": "countryenrichmentsource",
+                  "value": "={{ $json.enrichmentSource }}"
+                }
+              ]
+            }
+          }
+        },
+        "id": "v2-update-hs",
+        "name": "Update HubSpot",
+        "type": "n8n-nodes-base.hubspot",
+        "typeVersion": 2.2,
+        "position": [
+          6912,
+          352
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 2000,
+        "credentials": {
+          "hubspotAppToken": {
+            "id": "5ww8XNGf4HTQu4UI",
+            "name": "hubspot"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const d = $('Snapshot Data').item.json;\nreturn {\n  json: {\n    companyId: d.companyId,\n    companyName: d.companyName,\n    country: d.country,\n    enrichmentSource: d.enrichmentSource,\n    resolved: d.resolved\n  }\n};"
+        },
+        "id": "v2-restore",
+        "name": "Restore Data",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          7216,
+          352
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Use static data to accumulate results across batches from different IF branches\nconst staticData = $getWorkflowStaticData('node');\nconst execId = $execution.id;\n\n// Reset if new execution\nif (staticData._execId !== execId) {\n  staticData._execId = execId;\n  staticData._results = [];\n  staticData._sent = false;\n}\n\n// Add current batch items\nconst currentItems = $input.all().map(i => i.json);\nstaticData._results.push(...currentItems);\n\nconst totalExpected = $('Split All Companies').all().length;\n\n// Only send when all items collected and not already sent\nif (staticData._results.length >= totalExpected && !staticData._sent) {\n  staticData._sent = true;\n  const allResults = [...staticData._results];\n  const resolved = allResults.filter(i => i.resolved);\n  const unknown = allResults.filter(i => !i.resolved);\n  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\n  const hubspotBase = 'https://app.hubspot.com/contacts/142047914/company/';\n  let msg = `*\\ud83c\\udf0d Country Enrichment \\u2014 ${today}*\\n*${allResults.length} companies processed*\\n`;\n  if (resolved.length > 0) {\n    msg += `\\n\\u2705 *${resolved.length} enriched:*\\n`;\n    for (const c of resolved) {\n      msg += `\\u2022 *${c.companyName}* \\u2192 ${c.country} _(${c.enrichmentSource})_ \\u2014 <${hubspotBase}${c.companyId}|View>\\n`;\n    }\n  }\n  if (unknown.length > 0) {\n    msg += `\\n\\ud83d\\udea9 *${unknown.length} unknown:*\\n`;\n    for (const c of unknown) {\n      msg += `\\u2022 *${c.companyName}* \\u2014 <${hubspotBase}${c.companyId}|View>\\n`;\n    }\n  }\n  return [{ json: { message: msg } }];\n}\n\n// Not all items yet \u2014 return empty (Slack won't trigger)\nreturn [];"
+        },
+        "id": "v2-format",
+        "name": "Format Summary",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          7520,
+          352
+        ]
+      },
+      {
+        "parameters": {
+          "select": "channel",
+          "channelId": {
+            "__rl": true,
+            "value": "C0AG86U9927",
+            "mode": "id"
+          },
+          "text": "={{ $json.message }}",
+          "otherOptions": {}
+        },
+        "id": "v2-slack",
+        "name": "Send Slack",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          7824,
+          352
+        ],
+        "webhookId": "608f6350-459d-4aba-a5d6-4ebaa0c00ca7",
+        "credentials": {
+          "slackApi": {
+            "id": "lYs0WHzWk4c7z9Kk",
+            "name": "Slack"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const companyData = $('Prepare Company Data').item.json;\nlet content = '';\n\n// Try website scrape content (available when coming from Check Website Data TRUE path)\ntry {\n  const scrapeData = $('Jina Website Scrape').item.json;\n  const webContent = (scrapeData.data || {}).content || '';\n  if (webContent) content += webContent + '\\n';\n} catch(e) {}\n\n// Try search results content (available when coming from Jina Web Search path)\ntry {\n  const searchData = $('Jina Web Search').item.json;\n  const searchContent = (searchData.data || {}).content || '';\n  if (searchContent) content += searchContent;\n} catch(e) {}\n\nconst linkedinMatch = content.match(/https?:\\/\\/(?:www\\.)?linkedin\\.com\\/company\\/[a-zA-Z0-9_-]+/i);\nconst linkedinUrl = linkedinMatch ? linkedinMatch[0] : '';\n\nreturn {\n  json: {\n    ...companyData,\n    linkedinUrl\n  }\n};"
+        },
+        "id": "v2-extract-linkedin",
+        "name": "Extract LinkedIn URL",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3392,
+          992
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "linkedin-check",
+                "leftValue": "={{ $json.linkedinUrl }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "v2-check-linkedin",
+        "name": "Check Has LinkedIn URL",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3728,
+          992
+        ]
+      },
+      {
+        "parameters": {
+          "url": "https://api.amplemarket.com/companies/find",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "linkedin_url",
+                "value": "={{ $json.linkedinUrl }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "v2-amp-linkedin",
+        "name": "Amplemarket LinkedIn Lookup",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          3968,
+          768
+        ],
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 2000,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "Jx7A2XtklZuWBopq",
+            "name": "amplemarket"
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      {
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const data = $json;\nconst companyData = $('Prepare Company Data').item.json;\nconst linkedinUrl = $('Extract LinkedIn URL').item.json.linkedinUrl || '';\n\nconst locations = data.locations || [];\nconst primary = locations.find(l => l.is_primary) || locations[0] || {};\nconst countryFromAmplemarket = primary.country || '';\n\nreturn {\n  json: {\n    ...companyData,\n    linkedinUrl,\n    countryFromAmplemarket,\n    enrichmentViaLinkedIn: true\n  }\n};"
+        },
+        "id": "v2-parse-amp-linkedin",
+        "name": "Parse LinkedIn Amplemarket Country",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          4432,
+          768
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "strict"
+            },
+            "conditions": [
+              {
+                "id": "amp-linkedin-check",
+                "leftValue": "={{ $json.countryFromAmplemarket }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "v2-check-amp-linkedin",
+        "name": "Check LinkedIn Amplemarket Got Country",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          4736,
+          768
+        ]
+      },
+      {
+        "id": "v2-check-website-code",
+        "name": "Check Website Quality",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3696,
+          512
+        ],
+        "parameters": {
+          "mode": "runOnceForEachItem",
+          "jsCode": "const data = $json.data || {};\nconst content = data.content || '';\nconst warning = data.warning || '';\nconst hasError = !!$json.error;\nconst isGoodContent = !hasError && !warning && content.length > 200;\nreturn { json: { ...$json, _websiteOk: isGoodContent } };"
+        }
+      },
+      {
+        "id": "v2-check-website-if",
+        "name": "Website Content OK?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3960,
+          512
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "version": 2,
+              "leftValue": "",
+              "caseSensitive": true,
+              "typeValidation": "loose"
+            },
+            "conditions": [
+              {
+                "id": "wc1",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "leftValue": "={{ $json._websiteOk }}",
+                "rightValue": ""
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {
+            "looseTypeValidation": true
+          }
+        }
+      },
+      {
+        "id": "v2-trigger",
+        "name": "Schedule Trigger",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.3,
+        "position": [
+          -1808,
+          304
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "triggerAtHour": 1,
+                "triggerAtMinute": 0
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "connections": {
+      "Initialize State": {
+        "main": [
+          [
+            {
+              "node": "Pass State",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Pass State": {
+        "main": [
+          [
+            {
+              "node": "Fetch Companies Page",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Fetch Companies Page": {
+        "main": [
+          [
+            {
+              "node": "Accumulate Results",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Accumulate Results": {
+        "main": [
+          [
+            {
+              "node": "IF More Pages",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IF More Pages": {
+        "main": [
+          [
+            {
+              "node": "Pass State",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Split All Companies",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Split All Companies": {
+        "main": [
+          [
+            {
+              "node": "Prepare Company Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Company Data": {
+        "main": [
+          [
+            {
+              "node": "Check Has Domain",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Has Domain": {
+        "main": [
+          [
+            {
+              "node": "Extract TLD Country",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Extract Country from Name",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract TLD Country": {
+        "main": [
+          [
+            {
+              "node": "Check TLD Resolved",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check TLD Resolved": {
+        "main": [
+          [
+            {
+              "node": "Prepare Result",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Extract Country from Name",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract Country from Name": {
+        "main": [
+          [
+            {
+              "node": "Check Name Got Country",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Name Got Country": {
+        "main": [
+          [
+            {
+              "node": "Prepare Result",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Check Has Domain for Amplemarket",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Has Domain for Amplemarket": {
+        "main": [
+          [
+            {
+              "node": "Amplemarket Domain API",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Jina Web Search",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Amplemarket Domain API": {
+        "main": [
+          [
+            {
+              "node": "Parse Amplemarket Country",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse Amplemarket Country": {
+        "main": [
+          [
+            {
+              "node": "Check Amplemarket Got Country",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Amplemarket Got Country": {
+        "main": [
+          [
+            {
+              "node": "Prepare Result",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Jina Website Scrape",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Gemini Input": {
+        "main": [
+          [
+            {
+              "node": "Gemini Inference",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Gemini Inference": {
+        "main": [
+          [
+            {
+              "node": "Parse Gemini Response",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse Gemini Response": {
+        "main": [
+          [
+            {
+              "node": "Check Gemini Got Country",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Gemini Got Country": {
+        "main": [
+          [
+            {
+              "node": "Prepare Result",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Prepare Unknown",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Result": {
+        "main": [
+          [
+            {
+              "node": "Snapshot Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Prepare Unknown": {
+        "main": [
+          [
+            {
+              "node": "Snapshot Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Snapshot Data": {
+        "main": [
+          [
+            {
+              "node": "Update HubSpot",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Update HubSpot": {
+        "main": [
+          [
+            {
+              "node": "Restore Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Format Summary": {
+        "main": [
+          [
+            {
+              "node": "Send Slack",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Restore Data": {
+        "main": [
+          [
+            {
+              "node": "Format Summary",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Jina Web Search": {
+        "main": [
+          [
+            {
+              "node": "Extract LinkedIn URL",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Extract LinkedIn URL": {
+        "main": [
+          [
+            {
+              "node": "Check Has LinkedIn URL",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Has LinkedIn URL": {
+        "main": [
+          [
+            {
+              "node": "Amplemarket LinkedIn Lookup",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Prepare Gemini Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Amplemarket LinkedIn Lookup": {
+        "main": [
+          [
+            {
+              "node": "Parse LinkedIn Amplemarket Country",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Parse LinkedIn Amplemarket Country": {
+        "main": [
+          [
+            {
+              "node": "Check LinkedIn Amplemarket Got Country",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check LinkedIn Amplemarket Got Country": {
+        "main": [
+          [
+            {
+              "node": "Prepare Result",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Prepare Gemini Input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Jina Website Scrape": {
+        "main": [
+          [
+            {
+              "node": "Check Website Quality",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Check Website Quality": {
+        "main": [
+          [
+            {
+              "node": "Website Content OK?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Website Content OK?": {
+        "main": [
+          [
+            {
+              "node": "Extract LinkedIn URL",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Jina Web Search",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Schedule Trigger": {
+        "main": [
+          [
+            {
+              "node": "Initialize State",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "authors": "Isaac  Hasbani",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-02-25T13:34:56.680Z",
+        "id": 17,
+        "workflowId": "h4Dwz3Z2bhksWYly",
+        "versionId": "5e983ec5-c7f3-4338-bd28-93bd54f6d9b8",
+        "event": "activated",
+        "userId": "126c4214-1ca8-49c9-bb08-e723e54971d6"
+      }
+    ]
+  }
 }

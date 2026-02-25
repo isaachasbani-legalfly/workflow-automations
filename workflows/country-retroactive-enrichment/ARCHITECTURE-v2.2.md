@@ -2,7 +2,7 @@
 
 ## Overview
 
-Manual workflow to backfill the `country` property for HubSpot companies that have no country set. Uses a **four-phase enrichment cascade**: TLD extraction, company name scan, Amplemarket domain API, Jina web scraping/search + Gemini inference. Companies that fail all phases get `country="Unknown"` written to HubSpot, preventing infinite retry loops.
+Nightly scheduled workflow to backfill the `country` property for HubSpot companies that have no country set. Uses a **four-phase enrichment cascade**: TLD extraction, company name scan, Amplemarket domain API, Jina web scraping/search + Gemini inference. Companies that fail all phases get `country="Unknown"` written to HubSpot, preventing infinite retry loops.
 
 **v2.2 adds improvements to reduce "Unknown" classifications and improve accuracy:**
 1. **Better search query**: DuckDuckGo search now includes "headquarters country location" for more targeted results
@@ -12,7 +12,7 @@ Manual workflow to backfill the `country` property for HubSpot companies that ha
 
 **Workflow ID**: `h4Dwz3Z2bhksWYly`
 **n8n URL**: `https://legalfly.app.n8n.cloud/workflow/h4Dwz3Z2bhksWYly`
-**Status**: Inactive (manual trigger)
+**Status**: Active (nightly at 01:00 Europe/London)
 
 ---
 
@@ -20,7 +20,7 @@ Manual workflow to backfill the `country` property for HubSpot companies that ha
 
 ```mermaid
 flowchart TD
-    Start([Manual Trigger]) --> Init["Initialize State\n{after: null, allCompanies: [], maxPages: 1}"]
+    Start([Schedule Trigger\nDaily 01:00 London]) --> Init["Initialize State\n{after: null, allCompanies: [], maxPages: 1}"]
     Init --> Pass["Pass State"]
     Pass --> Fetch["Fetch Companies Page\nHubSpot Search API, limit: 100"]
     Fetch --> Accum["Accumulate Results\nmerge pages, extract cursor"]
@@ -80,7 +80,7 @@ flowchart TD
 
 | Node | Type | Config |
 |------|------|--------|
-| **Manual Trigger** (`v2-trigger`) | manualTrigger | Manual execution only |
+| **Schedule Trigger** (`v2-trigger`) | scheduleTrigger v1.3 | Daily at 01:00 Europe/London. Cron: `0 1 * * *` |
 | **Initialize State** (`v2-init`) | code | Emits `{ after: null, allCompanies: [], pageCount: 0, maxPages: 1 }` — seeds the pagination loop |
 | **Pass State** (`v2-pass`) | code | Forwards `{ after, allCompanies, pageCount, maxPages }` into the next fetch iteration |
 | **Fetch Companies Page** (`v2-fetch`) | httpRequest | POST `https://api.hubapi.com/crm/v3/objects/companies/search` — filters `country NOT_HAS_PROPERTY`, fetches `name` and `domain`. `limit: 100`. Retry: 3x, 2s. Auth: `hubspotAppToken` |
@@ -228,7 +228,7 @@ flowchart TD
 
 | ID | Name | Type |
 |----|------|------|
-| v2-trigger | Manual Trigger | manualTrigger |
+| v2-trigger | Schedule Trigger | scheduleTrigger |
 | v2-init | Initialize State | code |
 | v2-pass | Pass State | code |
 | v2-fetch | Fetch Companies Page | httpRequest |

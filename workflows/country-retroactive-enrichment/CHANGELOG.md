@@ -4,6 +4,19 @@ All notable changes to the Country Retroactive Enrichment workflow will be docum
 
 ---
 
+## [2.2.4] - 2026-02-25
+
+### Changed — Nightly scheduled execution
+
+- Replaced Manual Trigger with **Schedule Trigger** (v1.3): runs daily at 01:00 Europe/London
+- Activated workflow for automatic execution
+- All existing CRM companies now have countries filled — workflow now catches new companies without a country as they come in
+
+**Workflow ID**: `h4Dwz3Z2bhksWYly`
+**Total nodes**: 37 (unchanged)
+
+---
+
 ## [2.2.3] - 2026-02-25
 
 ### Fixed — Check Website Data always FALSE + Gemini prompt rebalanced
