@@ -1,30 +1,54 @@
 flowchart TD
-    Start([Schedule Trigger\n02:00 daily London])
+    Start([Schedule Trigger\n02:01 daily London])
 
-    Start --> Fetch[Fetch Companies\nHubSpot API - numberofemployees empty\nlimit 100]
-    Fetch --> Split[Split Companies\nCode node]
-    Split --> Prepare[Prepare Company Data\nSet node - companyId, name, domain, linkedinUrl]
-    Prepare --> CheckLI{Check Has LinkedIn URL\nlinkedinUrl not empty?}
+    Start --> InitState["Initialize State\n{after: null, allCompanies: []}"]
+    InitState --> PassState["Pass State"]
+    PassState --> FetchPage["Fetch Companies Page\nHubSpot API - createdate yesterday\nlimit 200 + cursor"]
+    FetchPage --> Accumulate["Accumulate Results\nMerge pages"]
+    Accumulate --> IfMore{IF Has More Pages\ncursor not empty?}
+    IfMore -->|TRUE: loop back| PassState
+    IfMore -->|FALSE: done| SplitAll["Split All Companies"]
 
-    CheckLI -->|TRUE| AmpLI[Amplemarket LinkedIn\nGET /companies/find?linkedin_url=]
-    CheckLI -->|FALSE| CheckDomain{Check Has Domain\ndomain not empty?}
+    SplitAll --> Prepare["Prepare Company Data\ncompanyId, name, domain, linkedinUrl, existingEmployeeCount"]
+    Prepare --> PrepClassify["Prepare Gemini Batch\nAll company names in single prompt"]
+    PrepClassify --> GeminiClassify["Gemini Classify\ngemini-2.5-flash temp 0.2\nindependent vs subsidiary"]
+    GeminiClassify --> ParseClassify["Parse Classification\nMerge results, replace branch domains"]
+    ParseClassify --> Route{Check Needs Enrichment\nno count OR isSubsidiary?}
 
-    CheckDomain -->|TRUE| AmpDomain[Amplemarket Domain\nGET /companies/find?domain=]
-    CheckDomain -->|FALSE| Unknown[Prepare Unknown\nUnresolved]
+    Route -->|TRUE: needs enrichment| BuildBatch["Build Batch Request\nCollect companies + identifiers"]
+    Route -->|FALSE: already good| Skip["Skip Independent\nnoOp"]
 
-    AmpLI --> ParseAmp[Parse Amplemarket\nExtract employee count]
-    AmpDomain --> ParseAmp
+    BuildBatch --> SubmitBatch["Submit Batch\nPOST /enrichment-requests"]
+    SubmitBatch --> InitPoll["Init Poll State\nrequestId, pollCount=0"]
+    InitPoll --> Wait["Wait 15s"]
+    Wait --> Poll["Poll Status\nGET /enrichment-requests/{id}"]
+    Poll --> MergePoll["Merge Poll State"]
+    MergePoll --> CheckComplete{Check Complete\nstatus=completed OR maxPolls?}
+    CheckComplete -->|TRUE| ParseBatch["Parse Batch Results\nMatch by domain/linkedin"]
+    CheckComplete -->|FALSE| IncCounter["Increment Counter\npollCount++"]
+    IncCounter --> Wait
 
-    ParseAmp --> CheckCount{Check Got Count\nemployeeCount > 0?}
+    ParseBatch --> CheckResolved{Check Resolved\nemployeeCount > 0?}
+    CheckResolved -->|TRUE| PrepSource["Prepare Source\nAmplemarket or Amplemarket (parent: X)"]
+    CheckResolved -->|FALSE| CheckDomain{Check Has Domain\ndomain not empty?}
 
-    CheckCount -->|TRUE| PrepPrompt[Prepare Gemini Prompt\nBranch/subsidiary detection]
-    CheckCount -->|FALSE| Unknown
+    PrepSource --> PreservePreUpdate
 
-    PrepPrompt --> Gemini[Gemini Branch Check\ngemini-2.5-flash temp 0.1]
-    Gemini --> ParseGemini[Parse Gemini\nExtract result + enrichment source]
+    CheckDomain -->|TRUE| JinaScrape["Jina Scrape\nr.jina.ai/{domain}"]
+    CheckDomain -->|FALSE| Default["Prepare Default\nemployeeCount=5, Estimated"]
 
-    ParseGemini --> UpdateHS[Update HubSpot\nnumberofemployees + enrichment source]
-    Unknown --> UpdateHS
+    JinaScrape --> PrepEstimate["Prep Estimate Prompt\nClean content, build prompt"]
+    PrepEstimate --> CheckContent{Check Has Content\ncontent > 50 chars?}
+    CheckContent -->|TRUE| GeminiEstimate["Gemini Estimate\ngemini-2.5-flash temp 0.3"]
+    CheckContent -->|FALSE| Default
 
-    UpdateHS --> Format[Format Summary\nBuild Slack message]
-    Format --> Slack[Send Slack Summary\nChannel C0AFSAD1E5A]
+    GeminiEstimate --> ParseEstimate["Parse Estimate\nExtract count, default 5"]
+    ParseEstimate --> PreservePreUpdate
+    Default --> PreservePreUpdate
+
+    PreservePreUpdate["Preserve Pre-Update\nSnapshot all fields"]
+    PreservePreUpdate --> UpdateHS["Update HubSpot\nnumberofemployees + source + is_subsidiary + parent"]
+    UpdateHS --> PreserveResult["Preserve Result"]
+    PreserveResult --> Aggregate["Aggregate Results"]
+    Aggregate --> FormatSummary["Format Summary"]
+    FormatSummary --> Slack["Send Slack\nChannel C0AG86U9927"]
