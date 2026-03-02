@@ -1,0 +1,412 @@
+{
+    "updatedAt": "2026-02-26T16:55:46.250Z",
+    "createdAt": "2026-02-26T16:55:46.250Z",
+    "id": "00YFVcmBURJZ3cGU",
+    "name": "Oneflow Signed Contract to Google Drive",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "id": "a1b2c3d4-webhook",
+            "name": "Oneflow Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                0,
+                200
+            ],
+            "webhookId": "oneflow-signed-contracts",
+            "parameters": {
+                "path": "oneflow-signed-contracts",
+                "httpMethod": "POST",
+                "responseMode": "onReceived",
+                "responseCode": 200,
+                "options": {}
+            }
+        },
+        {
+            "id": "a1b2c3d4-getfiles",
+            "name": "Get Contract Files",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                300,
+                200
+            ],
+            "parameters": {
+                "method": "GET",
+                "url": "=https://api.oneflow.com/v1/contracts/{{ $json.body.data.subject.id }}/files",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "x-oneflow-api-token",
+                            "value": "11d09db9090e4221fa49ad0405bdf90e5c05a69a"
+                        }
+                    ]
+                },
+                "options": {
+                    "response": {
+                        "response": {
+                            "responseFormat": "json"
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "id": "a1b2c3d4-download",
+            "name": "Download Contract PDF",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                600,
+                200
+            ],
+            "parameters": {
+                "method": "GET",
+                "url": "=https://api.oneflow.com/v1/contracts/{{ $('Oneflow Webhook').item.json.body.data.subject.id }}/files/1?download=true",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "x-oneflow-api-token",
+                            "value": "11d09db9090e4221fa49ad0405bdf90e5c05a69a"
+                        }
+                    ]
+                },
+                "options": {
+                    "response": {
+                        "response": {
+                            "responseFormat": "file"
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "id": "a1b2c3d4-upload",
+            "name": "Upload to Google Drive",
+            "type": "n8n-nodes-base.googleDrive",
+            "typeVersion": 3,
+            "position": [
+                900,
+                200
+            ],
+            "parameters": {
+                "resource": "file",
+                "operation": "upload",
+                "name": "={{ $('Oneflow Webhook').item.json.body.data.subject.name || 'signed-contract' }}.pdf",
+                "folderId": {
+                    "mode": "id",
+                    "value": "1Z4j_Y_8RURFbG_rVHn2inU2LOwIaCC9c"
+                },
+                "options": {}
+            },
+            "credentials": {
+                "googleDriveOAuth2Api": {
+                    "id": "AuwcL65OqohMjmOj",
+                    "name": "Google Drive account"
+                }
+            }
+        },
+        {
+            "id": "a1b2c3d4-sticky",
+            "name": "Workflow Info",
+            "type": "n8n-nodes-base.stickyNote",
+            "typeVersion": 1,
+            "position": [
+                -200,
+                -50
+            ],
+            "parameters": {
+                "content": "## Oneflow Signed Contract to Google Drive\n\n**Trigger**: Oneflow webhook (contract:sign event)\n\n**Flow**:\n1. Receive webhook from Oneflow when contract is signed\n2. Fetch contract files list from Oneflow API\n3. Download the signed PDF\n4. Upload to Google Drive folder\n\n**Oneflow API**: Uses x-oneflow-api-token header auth\n**Google Drive Folder**: 1Z4j_Y_8RURFbG_rVHn2inU2LOwIaCC9c",
+                "width": 400,
+                "height": 280
+            }
+        }
+    ],
+    "connections": {
+        "Oneflow Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Get Contract Files",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Contract Files": {
+            "main": [
+                [
+                    {
+                        "node": "Download Contract PDF",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Download Contract PDF": {
+            "main": [
+                [
+                    {
+                        "node": "Upload to Google Drive",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "callerPolicy": "workflowsFromSameOwner",
+        "availableInMCP": false
+    },
+    "staticData": null,
+    "meta": null,
+    "pinData": null,
+    "versionId": "759f938f-5277-4e4c-9065-78611129c303",
+    "activeVersionId": "759f938f-5277-4e4c-9065-78611129c303",
+    "versionCounter": 3,
+    "triggerCount": 1,
+    "shared": [
+        {
+            "updatedAt": "2026-02-26T16:55:46.252Z",
+            "createdAt": "2026-02-26T16:55:46.252Z",
+            "role": "workflow:owner",
+            "workflowId": "00YFVcmBURJZ3cGU",
+            "projectId": "BgmK2k8flov6mZfH",
+            "project": {
+                "updatedAt": "2026-01-28T14:25:33.079Z",
+                "createdAt": "2026-01-28T14:24:51.243Z",
+                "id": "BgmK2k8flov6mZfH",
+                "name": "Isaac  Hasbani <isaac.hasbani@legalfly.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "126c4214-1ca8-49c9-bb08-e723e54971d6",
+                "projectRelations": [
+                    {
+                        "updatedAt": "2026-01-28T14:24:51.246Z",
+                        "createdAt": "2026-01-28T14:24:51.246Z",
+                        "userId": "126c4214-1ca8-49c9-bb08-e723e54971d6",
+                        "projectId": "BgmK2k8flov6mZfH",
+                        "user": {
+                            "updatedAt": "2026-02-26T00:59:46.000Z",
+                            "createdAt": "2026-01-28T14:24:51.237Z",
+                            "id": "126c4214-1ca8-49c9-bb08-e723e54971d6",
+                            "email": "isaac.hasbani@legalfly.com",
+                            "firstName": "Isaac ",
+                            "lastName": "Hasbani",
+                            "personalizationAnswers": null,
+                            "settings": {
+                                "firstSuccessfulWorkflowId": "msnUQJ07NgfOdXls4nbW9",
+                                "userActivated": true,
+                                "userActivatedAt": 1770242998305,
+                                "easyAIWorkflowOnboarded": true,
+                                "npsSurvey": {
+                                    "responded": true,
+                                    "lastShownAt": 1771197305297
+                                }
+                            },
+                            "disabled": false,
+                            "mfaEnabled": false,
+                            "lastActiveAt": "2026-02-26",
+                            "isPending": false
+                        }
+                    }
+                ]
+            }
+        }
+    ],
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-02-26T16:55:46.281Z",
+        "createdAt": "2026-02-26T16:55:46.281Z",
+        "versionId": "759f938f-5277-4e4c-9065-78611129c303",
+        "workflowId": "00YFVcmBURJZ3cGU",
+        "nodes": [
+            {
+                "id": "a1b2c3d4-webhook",
+                "name": "Oneflow Webhook",
+                "type": "n8n-nodes-base.webhook",
+                "typeVersion": 2,
+                "position": [
+                    0,
+                    200
+                ],
+                "webhookId": "oneflow-signed-contracts",
+                "parameters": {
+                    "path": "oneflow-signed-contracts",
+                    "httpMethod": "POST",
+                    "responseMode": "onReceived",
+                    "responseCode": 200,
+                    "options": {}
+                }
+            },
+            {
+                "id": "a1b2c3d4-getfiles",
+                "name": "Get Contract Files",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    300,
+                    200
+                ],
+                "parameters": {
+                    "method": "GET",
+                    "url": "=https://api.oneflow.com/v1/contracts/{{ $json.body.data.subject.id }}/files",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "x-oneflow-api-token",
+                                "value": "11d09db9090e4221fa49ad0405bdf90e5c05a69a"
+                            }
+                        ]
+                    },
+                    "options": {
+                        "response": {
+                            "response": {
+                                "responseFormat": "json"
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "id": "a1b2c3d4-download",
+                "name": "Download Contract PDF",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    600,
+                    200
+                ],
+                "parameters": {
+                    "method": "GET",
+                    "url": "=https://api.oneflow.com/v1/contracts/{{ $('Oneflow Webhook').item.json.body.data.subject.id }}/files/1?download=true",
+                    "authentication": "genericCredentialType",
+                    "genericAuthType": "httpHeaderAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "x-oneflow-api-token",
+                                "value": "11d09db9090e4221fa49ad0405bdf90e5c05a69a"
+                            }
+                        ]
+                    },
+                    "options": {
+                        "response": {
+                            "response": {
+                                "responseFormat": "file"
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "id": "a1b2c3d4-upload",
+                "name": "Upload to Google Drive",
+                "type": "n8n-nodes-base.googleDrive",
+                "typeVersion": 3,
+                "position": [
+                    900,
+                    200
+                ],
+                "parameters": {
+                    "resource": "file",
+                    "operation": "upload",
+                    "name": "={{ $('Oneflow Webhook').item.json.body.data.subject.name || 'signed-contract' }}.pdf",
+                    "folderId": {
+                        "mode": "id",
+                        "value": "1Z4j_Y_8RURFbG_rVHn2inU2LOwIaCC9c"
+                    },
+                    "options": {}
+                },
+                "credentials": {
+                    "googleDriveOAuth2Api": {
+                        "id": "AuwcL65OqohMjmOj",
+                        "name": "Google Drive account"
+                    }
+                }
+            },
+            {
+                "id": "a1b2c3d4-sticky",
+                "name": "Workflow Info",
+                "type": "n8n-nodes-base.stickyNote",
+                "typeVersion": 1,
+                "position": [
+                    -200,
+                    -50
+                ],
+                "parameters": {
+                    "content": "## Oneflow Signed Contract to Google Drive\n\n**Trigger**: Oneflow webhook (contract:sign event)\n\n**Flow**:\n1. Receive webhook from Oneflow when contract is signed\n2. Fetch contract files list from Oneflow API\n3. Download the signed PDF\n4. Upload to Google Drive folder\n\n**Oneflow API**: Uses x-oneflow-api-token header auth\n**Google Drive Folder**: 1Z4j_Y_8RURFbG_rVHn2inU2LOwIaCC9c",
+                    "width": 400,
+                    "height": 280
+                }
+            }
+        ],
+        "connections": {
+            "Oneflow Webhook": {
+                "main": [
+                    [
+                        {
+                            "node": "Get Contract Files",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Get Contract Files": {
+                "main": [
+                    [
+                        {
+                            "node": "Download Contract PDF",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Download Contract PDF": {
+                "main": [
+                    [
+                        {
+                            "node": "Upload to Google Drive",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Isaac  Hasbani",
+        "name": null,
+        "description": null,
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-02-26T16:56:24.141Z",
+                "id": 21,
+                "workflowId": "00YFVcmBURJZ3cGU",
+                "versionId": "759f938f-5277-4e4c-9065-78611129c303",
+                "event": "activated",
+                "userId": "126c4214-1ca8-49c9-bb08-e723e54971d6"
+            }
+        ]
+    }
+}

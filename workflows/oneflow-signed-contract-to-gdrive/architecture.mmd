@@ -1,0 +1,5 @@
+flowchart LR
+    A[Oneflow Webhook\nPOST /oneflow-signed-contracts] --> B[Get Contract Parties\nGET /v1/contracts/id/parties]
+    B --> C[Get Contract Files\nGET /v1/contracts/id/files]
+    C --> D[Download Contract PDF\nGET _links.self.href?download=true]
+    D --> E[Upload to Google Drive\nCompany - date.pdf]
