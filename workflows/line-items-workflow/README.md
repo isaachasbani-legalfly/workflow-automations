@@ -8,47 +8,38 @@ When working on expansion deals, the sales team needs to quickly see what produc
 
 ## When it runs
 
-- **Production**: Triggered via webhook when a HubSpot internal workflow detects a deal moving to **Closed Won** in the **Sales Pipeline** or **Expansion Pipeline**
-- **Backfill**: Manually triggered to process all existing closed-won deals (up to 100 per run)
+Triggered via webhook when a HubSpot internal workflow detects a deal moving to **Closed Won** in the **Sales Pipeline** or **Expansion Pipeline**.
 
 ## What it does, step by step
 
-### Production Path
 1. **Webhook** receives a POST with `{"dealId": "<id>"}` from a HubSpot internal workflow
-2. Normalizes the deal ID from the webhook payload
-
-### Backfill Path
-1. **Manual Trigger** starts the backfill process
-2. **Search** finds all closed-won deals in both Sales and Expansion pipelines
-3. Extracts deal IDs from the search results
-
-### Shared Processing (per deal)
-4. **Get Deal + Associations** — fetches deal properties (pipeline, currency, close date) and associated line item IDs + company ID in a single API call
-5. **Extract Deal Data** — structures the deal metadata, line item IDs, and company ID
-6. **Batch Read Line Items** — fetches all line item details (name, net price after discounts, quantity, currency) in one batch call
-7. **Format Line Items** — formats each line item as:
+2. **Normalize** extracts the deal ID from the payload
+3. **Get Deal + Associations** — fetches deal properties (pipeline, currency, close date) and associated line item IDs + company ID in a single API call
+4. **Extract Deal Data** — structures the deal metadata; silently skips deals with no line items or no associated company
+5. **Batch Read Line Items** — fetches all line item details (name, net price after discounts, quantity, currency) in one batch call
+6. **Format Line Items** — formats each deal as:
    ```
-   Product Name - Qty 2 - €1,000.00 - Closed Won on 03/03/2026
+   [03/03/2026 · New Business]
+   Contract License × 2 — €10,000.00
+   Implementation Services × 1 — €3,500.00
    ```
-8. **Get Company Current Value** — reads the company's existing `product-purchased` property
-9. **Append & Prepare** — appends new line items to existing value (preserving history)
-10. **Update Company** — writes the updated `product-purchased` value back to HubSpot
+7. **Group by Company** — merges multiple deal blocks for the same company (separated by blank line)
+8. **Get Company Current Value** — reads the company's existing `productpurchased` property
+9. **Append & Prepare** — appends new content to existing value with deduplication (prevents double-writes if webhook fires twice)
+10. **Update Company** — writes the updated `productpurchased` value back to HubSpot
 
 ## Output Format
 
-Each line item is formatted as:
 ```
-{Product Name} - Qty {quantity} - {currency symbol}{net price} - Closed Won on {DD/MM/YYYY}
+[03/03/2026 · New Business]
+Contract License × 2 — €10,000.00
+Implementation Services × 1 — €3,500.00
+
+[15/01/2026 · Expansion]
+Platform Subscription × 1 — €24,000.00
 ```
 
-Multiple line items are separated by newlines. New entries are appended to existing values.
-
-### Example
-```
-Contract License - Qty 2 - €10,000.00 - Closed Won on 03/03/2026
-Implementation Services - Qty 1 - €3,500.00 - Closed Won on 03/03/2026
-Platform Subscription - Qty 1 - €24,000.00 - Closed Won on 15/01/2026
-```
+Each deal group has a `[Date · Pipeline]` header. Multiple deals are separated by blank lines. New entries are appended below existing content.
 
 ## Pipeline & Stage Reference
 
@@ -65,20 +56,27 @@ Platform Subscription - Qty 1 - €24,000.00 - Closed Won on 15/01/2026
 
 ## HubSpot Internal Workflow Setup
 
-You need to create a HubSpot workflow that sends a webhook to n8n:
+A HubSpot workflow must send a webhook to n8n when a deal closes:
 
 1. **Trigger**: Deal enters stage `07_Closed Won`
 2. **Filter**: Pipeline is `Sales Pipeline` OR `Expansion Pipeline`
-3. **Action**: Send webhook POST to the n8n webhook URL with body: `{"dealId": "{{deal.id}}"}`
+3. **Action**: Send webhook POST to `https://legalfly.app.n8n.cloud/webhook/line-items-closed-won`
+4. **Body**: `{"dealId": "{{deal.id}}"}`
+
+**Important**: Set the HubSpot workflow to not re-enroll historical deals — use an enrollment filter like `Deal close date is after [go-live date]` to avoid reprocessing already-backfilled deals.
+
+## Error Handling
+
+Workflow errors send a Slack alert via the shared **Error Handler - Slack Notification** workflow (`TA6Iq4wMW0KYsCiH`).
 
 ## Files in this folder
 
 | File | Purpose |
 |------|---------|
 | `README.md` | This file — overview, setup, credentials |
-| `ARCHITECTURE-v1.0.md` | Full technical reference: nodes, routing, design decisions |
+| `ARCHITECTURE-v2.0.md` | Full technical reference: nodes, routing, design decisions |
 | `architecture.mmd` | Mermaid diagram source |
-| `workflow-v1.0.json` | n8n workflow export (source of truth) |
+| `workflow-v2.0.json` | n8n workflow export — source of truth |
 | `CHANGELOG.md` | Version history |
 
 ## n8n Instance

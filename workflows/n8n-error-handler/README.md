@@ -53,6 +53,7 @@ View Execution
 | Workflow | ID |
 |----------|----|
 | HubSpot Company Industry Categorization v3.3 | `8DM3CwXLxOT3G8B7` |
+| Line Items to Company Property v2.0 | `TQHGk5e2V0XL8D4f` |
 
 To link this error handler to a new workflow, set the `errorWorkflow` field in that workflow's settings to `TA6Iq4wMW0KYsCiH`.
 

@@ -1,32 +1,21 @@
 flowchart TD
-    subgraph "Production Path"
-        WH["Webhook: Deal Closed Won\nPOST /line-items-closed-won"] --> NW["Normalize Webhook Data\nExtract dealId from body"]
-    end
-
-    subgraph "Backfill Path"
-        MT["Manual Trigger: Backfill"] --> SD["Search Closed Won Deals\nSales + Expansion pipelines"]
-        SD --> ED["Extract Deal IDs\nNormalize to dealId items"]
-    end
-
+    WH["Webhook: Deal Closed Won\nPOST /line-items-closed-won"] --> NW["Normalize Webhook Data\nExtract dealId from body"]
     NW --> GD["Get Deal + Associations\nGET deal props + line_items + companies"]
-    ED --> GD
-
-    GD --> EDD["Extract Deal Data\ndealId, closedate, currency,\ncompanyId, lineItemIds"]
+    GD --> EDD["Extract Deal Data\ndealId, closedate, currency, companyId, lineItemIds\nskip if no company or no line items"]
     EDD --> BLI["Batch Read Line Items\nname, amount, qty, currency"]
-    BLI --> FLI["Format Line Items\nName - Qty X - price - date"]
-    FLI --> GC["Get Company Current Value\nproductpurchased property"]
-    GC --> AP["Append & Prepare Update\nCombine existing + new"]
+    BLI --> FLI["Format Line Items\n[DD/MM/YYYY · Pipeline]\nProduct × Qty — €Price"]
+    FLI --> GBC["Group by Company\nMerge multiple deals per company"]
+    GBC --> GC["Get Company Current Value\nproductpurchased, name"]
+    GC --> AP["Append & Prepare Update\nDeduplicate + append with blank line separator"]
     AP --> UC["Update Company\nPATCH productpurchased"]
 
     style WH fill:#e1f5fe
-    style MT fill:#e1f5fe
-    style SD fill:#bbdefb
-    style GD fill:#bbdefb
-    style BLI fill:#bbdefb
-    style GC fill:#bbdefb
-    style UC fill:#bbdefb
     style NW fill:#e8eaf6
-    style ED fill:#e8eaf6
+    style GD fill:#bbdefb
     style EDD fill:#e8eaf6
+    style BLI fill:#bbdefb
     style FLI fill:#e8eaf6
+    style GBC fill:#e8eaf6
+    style GC fill:#bbdefb
     style AP fill:#e8eaf6
+    style UC fill:#bbdefb
