@@ -1,193 +1,149 @@
 {
-    "id": "00YFVcmBURJZ3cGU",
-    "name": "Oneflow Signed Contract to Google Drive",
-    "active": true,
-    "nodes": [
-        {
-            "parameters": {
-                "httpMethod": "POST",
-                "path": "oneflow-signed-contracts",
-                "options": {}
-            },
-            "id": "a1b2c3d4-webhook",
-            "name": "Oneflow Webhook",
-            "type": "n8n-nodes-base.webhook",
-            "typeVersion": 2,
-            "position": [0, 208],
-            "webhookId": "oneflow-signed-contracts"
-        },
-        {
-            "id": "a1b2c3d4-getparties",
-            "name": "Get Contract Parties",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 4.2,
-            "position": [272, 208],
-            "parameters": {
-                "method": "GET",
-                "url": "=https://api.oneflow.com/v1/contracts/{{ $json.body.contract.id }}/parties",
-                "authentication": "genericCredentialType",
-                "genericAuthType": "httpHeaderAuth",
-                "options": {
-                    "response": {
-                        "response": {
-                            "responseFormat": "json"
-                        }
-                    }
-                }
-            },
-            "credentials": {
-                "httpHeaderAuth": {
-                    "id": "bBcSSWaKCwV5YL9b",
-                    "name": "Oneflow"
-                }
-            }
-        },
-        {
-            "parameters": {
-                "method": "GET",
-                "url": "=https://api.oneflow.com/v1/contracts/{{ $('Oneflow Webhook').item.json.body.contract.id }}/files",
-                "authentication": "genericCredentialType",
-                "genericAuthType": "httpHeaderAuth",
-                "options": {
-                    "response": {
-                        "response": {
-                            "responseFormat": "json"
-                        }
-                    }
-                }
-            },
-            "id": "a1b2c3d4-getfiles",
-            "name": "Get Contract Files",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 4.2,
-            "position": [528, 208],
-            "credentials": {
-                "httpHeaderAuth": {
-                    "id": "bBcSSWaKCwV5YL9b",
-                    "name": "Oneflow"
-                }
-            }
-        },
-        {
-            "parameters": {
-                "url": "={{ $json.data[0]._links.self.href }}?download=true",
-                "authentication": "genericCredentialType",
-                "genericAuthType": "httpHeaderAuth",
-                "options": {
-                    "response": {
-                        "response": {
-                            "responseFormat": "file"
-                        }
-                    },
-                    "redirect": {
-                        "redirect": {
-                            "followRedirects": true
-                        }
-                    }
-                }
-            },
-            "id": "a1b2c3d4-download",
-            "name": "Download Contract PDF",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 4.2,
-            "position": [784, 208],
-            "credentials": {
-                "httpHeaderAuth": {
-                    "id": "bBcSSWaKCwV5YL9b",
-                    "name": "Oneflow"
-                }
-            }
-        },
-        {
-            "parameters": {
-                "resource": "file",
-                "operation": "upload",
-                "name": "={{ $('Get Contract Parties').item.json.data.filter(p => !p.my_party)[0].name }} - {{ $now.format('yyyy-MM-dd') }}.pdf",
-                "driveId": {
-                    "__rl": true,
-                    "mode": "list",
-                    "value": "My Drive"
-                },
-                "folderId": {
-                    "mode": "id",
-                    "value": "1Z4j_Y_8RURFbG_rVHn2inU2LOwIaCC9c"
-                },
-                "options": {}
-            },
-            "id": "a1b2c3d4-upload",
-            "name": "Upload to Google Drive",
-            "type": "n8n-nodes-base.googleDrive",
-            "typeVersion": 3,
-            "position": [1040, 208],
-            "credentials": {
-                "googleDriveOAuth2Api": {
-                    "id": "AuwcL65OqohMjmOj",
-                    "name": "Google Drive account"
-                }
-            }
-        },
-        {
-            "parameters": {
-                "content": "## Oneflow Signed Contract to Google Drive\n\n**Trigger**: Oneflow webhook (contract:sign only)\n\n**Flow**:\n1. Receive webhook from Oneflow (filtered to contract:sign at source)\n2. Get counterparty company name from Oneflow API\n3. Fetch contract files list from Oneflow API\n4. Download the signed PDF\n5. Upload to Google Drive as {Company} - {date}.pdf\n\n**Note**: Oneflow webhook is configured with EVENT_TYPE filter\nto only send contract:sign events (webhook ID: 20565).\n\n**Oneflow API**: Uses x-oneflow-api-token header auth\n**Google Drive Folder**: 1Z4j_Y_8RURFbG_rVHn2inU2LOwIaCC9c",
-                "height": 352,
-                "width": 516
-            },
-            "id": "a1b2c3d4-sticky",
-            "name": "Workflow Info",
-            "type": "n8n-nodes-base.stickyNote",
-            "typeVersion": 1,
-            "position": [-320, -256]
-        }
-    ],
-    "connections": {
-        "Oneflow Webhook": {
-            "main": [
-                [
-                    {
-                        "node": "Get Contract Parties",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Get Contract Parties": {
-            "main": [
-                [
-                    {
-                        "node": "Get Contract Files",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Get Contract Files": {
-            "main": [
-                [
-                    {
-                        "node": "Download Contract PDF",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Download Contract PDF": {
-            "main": [
-                [
-                    {
-                        "node": "Upload to Google Drive",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        }
+  "name": "Oneflow Signed Contract to Google Drive",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "oneflow-signed-contracts",
+        "options": {}
+      },
+      "id": "a1b2c3d4-webhook",
+      "name": "Oneflow Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 208],
+      "webhookId": "oneflow-signed-contracts"
     },
-    "settings": {
-        "executionOrder": "v1",
-        "callerPolicy": "workflowsFromSameOwner",
-        "availableInMCP": false
+    {
+      "parameters": {
+        "url": "=https://api.oneflow.com/v1/contracts/{{ $json.body.contract.id }}/parties",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-getparties",
+      "name": "Get Contract Parties",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [272, 208],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bBcSSWaKCwV5YL9b",
+          "name": "Oneflow"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.oneflow.com/v1/contracts/{{ $('Oneflow Webhook').item.json.body.contract.id }}/files",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-getfiles",
+      "name": "Get Contract Files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [528, 208],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bBcSSWaKCwV5YL9b",
+          "name": "Oneflow"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.data[0]._links.self.href }}?download=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          },
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "a1b2c3d4-download",
+      "name": "Download Contract PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [784, 208],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bBcSSWaKCwV5YL9b",
+          "name": "Oneflow"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "={{ $('Get Contract Parties').item.json.data.filter(p => !p.my_party)[0].name }} - {{ $now.format('yyyy-MM-dd') }}.pdf",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "mode": "id",
+          "value": "1Z4j_Y_8RURFbG_rVHn2inU2LOwIaCC9c"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-upload",
+      "name": "Upload to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1040, 208],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "AuwcL65OqohMjmOj",
+          "name": "Google Drive account"
+        }
+      }
     }
+  ],
+  "pinData": {},
+  "connections": {
+    "Oneflow Webhook": {
+      "main": [[{"node": "Get Contract Parties", "type": "main", "index": 0}]]
+    },
+    "Get Contract Parties": {
+      "main": [[{"node": "Get Contract Files", "type": "main", "index": 0}]]
+    },
+    "Get Contract Files": {
+      "main": [[{"node": "Download Contract PDF", "type": "main", "index": 0}]]
+    },
+    "Download Contract PDF": {
+      "main": [[{"node": "Upload to Google Drive", "type": "main", "index": 0}]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "0bc8d163-638f-4115-b884-7bbab54209dc",
+  "meta": {
+    "instanceId": "1c614ffbaa74dc7b329196566d86f2ebdc830e7ef4cc70cc01f324f4043c7c50"
+  },
+  "id": "00YFVcmBURJZ3cGU",
+  "tags": []
 }
