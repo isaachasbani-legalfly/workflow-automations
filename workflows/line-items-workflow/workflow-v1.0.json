@@ -1,0 +1,277 @@
+{
+  "name": "Line Items to Company Property",
+  "id": "TQHGk5e2V0XL8D4f",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "line-items-closed-won",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook: Deal Closed Won",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "webhookId": "7396fc20-77c1-4f86-a5d4-f2306a636e03"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst dealId = item.body?.dealId || item.dealId;\n\nif (!dealId) {\n  throw new Error('No dealId found in webhook payload');\n}\n\nreturn [{\n  json: {\n    dealId: String(dealId)\n  }\n}];"
+      },
+      "id": "normalize-webhook",
+      "name": "Normalize Webhook Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [400, 0]
+    },
+    {
+      "parameters": {},
+      "id": "manual-1",
+      "name": "Manual Trigger: Backfill",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/deals/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"filterGroups\": [\n    {\n      \"filters\": [\n        {\"propertyName\": \"dealstage\", \"operator\": \"EQ\", \"value\": \"closedwon\"},\n        {\"propertyName\": \"pipeline\", \"operator\": \"EQ\", \"value\": \"default\"}\n      ]\n    },\n    {\n      \"filters\": [\n        {\"propertyName\": \"dealstage\", \"operator\": \"EQ\", \"value\": \"4914500817\"},\n        {\"propertyName\": \"pipeline\", \"operator\": \"EQ\", \"value\": \"3585124587\"}\n      ]\n    }\n  ],\n  \"properties\": [\"dealname\"],\n  \"limit\": 100\n}",
+        "options": {}
+      },
+      "id": "search-deals",
+      "name": "Search Closed Won Deals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [400, 400],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const results = $input.first().json.results || [];\n\nif (results.length === 0) {\n  throw new Error('No closed-won deals found in Sales or Expansion pipelines');\n}\n\nreturn results.map(deal => ({\n  json: {\n    dealId: deal.id\n  }\n}));"
+      },
+      "id": "extract-deals",
+      "name": "Extract Deal IDs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, 400]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.hubapi.com/crm/v3/objects/deals/{{ $json.dealId }}?properties=pipeline,deal_currency_code,closedate&associations=line_items,companies",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "options": {}
+      },
+      "id": "get-deal",
+      "name": "Get Deal + Associations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1200, 208],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const deal = $input.item.json;\n\n// Handle both 'line items' (space) and 'line_items' (underscore) keys\nconst lineItemAssoc = deal.associations?.['line items']?.results\n  || deal.associations?.line_items?.results\n  || [];\nconst lineItemIds = lineItemAssoc.map(a => a.id);\n\nconst companyAssoc = deal.associations?.companies?.results || [];\nconst companyId = companyAssoc[0]?.id;\n\nif (!companyId) {\n  throw new Error(`Deal ${deal.id} has no associated company`);\n}\n\nif (lineItemIds.length === 0) {\n  throw new Error(`Deal ${deal.id} has no line items`);\n}\n\nreturn [{\n  json: {\n    dealId: deal.id,\n    closedate: deal.properties.closedate,\n    currency: deal.properties.deal_currency_code || 'EUR',\n    companyId: companyId,\n    lineItemIds: lineItemIds\n  }\n}];"
+      },
+      "id": "extract-deal-data",
+      "name": "Extract Deal Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1600, 208]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/line_items/batch/read",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ properties: ['name', 'amount', 'quantity', 'hs_line_item_currency_code'], inputs: $json.lineItemIds.map(id => ({ id })) }) }}",
+        "options": {}
+      },
+      "id": "batch-line-items",
+      "name": "Batch Read Line Items",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [2000, 208],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const batchResponse = $input.item.json;\nconst lineItems = batchResponse.results || [];\nconst dealData = $('Extract Deal Data').item.json;\n\nconst currencySymbols = {\n  'EUR': '\\u20ac',\n  'USD': '$',\n  'GBP': '\\u00a3',\n  'CAD': 'CA$'\n};\n\nconst currency = dealData.currency || 'EUR';\nconst symbol = currencySymbols[currency] || currency + ' ';\n\nconst closeDate = new Date(dealData.closedate);\nconst day = String(closeDate.getDate()).padStart(2, '0');\nconst month = String(closeDate.getMonth() + 1).padStart(2, '0');\nconst year = closeDate.getFullYear();\nconst formattedDate = day + '/' + month + '/' + year;\n\nconst formatted = [];\nfor (const item of lineItems) {\n  const name = item.properties.name || 'Unknown Product';\n  const qty = item.properties.quantity || '1';\n  const amount = parseFloat(item.properties.amount || '0');\n  const amountStr = symbol + amount.toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');\n  formatted.push(name + ' - Qty ' + qty + ' - ' + amountStr + ' - Closed Won on ' + formattedDate);\n}\n\nconst output = {\n  companyId: dealData.companyId,\n  newLineItems: formatted.join('\\n')\n};\n\nreturn [{json: output}];"
+      },
+      "id": "format-line-items",
+      "name": "Format Line Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2400, 208]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.hubapi.com/crm/v3/objects/companies/{{ $json.companyId }}?properties=productpurchased",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "options": {}
+      },
+      "id": "get-company",
+      "name": "Get Company Current Value",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [2800, 208],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const company = $input.item.json;\nconst formatData = $('Format Line Items').item.json;\n\nconst existingValue = company.properties?.productpurchased || '';\nconst newItems = formatData.newLineItems;\n\nlet updatedValue;\nif (existingValue && existingValue.trim()) {\n  updatedValue = existingValue.trim() + '\\n' + newItems;\n} else {\n  updatedValue = newItems;\n}\n\nreturn [{\n  json: {\n    companyId: company.id,\n    updatedProductPurchased: updatedValue\n  }\n}];"
+      },
+      "id": "append-prepare",
+      "name": "Append & Prepare Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3200, 208]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/companies/{{ $json.companyId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ properties: { productpurchased: $json.updatedProductPurchased } }) }}",
+        "options": {}
+      },
+      "id": "update-company",
+      "name": "Update Company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [3600, 208],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Production Path\nHubSpot internal workflow sends dealId via webhook when a deal moves to Closed Won in Sales or Expansion pipeline.\n\nConfigure HubSpot workflow to POST:\n```json\n{\"dealId\": \"<deal_id>\"}\n```\nto the webhook URL shown in the Webhook node.",
+        "height": 240,
+        "width": 580
+      },
+      "id": "note-production",
+      "name": "Note: Production Path",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-224, -144]
+    },
+    {
+      "parameters": {
+        "content": "## Backfill Path\nClick Test workflow to process ALL existing closed-won deals in Sales and Expansion pipelines.\n\nSearches for deals with:\n- Sales Pipeline + stage closedwon\n- Expansion Pipeline + stage 4914500817\n\nLimited to 100 deals per run.",
+        "height": 200,
+        "width": 580
+      },
+      "id": "note-backfill",
+      "name": "Note: Backfill Path",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-672, 208]
+    },
+    {
+      "parameters": {
+        "content": "## Processing Pipeline\nFor each deal: Get Deal + Associations > Extract IDs > Batch Read Line Items > Format (Name - Qty X - Price - Closed Won on DATE) > Get Company > Append > Update Company",
+        "height": 140,
+        "width": 2700
+      },
+      "id": "note-processing",
+      "name": "Note: Processing",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1104, -96]
+    }
+  ],
+  "connections": {
+    "Webhook: Deal Closed Won": {
+      "main": [[{"node": "Normalize Webhook Data", "type": "main", "index": 0}]]
+    },
+    "Normalize Webhook Data": {
+      "main": [[{"node": "Get Deal + Associations", "type": "main", "index": 0}]]
+    },
+    "Manual Trigger: Backfill": {
+      "main": [[{"node": "Search Closed Won Deals", "type": "main", "index": 0}]]
+    },
+    "Search Closed Won Deals": {
+      "main": [[{"node": "Extract Deal IDs", "type": "main", "index": 0}]]
+    },
+    "Extract Deal IDs": {
+      "main": [[{"node": "Get Deal + Associations", "type": "main", "index": 0}]]
+    },
+    "Get Deal + Associations": {
+      "main": [[{"node": "Extract Deal Data", "type": "main", "index": 0}]]
+    },
+    "Extract Deal Data": {
+      "main": [[{"node": "Batch Read Line Items", "type": "main", "index": 0}]]
+    },
+    "Batch Read Line Items": {
+      "main": [[{"node": "Format Line Items", "type": "main", "index": 0}]]
+    },
+    "Format Line Items": {
+      "main": [[{"node": "Get Company Current Value", "type": "main", "index": 0}]]
+    },
+    "Get Company Current Value": {
+      "main": [[{"node": "Append & Prepare Update", "type": "main", "index": 0}]]
+    },
+    "Append & Prepare Update": {
+      "main": [[{"node": "Update Company", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

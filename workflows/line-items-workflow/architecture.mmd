@@ -1,0 +1,32 @@
+flowchart TD
+    subgraph "Production Path"
+        WH["Webhook: Deal Closed Won\nPOST /line-items-closed-won"] --> NW["Normalize Webhook Data\nExtract dealId from body"]
+    end
+
+    subgraph "Backfill Path"
+        MT["Manual Trigger: Backfill"] --> SD["Search Closed Won Deals\nSales + Expansion pipelines"]
+        SD --> ED["Extract Deal IDs\nNormalize to dealId items"]
+    end
+
+    NW --> GD["Get Deal + Associations\nGET deal props + line_items + companies"]
+    ED --> GD
+
+    GD --> EDD["Extract Deal Data\ndealId, closedate, currency,\ncompanyId, lineItemIds"]
+    EDD --> BLI["Batch Read Line Items\nname, amount, qty, currency"]
+    BLI --> FLI["Format Line Items\nName - Qty X - price - date"]
+    FLI --> GC["Get Company Current Value\nproductpurchased property"]
+    GC --> AP["Append & Prepare Update\nCombine existing + new"]
+    AP --> UC["Update Company\nPATCH productpurchased"]
+
+    style WH fill:#e1f5fe
+    style MT fill:#e1f5fe
+    style SD fill:#bbdefb
+    style GD fill:#bbdefb
+    style BLI fill:#bbdefb
+    style GC fill:#bbdefb
+    style UC fill:#bbdefb
+    style NW fill:#e8eaf6
+    style ED fill:#e8eaf6
+    style EDD fill:#e8eaf6
+    style FLI fill:#e8eaf6
+    style AP fill:#e8eaf6
