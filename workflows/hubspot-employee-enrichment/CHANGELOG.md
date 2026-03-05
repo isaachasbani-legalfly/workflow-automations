@@ -11,7 +11,8 @@ Simplified workflow: removed scrape fallback, rewrote classification prompt for 
 - **prompt-gemini.md** — Legacy v1.0 prompt (deleted)
 
 ### Changed
-- **Classification prompt rewrite** — Much more conservative. Only 6 specific evidence categories: Fortune Global 500/Big 4 + geography, explicit words (Branch/Office/Division), famous acquisitions (100% certain only), subdomains, LinkedIn /branch/, duplicate TLD entries. Explicitly excludes airlines, geography-in-brand-name, government, universities, non-profits. Target: 5-10% subsidiary rate (was ~39%).
+- **Classification prompt rewrite** — Much more conservative. Only 5 specific evidence categories (name + domain only, no LinkedIn): Fortune Global 500/Big 4 + geography, explicit words (Branch/Office/Division), famous acquisitions (100% certain only), subdomains, duplicate TLD entries. Explicitly excludes airlines, geography-in-brand-name, government, universities, non-profits, consumer email domains (icloud.com, me.com). Target: 5-10% subsidiary rate (was ~39%).
+- **Removed LinkedIn URLs from prompt** — HubSpot LinkedIn data is often wrong (e.g., "Fingular" linked to Apple's LinkedIn). Sending LinkedIn URLs caused Gemini to hallucinate parent relationships. Only company name and domain are now sent.
 - **Rewired routing** — Check Resolved FALSE now goes directly to Prepare Default (was Check Has Domain)
 - **Prepare Default** — Updated `$('Check Has Domain')` reference to `$('Check Resolved')`
 - **Slack summary** — 3 categories: Amplemarket, Parent enriched, Default (removed "Extracted"). Version label updated to v3.0.

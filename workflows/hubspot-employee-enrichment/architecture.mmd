@@ -9,7 +9,7 @@ flowchart TD
     IfMore -->|TRUE: loop back| PassState
     IfMore -->|FALSE: done| SplitAll["Split All Companies"]
 
-    SplitAll --> Prepare["Prepare Company Data\ncompanyId, name, domain, linkedinUrl, existingEmployeeCount"]
+    SplitAll --> Prepare["Prepare Company Data\ncompanyId, name, domain, existingEmployeeCount"]
     Prepare --> PrepClassify["Prepare Gemini Batch\nAll company names in single prompt"]
     PrepClassify --> GeminiClassify["Gemini Classify\ngemini-2.5-pro temp 0.2\nindependent vs subsidiary"]
     GeminiClassify --> ParseClassify["Parse Classification\nMerge results, replace branch domains"]
@@ -29,7 +29,7 @@ flowchart TD
     Wait --> Poll["Poll Status\nGET /enrichment-requests/{id}"]
     Poll --> MergePoll["Merge Poll State"]
     MergePoll --> CheckComplete{Check Complete\nstatus=completed OR maxPolls?}
-    CheckComplete -->|TRUE| ParseBatch["Parse Batch Results\nMatch by domain/linkedin"]
+    CheckComplete -->|TRUE| ParseBatch["Parse Batch Results\nMatch by domain"]
     CheckComplete -->|FALSE| IncCounter["Increment Counter\npollCount++"]
     IncCounter --> Wait
 

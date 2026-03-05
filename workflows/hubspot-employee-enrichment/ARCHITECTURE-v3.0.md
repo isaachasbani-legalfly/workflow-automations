@@ -16,7 +16,7 @@ Runs daily at 02:01 Europe/London. Uses cursor-based pagination to process all c
 1. **Removed Phase 5: Scrape Fallback** — 6 nodes deleted (Check Has Domain, Jina Scrape, Prep Estimate Prompt, Check Has Content, Gemini Estimate, Parse Estimate). If Amplemarket has no data, default to 5. The scrape fallback added complexity but minimal value.
 2. **Rewired routing** — Check Resolved FALSE now goes directly to Prepare Default (was Check Has Domain).
 3. **Updated Prepare Default** — Changed `$('Check Has Domain')` reference to `$('Check Resolved')`.
-4. **Conservative classification prompt** — Complete rewrite. Only 6 specific evidence categories: Fortune Global 500/Big 4 + geography, explicit words (Branch/Office/Division), famous acquisitions (100% certain), subdomains, LinkedIn /branch/, duplicate TLD entries. Explicitly excludes airlines, geography-in-brand-name. Target: 5-10% subsidiary rate (was ~39%).
+4. **Conservative classification prompt** — Complete rewrite. Only 5 specific evidence categories (name + domain only, no LinkedIn): Fortune Global 500/Big 4 + geography, explicit words (Branch/Office/Division), famous acquisitions (100% certain), subdomains, duplicate TLD entries. Explicitly excludes airlines, geography-in-brand-name, consumer email domains (icloud.com, me.com). Target: 5-10% subsidiary rate (was ~39%).
 5. **Simplified Slack summary** — 3 categories: Amplemarket, Parent enriched, Default (removed "Extracted"). Version label v3.0.
 6. **Removed "Extracted" enrichment source** — Only `Amplemarket`, `Amplemarket (parent: X)`, and `Estimated` remain.
 7. **Gemini now classification-only** — No longer used for employee count extraction.
@@ -37,7 +37,7 @@ flowchart TD
     IfMore -->|TRUE: loop back| PassState
     IfMore -->|FALSE: done| SplitAll["Split All Companies"]
 
-    SplitAll --> Prepare["Prepare Company Data\ncompanyId, name, domain, linkedinUrl, existingEmployeeCount"]
+    SplitAll --> Prepare["Prepare Company Data\ncompanyId, name, domain, existingEmployeeCount"]
     Prepare --> PrepClassify["Prepare Gemini Batch\nAll company names in single prompt"]
     PrepClassify --> GeminiClassify["Gemini Classify\ngemini-2.5-pro temp 0.2\nindependent vs subsidiary"]
     GeminiClassify --> ParseClassify["Parse Classification\nMerge results, replace branch domains"]
@@ -123,13 +123,13 @@ flowchart TD
 #### Prepare Company Data (`emp2-prepare`)
 - **Type**: set v3.4
 - **Purpose**: Normalize company fields into clean schema
-- **Fields**: `companyId`, `companyName`, `domain`, `linkedinUrl`, `existingEmployeeCount`
+- **Fields**: `companyId`, `companyName`, `domain`, `existingEmployeeCount`
 
 #### Prepare Gemini Batch (`emp2-prep-classify`)
 - **Type**: code v2
 - **Purpose**: Build single Gemini prompt listing ALL company names for batch classification
 - **Prompt file**: [`prompts/prompt-classify-batch.md`](prompts/prompt-classify-batch.md)
-- **v3.0 change**: Complete prompt rewrite — 6 specific evidence categories only, explicit exclusions for airlines/geography-in-brand-name
+- **v3.0 change**: Complete prompt rewrite — 5 specific evidence categories (name + domain only, no LinkedIn URLs). Explicit exclusions for airlines, geography-in-brand-name, consumer email domains. LinkedIn URLs removed because HubSpot data is often incorrect (wrong company linked).
 
 #### Gemini Classify (`emp2-gemini-classify`)
 - **Type**: httpRequest v4.2
@@ -280,7 +280,7 @@ flowchart TD
 3. **Group C** — Has count AND is independent — skip
 
 ### Enrichment Flow (v3.0 simplified)
-1. **Amplemarket batch** (primary) — POST companies with domain/linkedin, poll for results
+1. **Amplemarket batch** (primary) — POST companies with domain, poll for results
 2. **Default = 5** (fallback) — No Amplemarket data → assign 5 employees
 
 No scrape fallback. Amplemarket has data → use it. Doesn't → default to 5. Done.
@@ -322,12 +322,13 @@ No scrape fallback. Amplemarket has data → use it. Doesn't → default to 5. D
 3. **Batch Amplemarket with poll loop** — 1 POST + polling replaces sequential GETs.
 4. **No scrape fallback (v3.0)** — Jina + Gemini extraction added 6 nodes but minimal value. If Amplemarket doesn't have data, a default of 5 is equally useful for CRM segmentation.
 5. **Default = 5** — Non-zero value for CRM segmentation; tagged as "Estimated" so it can be identified.
-6. **Conservative classification (v3.0)** — Only 6 specific evidence categories. Previous prompt (~39% subsidiary rate) was hallucinating parent relationships. Target: 5-10%.
+6. **Conservative classification (v3.0)** — Only 5 specific evidence categories (name + domain only, no LinkedIn URLs). Previous prompt (~39% subsidiary rate) was hallucinating parent relationships based on bad HubSpot LinkedIn data. Target: 5-10%.
 7. **Airlines explicitly excluded (v3.0)** — Ita Airways, Eurowings etc. are brands, not subsidiaries for our purposes.
 8. **Geography-in-brand-name excluded (v3.0)** — Berlin Brands Group, Heidelberg Engineering, Swiss Life are independent companies with geographic brand names.
-9. **Preserve Pre-Update pattern** — HubSpot node overwrites item context, so snapshot first.
-10. **Poll loop with max 20 iterations** — 20 x 15s = 5 minutes max wait.
-11. **Parent company HubSpot link** — Clickable URL is more useful than plain text name.
+9. **No LinkedIn URLs in classification prompt** — HubSpot LinkedIn data is often wrong (e.g., "Fingular" linked to Apple's LinkedIn page). Sending LinkedIn URLs caused Gemini to hallucinate parent relationships based on bad CRM data. Only company name and domain are sent.
+10. **Preserve Pre-Update pattern** — HubSpot node overwrites item context, so snapshot first.
+11. **Poll loop with max 20 iterations** — 20 x 15s = 5 minutes max wait.
+12. **Parent company HubSpot link** — Clickable URL is more useful than plain text name.
 
 ---
 
