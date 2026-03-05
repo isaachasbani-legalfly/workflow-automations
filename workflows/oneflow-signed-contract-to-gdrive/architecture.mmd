@@ -1,5 +1,9 @@
 flowchart LR
-    A[Oneflow Webhook\nPOST /oneflow-signed-contracts] --> B[Get Contract Parties\nGET /v1/contracts/id/parties]
-    B --> C[Get Contract Files\nGET /v1/contracts/id/files]
-    C --> D[Download Contract PDF\nGET _links.self.href?download=true]
-    D --> E[Upload to Google Drive\nCompany - date.pdf]
+    A[Oneflow Webhook\nPOST /oneflow-signed-contracts] --> B[Get Full Contract\nGET /v1/contracts/id]
+    B --> C[Extract Contract Data\nCode: dealName, counterparty, date]
+    C --> D[Get Contract Files\nGET /v1/contracts/id/files]
+    D --> E[Download Contract PDF\nGET _links.self.href?download=true]
+    E --> F[Upload to Google Drive\nCompany - date.pdf]
+    E --> G[Upload to HubSpot Files\nPOST /files/v3/files]
+    G --> H[Search HubSpot Deal\nPOST /deals/search by dealname]
+    H --> I[Update Deal\nPATCH signed_contract + contract_signed_date]

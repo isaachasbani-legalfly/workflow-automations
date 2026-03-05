@@ -1,16 +1,28 @@
 # Changelog
 
+## v2.0 - 2026-03-05
+
+- **Feature**: Added HubSpot integration -- uploads signed PDF to HubSpot File Manager and attaches to deal's `signed_contract` file property
+- **Feature**: Added `contract_signed_date` deal property update with the signing date from Oneflow webhook event
+- **Breaking**: Replaced "Get Contract Parties" node with "Get Full Contract" (`GET /contracts/{id}`) to access `data_fields` containing HubSpot deal name
+- **Feature**: Added "Extract Contract Data" code node to extract dealName, counterpartyName, contractId, signingDate
+- **Feature**: After PDF download, workflow splits into two parallel branches: Google Drive upload (top) and HubSpot upload + deal update (bottom)
+- **Feature**: Deal lookup uses `hs_deal_dealname` from Oneflow's `data_fields` to search HubSpot deals by exact name
+- Workflow renamed from "Oneflow Signed Contract to Google Drive" to "Oneflow Signed Contract to Google Drive + HubSpot"
+- Node count increased from 5 to 10 (including sticky note)
+- New credentials required: HubSpot (hubspotAppToken) with `files` and `crm.objects.deals.write` scopes
+
 ## v1.2 - 2026-02-27
 
-- **Breaking**: Removed IF filter node ("Filter: Is Contract Signed?") — event filtering now done at Oneflow webhook source
+- **Breaking**: Removed IF filter node ("Filter: Is Contract Signed?") -- event filtering now done at Oneflow webhook source
 - **Feature**: Configured Oneflow webhook (ID: 20565) with `EVENT_TYPE = contract:sign` filter via Oneflow API, eliminating unnecessary workflow executions
-- **Bugfix**: Fixed Oneflow webhook payload paths — real payload uses `body.contract.id` and `body.events[0].type`, not `body.data.subject.id` and `body.type`
-- Simplified workflow from 6 nodes to 5 nodes (webhook → parties → files → download → upload)
+- **Bugfix**: Fixed Oneflow webhook payload paths -- real payload uses `body.contract.id` and `body.events[0].type`, not `body.data.subject.id` and `body.type`
+- Simplified workflow from 6 nodes to 5 nodes (webhook -> parties -> files -> download -> upload)
 - Updated sticky note documentation to reflect source-side filtering
 
 ## v1.1 - 2026-02-26
 
-- **Bugfix**: Fixed Get Contract Files URL — was using `$json.data[0]._links.self.href` (wrong context) instead of Oneflow API endpoint with contract ID
+- **Bugfix**: Fixed Get Contract Files URL -- was using `$json.data[0]._links.self.href` (wrong context) instead of Oneflow API endpoint with contract ID
 - **Feature**: Added "Get Contract Parties" node to fetch counterparty company name from Oneflow API
 - **Feature**: File naming changed to `{Company Name} - {YYYY-MM-DD}.pdf` using counterparty name (`my_party: false`) and current date
 - Added IF filter node "Filter: Is Contract Signed?" to check `body.type == contract:sign` before processing

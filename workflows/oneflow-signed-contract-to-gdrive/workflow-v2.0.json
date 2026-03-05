@@ -1,0 +1,244 @@
+{
+  "id": "00YFVcmBURJZ3cGU",
+  "name": "Oneflow Signed Contract to Google Drive + HubSpot",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "oneflow-signed-contracts",
+        "options": {}
+      },
+      "id": "a1b2c3d4-webhook",
+      "name": "Oneflow Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "oneflow-signed-contracts"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.oneflow.com/v1/contracts/{{ $json.body.contract.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "get-full-contract",
+      "name": "Get Full Contract",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bBcSSWaKCwV5YL9b",
+          "name": "Oneflow"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const contract = $input.first().json;\nconst dataFields = contract.data_fields || [];\nconst dealNameField = dataFields.find(f => f._private_ownerside?.custom_id === 'hs_deal_dealname');\nconst dealName = dealNameField?.value || '';\nconst counterparty = (contract.parties || []).find(p => !p.my_party);\nconst counterpartyName = counterparty?.name || 'Unknown';\nconst contractId = contract.id;\n\n// Get signing date from webhook event\nconst signingDate = $('Oneflow Webhook').item.json.body.events[0].created_time;\nconst dateObj = new Date(signingDate);\nconst formattedDate = dateObj.toISOString().split('T')[0];\n\nreturn [{\n  json: {\n    contractId,\n    dealName,\n    counterpartyName,\n    signingDate: formattedDate\n  }\n}];"
+      },
+      "id": "extract-data",
+      "name": "Extract Contract Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.oneflow.com/v1/contracts/{{ $json.contractId }}/files",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "get-files",
+      "name": "Get Contract Files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bBcSSWaKCwV5YL9b",
+          "name": "Oneflow"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.data[0]._links.self.href }}?download=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "redirect": { "redirect": {} },
+          "response": { "response": { "responseFormat": "file" } }
+        }
+      },
+      "id": "download-pdf",
+      "name": "Download Contract PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1040, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "bBcSSWaKCwV5YL9b",
+          "name": "Oneflow"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upload",
+        "name": "={{ $('Extract Contract Data').item.json.counterpartyName }} - {{ $('Extract Contract Data').item.json.signingDate }}.pdf",
+        "driveId": { "__rl": true, "mode": "list", "value": "My Drive" },
+        "folderId": { "mode": "id", "value": "1Z4j_Y_8RURFbG_rVHn2inU2LOwIaCC9c" },
+        "options": {}
+      },
+      "id": "upload-gdrive",
+      "name": "Upload to Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1300, 140],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "AuwcL65OqohMjmOj",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/files/v3/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            { "parameterType": "formBinaryData", "name": "file", "inputDataFieldName": "data" },
+            { "parameterType": "formData", "name": "options", "value": "={\"access\":\"PRIVATE\",\"overwrite\":false}" },
+            { "parameterType": "formData", "name": "folderPath", "value": "/signed-contracts" },
+            { "parameterType": "formData", "name": "fileName", "value": "={{ $('Extract Contract Data').item.json.counterpartyName }} - {{ $('Extract Contract Data').item.json.signingDate }}.pdf" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "upload-hubspot",
+      "name": "Upload to HubSpot Files",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 460],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/deals/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'dealname', operator: 'EQ', value: $('Extract Contract Data').item.json.dealName }] }], properties: ['dealname'], limit: 1 }) }}",
+        "options": {}
+      },
+      "id": "search-deal",
+      "name": "Search HubSpot Deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 460],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/deals/{{ $json.results[0].id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ properties: { signed_contract: $('Upload to HubSpot Files').item.json.url, contract_signed_date: $('Extract Contract Data').item.json.signingDate } }) }}",
+        "options": {}
+      },
+      "id": "update-deal",
+      "name": "Update Deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1820, 460],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Oneflow Signed Contract -> GDrive + HubSpot v2.0\n\n**Trigger**: Oneflow contract:sign webhook\n\n**Top branch**: Upload PDF to Google Drive\n**Bottom branch**: Upload PDF to HubSpot File Manager -> Find deal by name -> Update deal with signed_contract file + contract_signed_date",
+        "width": 400,
+        "height": 220
+      },
+      "id": "sticky-note",
+      "name": "Workflow Info",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-60, 0]
+    }
+  ],
+  "connections": {
+    "Oneflow Webhook": {
+      "main": [[{ "node": "Get Full Contract", "type": "main", "index": 0 }]]
+    },
+    "Get Full Contract": {
+      "main": [[{ "node": "Extract Contract Data", "type": "main", "index": 0 }]]
+    },
+    "Extract Contract Data": {
+      "main": [[{ "node": "Get Contract Files", "type": "main", "index": 0 }]]
+    },
+    "Get Contract Files": {
+      "main": [[{ "node": "Download Contract PDF", "type": "main", "index": 0 }]]
+    },
+    "Download Contract PDF": {
+      "main": [[
+        { "node": "Upload to Google Drive", "type": "main", "index": 0 },
+        { "node": "Upload to HubSpot Files", "type": "main", "index": 0 }
+      ]]
+    },
+    "Upload to HubSpot Files": {
+      "main": [[{ "node": "Search HubSpot Deal", "type": "main", "index": 0 }]]
+    },
+    "Search HubSpot Deal": {
+      "main": [[{ "node": "Update Deal", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  }
+}
