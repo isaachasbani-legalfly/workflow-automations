@@ -32,9 +32,7 @@ ONLY classify as SUBSIDIARY when you have UNAMBIGUOUS evidence from one of these
 
 4. SUBDOMAINS of a known parent: e.g., deco.cscec.com → cscec.com
 
-5. LINKEDIN URL contains "/branch/"
-
-6. DUPLICATE ENTRIES: Two entries clearly being the same company with different TLDs (e.g., preh.com and preh.de)
+5. DUPLICATE ENTRIES: Two entries clearly being the same company with different TLDs (e.g., preh.com and preh.de)
 
 ALWAYS INDEPENDENT — never classify these as subsidiaries:
 - Government agencies, ministries, public authorities
@@ -44,6 +42,7 @@ ALWAYS INDEPENDENT — never classify these as subsidiaries:
 - Companies with geography in their BRAND NAME (e.g., Berlin Brands Group, Heidelberg Engineering, Swiss Life, Ita Airways)
 - Companies with regional descriptors (Nordic, European, EMEA, Deutschland)
 - Companies with country-code TLDs (.de, .es, .uk, .ch, .at) — this is NOT evidence of being a subsidiary
+- Consumer email/cloud domains (icloud.com, me.com, gmail.com, outlook.com) — these are NOT company domains
 
 WHEN IN DOUBT → INDEPENDENT. A wrong "independent" label is harmless. A wrong "subsidiary" label causes incorrect data.
 
@@ -51,6 +50,9 @@ COMPANIES TO CLASSIFY:
 [0] "KPMG Spain" (domain: kpmg.es)
 [1] "Acme Corp" (domain: acme.com)
 ...
+
+NOTE: Only company name and domain are provided. LinkedIn URLs are NOT included
+because HubSpot LinkedIn data is often incorrect (wrong company linked).
 
 Return ONLY a valid JSON array (no markdown, no explanation):
 [{"index": 0, "isSubsidiary": false, "parentCompany": null, "parentDomain": null}]
@@ -76,13 +78,14 @@ Rules:
 2. **Low temperature (0.2)** — Deterministic, consistent classification
 3. **Default to independent** — When uncertain, treat as standalone (less risky than false subsidiary detection)
 4. **parentDomain = primary domain** — e.g., "kpmg.com" not "kpmg.es", so Amplemarket looks up the global parent
-5. **Require unambiguous evidence** — Only 6 specific categories qualify. Everything else is independent.
+5. **Require unambiguous evidence** — Only 5 specific categories qualify (name + domain only). Everything else is independent.
 6. **Exclude non-corporate entities** — Government, universities, hospitals, non-profits are always independent
 7. **Airlines explicitly excluded** — Ita Airways, Vueling, Eurowings etc. are independent even though they may be owned by airline groups
 8. **Geography-in-brand-name excluded** — Berlin Brands Group, Heidelberg Engineering, Swiss Life are brand names, not geographic subsidiaries
+9. **No LinkedIn URLs in prompt** — HubSpot LinkedIn data is often wrong (e.g., "Fingular" linked to Apple's LinkedIn page). Sending LinkedIn URLs caused Gemini to hallucinate parent relationships based on bad CRM data.
 
 ## Prompt History
 
 - **v2.0**: Basic indicators (geography, regional names). Too aggressive — ~39% subsidiary rate.
 - **v2.1**: Added "NOT indicators" and "STRONG EVIDENCE" requirement. Still too aggressive (~39%).
-- **v3.0**: Complete rewrite. 6 specific evidence categories only. Explicit exclusion of airlines, geography-in-brand-name. Target: 5-10% subsidiary rate.
+- **v3.0**: Complete rewrite. 5 specific evidence categories (name + domain only, no LinkedIn). Explicit exclusion of airlines, geography-in-brand-name, consumer domains. Target: 5-10% subsidiary rate.
