@@ -1,5 +1,51 @@
 # Changelog
 
+## v3.0 - 2026-03-05
+
+Simplified workflow: removed scrape fallback, rewrote classification prompt for much lower subsidiary rate.
+
+### Removed
+- **Phase 5: Scrape Fallback** — 6 nodes deleted: Check Has Domain, Jina Scrape, Prep Estimate Prompt, Check Has Content, Gemini Estimate, Parse Estimate
+- **"Extracted" enrichment source** — No longer scraping websites for employee counts
+- **prompt-estimate-employees.md** — Scrape extraction prompt (deleted)
+- **prompt-gemini.md** — Legacy v1.0 prompt (deleted)
+
+### Changed
+- **Classification prompt rewrite** — Much more conservative. Only 6 specific evidence categories: Fortune Global 500/Big 4 + geography, explicit words (Branch/Office/Division), famous acquisitions (100% certain only), subdomains, LinkedIn /branch/, duplicate TLD entries. Explicitly excludes airlines, geography-in-brand-name, government, universities, non-profits. Target: 5-10% subsidiary rate (was ~39%).
+- **Rewired routing** — Check Resolved FALSE now goes directly to Prepare Default (was Check Has Domain)
+- **Prepare Default** — Updated `$('Check Has Domain')` reference to `$('Check Resolved')`
+- **Slack summary** — 3 categories: Amplemarket, Parent enriched, Default (removed "Extracted"). Version label updated to v3.0.
+- **Workflow renamed** — "HubSpot Employee Count Enrichment v3.0"
+
+### Architecture
+- 34 nodes + 3 sticky notes = 37 total (down from 40 + 3 = 43 in v2.1)
+- In-place update of workflow `TxZMblqjvC86tHAu`; v2.1 version history preserved as rollback
+- Gemini now only used for classification (not extraction)
+
+---
+
+## v2.1 - 2026-03-04
+
+Stricter classification, extraction instead of estimation, parent company HubSpot links.
+
+### Changed
+- **Gemini model upgrade** — Classification upgraded from `gemini-2.5-flash` to `gemini-2.5-pro` for stricter subsidiary detection
+- **Stricter classification prompt** — Added "NOT indicators" section: geography in name, regional descriptors, country-code TLDs alone do NOT indicate subsidiary status. Requires STRONG EVIDENCE.
+- **Extraction replaces estimation** — Gemini no longer "estimates" employee counts. New prompt extracts ONLY explicitly stated counts from website content. If none found, defaults to 5.
+- **New enrichment source value** — `Extracted` = explicit count found on website. `Estimated` now means default (5) only.
+- **Content threshold** — `hasContent` check changed from `content.length > 50` to `content.length > 0`
+- **Temperature changes** — Classification stays 0.2, extraction lowered from 0.3 to 0.1
+- **Slack summary** — Updated to 4 categories: Amplemarket, Parent enriched, Extracted, Default
+
+### New
+- **Parent company HubSpot link** — 3 new nodes (Prep Parent Lookup, Search Parent HubSpot, Merge Parent Results). If parent company exists in HubSpot, `parent_company_name` is written as a clickable HubSpot URL; otherwise plain text name.
+
+### Architecture
+- 43 nodes (40 + 3 sticky notes), up from 40 in v2.0
+- In-place update of workflow `TxZMblqjvC86tHAu`; v2.0 version history preserved as rollback
+
+---
+
 ## v2.0 - 2026-02-26
 
 Complete redesign to fix v1.0 limitations: branch detection after enrichment, no fallback, sequential API calls.

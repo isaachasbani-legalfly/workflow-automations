@@ -11,9 +11,14 @@ flowchart TD
 
     SplitAll --> Prepare["Prepare Company Data\ncompanyId, name, domain, linkedinUrl, existingEmployeeCount"]
     Prepare --> PrepClassify["Prepare Gemini Batch\nAll company names in single prompt"]
-    PrepClassify --> GeminiClassify["Gemini Classify\ngemini-2.5-flash temp 0.2\nindependent vs subsidiary"]
+    PrepClassify --> GeminiClassify["Gemini Classify\ngemini-2.5-pro temp 0.2\nindependent vs subsidiary"]
     GeminiClassify --> ParseClassify["Parse Classification\nMerge results, replace branch domains"]
-    ParseClassify --> Route{Check Needs Enrichment\nno count OR isSubsidiary?}
+
+    ParseClassify --> PrepParentLookup["Prep Parent Lookup\nExtract parent company names"]
+    PrepParentLookup --> SearchParentHS["Search Parent HubSpot\nFind parent companies in CRM"]
+    SearchParentHS --> MergeParentResults["Merge Parent Results\nSet parent_company_name as URL or plain text"]
+
+    MergeParentResults --> Route{Check Needs Enrichment\nno count OR isSubsidiary?}
 
     Route -->|TRUE: needs enrichment| BuildBatch["Build Batch Request\nCollect companies + identifiers"]
     Route -->|FALSE: already good| Skip["Skip Independent\nnoOp"]
@@ -30,25 +35,14 @@ flowchart TD
 
     ParseBatch --> CheckResolved{Check Resolved\nemployeeCount > 0?}
     CheckResolved -->|TRUE| PrepSource["Prepare Source\nAmplemarket or Amplemarket (parent: X)"]
-    CheckResolved -->|FALSE| CheckDomain{Check Has Domain\ndomain not empty?}
+    CheckResolved -->|FALSE| Default["Prepare Default\nemployeeCount=5, Estimated"]
 
     PrepSource --> PreservePreUpdate
-
-    CheckDomain -->|TRUE| JinaScrape["Jina Scrape\nr.jina.ai/{domain}"]
-    CheckDomain -->|FALSE| Default["Prepare Default\nemployeeCount=5, Estimated"]
-
-    JinaScrape --> PrepEstimate["Prep Estimate Prompt\nClean content, build prompt"]
-    PrepEstimate --> CheckContent{Check Has Content\ncontent > 50 chars?}
-    CheckContent -->|TRUE| GeminiEstimate["Gemini Estimate\ngemini-2.5-flash temp 0.3"]
-    CheckContent -->|FALSE| Default
-
-    GeminiEstimate --> ParseEstimate["Parse Estimate\nExtract count, default 5"]
-    ParseEstimate --> PreservePreUpdate
     Default --> PreservePreUpdate
 
     PreservePreUpdate["Preserve Pre-Update\nSnapshot all fields"]
     PreservePreUpdate --> UpdateHS["Update HubSpot\nnumberofemployees + source + is_subsidiary + parent"]
     UpdateHS --> PreserveResult["Preserve Result"]
     PreserveResult --> Aggregate["Aggregate Results"]
-    Aggregate --> FormatSummary["Format Summary"]
+    Aggregate --> FormatSummary["Format Summary\nv3.0: 3 categories"]
     FormatSummary --> Slack["Send Slack\nChannel C0AG86U9927"]
