@@ -38,8 +38,15 @@ Oneflow webhook event: `contract:sign` -- fires when all parties have signed a c
 
 - **Google Drive Folder ID**: `1Z4j_Y_8RURFbG_rVHn2inU2LOwIaCC9c`
 - **HubSpot File Folder**: `/signed-contracts/`
+- **HubSpot File Access**: `PUBLIC_NOT_INDEXABLE` (required for file property display)
 - **Oneflow API Base URL**: `https://api.oneflow.com/v1`
 - **Webhook Path**: `oneflow-signed-contracts`
+
+## Key Behaviors
+
+- **signed_contract**: Appends new files (semicolon-separated IDs). Never overwrites existing files on the deal.
+- **contract_signed_date**: Always overwrites with the latest signing date.
+- **File display**: Uses HubSpot file ID (not URL) so the property shows the filename, not a raw URL.
 
 ## Oneflow-to-HubSpot Linkage
 
@@ -50,6 +57,11 @@ The Oneflow contract's `data_fields` contain HubSpot deal data populated when th
 In Oneflow, webhook ID 20565 is configured with:
 - **URL**: `https://legalfly.app.n8n.cloud/webhook/oneflow-signed-contracts`
 - **Event filter**: `EVENT_TYPE = contract:sign` (only sends contract:sign events)
+
+## Error Handling
+
+- **Error workflow**: `TA6Iq4wMW0KYsCiH` -- sends Slack notification on failure
+- **Update Deal**: Retries 3x with 1s delay on transient failures
 
 ## n8n Instance
 

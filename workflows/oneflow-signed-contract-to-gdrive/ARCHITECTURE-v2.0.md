@@ -69,21 +69,21 @@ flowchart LR
 ### Upload to HubSpot Files (`upload-hubspot`)
 - **Type**: n8n-nodes-base.httpRequest v4.2
 - **Purpose**: Uploads the PDF to HubSpot's File Manager so it can be attached to a deal property
-- **Key config**: POST `https://api.hubapi.com/files/v3/files`, multipart/form-data with binary file, options `{"access":"PRIVATE","overwrite":false}`, folderPath `/signed-contracts`
-- **Output**: HubSpot file object with `url` field used as the deal property value
+- **Key config**: POST `https://api.hubapi.com/files/v3/files`, multipart/form-data with binary file, options `{"access":"PUBLIC_NOT_INDEXABLE","overwrite":false}`, folderPath `/signed-contracts`
+- **Output**: HubSpot file object with `id` field used as the deal property value
 
 ### Search HubSpot Deal (`search-deal`)
 - **Type**: n8n-nodes-base.httpRequest v4.2
 - **Purpose**: Finds the HubSpot deal by exact deal name match
-- **Key config**: POST `https://api.hubapi.com/crm/v3/objects/deals/search` with filter `dealname EQ {{ dealName }}`
-- **Output**: Search results with `results[0].id` containing the deal ID
+- **Key config**: POST `https://api.hubapi.com/crm/v3/objects/deals/search` with filter `dealname EQ {{ dealName }}`, returns `dealname` and `signed_contract` properties
+- **Output**: Search results with `results[0].id` (deal ID) and `results[0].properties.signed_contract` (existing file IDs)
 
 ### Update Deal (`update-deal`)
 - **Type**: n8n-nodes-base.httpRequest v4.2
 - **Purpose**: Sets the signed contract file and signing date on the HubSpot deal
 - **Key config**: PATCH `https://api.hubapi.com/crm/v3/objects/deals/{{ $json.results[0].id }}` with properties:
-  - `signed_contract`: HubSpot File Manager URL from Upload to HubSpot Files
-  - `contract_signed_date`: `YYYY-MM-DD` formatted signing date
+  - `signed_contract`: Appends new file ID to existing value (semicolon-separated). Never overwrites existing files.
+  - `contract_signed_date`: `YYYY-MM-DD` formatted signing date (always overwrites)
 - **Retry**: 3 attempts with 1s delay
 
 ### Workflow Info (`sticky-note`)
@@ -116,7 +116,7 @@ Other available HubSpot fields in Oneflow `data_fields`:
 
 ## Error Handling
 
-- Default n8n error handling (workflow stops on error)
+- **Error workflow**: `TA6Iq4wMW0KYsCiH` -- sends Slack notification on failure
 - Update Deal node has retry: 3 attempts with 1s delay
 - HTTP Request nodes will fail if APIs return non-2xx status
 - If deal name search returns no results, Update Deal will fail on `$json.results[0].id`
@@ -125,7 +125,8 @@ Other available HubSpot fields in Oneflow `data_fields`:
 
 - **Full contract API instead of parties-only**: v2.0 calls `GET /contracts/{id}` instead of `/contracts/{id}/parties`. This returns the full contract including `data_fields` with the HubSpot deal name, eliminating the need for a separate parties call.
 - **Deal name search**: The Oneflow contract doesn't store a HubSpot deal ID directly, but the `hs_deal_dealname` data field provides an exact match for searching. This works because Oneflow contracts are created from HubSpot deals, and deal names are unique enough for reliable matching.
-- **HubSpot File Manager upload**: The `signed_contract` deal property is a file type, which requires the file to be hosted in HubSpot's File Manager. The file is uploaded with `access: PRIVATE` to the `/signed-contracts/` folder.
+- **HubSpot File Manager upload**: The `signed_contract` deal property is a file type, which requires the file to be hosted in HubSpot's File Manager. The file is uploaded with `access: PUBLIC_NOT_INDEXABLE` to the `/signed-contracts/` folder. `PUBLIC_NOT_INDEXABLE` is required for the file to display properly in the deal record (PRIVATE files show ugly API redirect URLs). The file ID (not URL) is stored in the property so HubSpot renders it as a clickable filename.
+- **File append, not overwrite**: The `signed_contract` property uses semicolon-separated file IDs. The workflow reads the current value and appends the new file ID, preserving any previously attached contracts.
 - **Parallel upload branches**: After downloading the PDF, both Google Drive and HubSpot uploads run in parallel. The HubSpot branch continues sequentially (upload -> search -> update) since each step depends on the previous.
 - **Signing date from webhook event**: Uses `events[0].created_time` from the webhook payload as the contract signing date, formatted as `YYYY-MM-DD` for HubSpot's date property.
 - **Source-side event filtering**: Oneflow webhook (ID: 20565) is configured with `EVENT_TYPE = contract:sign` filter.

@@ -1,15 +1,19 @@
 # Changelog
 
-## v2.0 - 2026-03-05
+## v2.0 - 2026-03-06
 
 - **Feature**: Added HubSpot integration -- uploads signed PDF to HubSpot File Manager and attaches to deal's `signed_contract` file property
 - **Feature**: Added `contract_signed_date` deal property update with the signing date from Oneflow webhook event
+- **Feature**: File append logic -- new files are appended (semicolon-separated IDs) to `signed_contract`, never overwriting existing files
+- **Feature**: Uses HubSpot file ID (not URL) so the property displays as a clickable filename in the deal record
+- **Feature**: HubSpot file access set to `PUBLIC_NOT_INDEXABLE` for proper display in deal records
 - **Breaking**: Replaced "Get Contract Parties" node with "Get Full Contract" (`GET /contracts/{id}`) to access `data_fields` containing HubSpot deal name
 - **Feature**: Added "Extract Contract Data" code node to extract dealName, counterpartyName, contractId, signingDate
 - **Feature**: After PDF download, workflow splits into two parallel branches: Google Drive upload (top) and HubSpot upload + deal update (bottom)
 - **Feature**: Deal lookup uses `hs_deal_dealname` from Oneflow's `data_fields` to search HubSpot deals by exact name
+- **Feature**: Error handler workflow (`TA6Iq4wMW0KYsCiH`) linked -- sends Slack notification on failure
 - Workflow renamed from "Oneflow Signed Contract to Google Drive" to "Oneflow Signed Contract to Google Drive + HubSpot"
-- Node count increased from 5 to 10 (including sticky note)
+- Node count increased from 5 to 9
 - New credentials required: HubSpot (hubspotAppToken) with `files` and `crm.objects.deals.write` scopes
 
 ## v1.2 - 2026-02-27
