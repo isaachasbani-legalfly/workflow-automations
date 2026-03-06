@@ -6,20 +6,22 @@ Two-track enrichment: separate `numberofemployees` (Track A) from `group_number_
 
 ### New
 - **Track B: Group-level employee count** -- New `group_number_of_employees` HubSpot property stores parent/group-level employee count for subsidiaries, separate from the company's own `numberofemployees`
-- **Confidence tiers** -- Classification returns HIGH (auto-write, silent) or MEDIUM (auto-write, flagged in Slack for review)
+- **Confidence tiers** -- Classification returns HIGH or MEDIUM confidence. HIGH always auto-writes. MEDIUM auto-writes only if parent exists in HubSpot (validated). Otherwise skipped + flagged in Slack.
 - **Self-referencing block** -- Parse Classification prevents a company from being classified as subsidiary of itself (e.g., "Kotak Mahindra" -> "Kotak Mahindra")
-- **Slack review section** -- Medium-confidence subsidiaries listed separately for manual review
+- **Parent employee count from HubSpot** -- Search Parent HubSpot now fetches `numberofemployees`. If parent exists in CRM with employee count, use it directly instead of Amplemarket (better data, fewer API calls).
+- **Slack review section** -- Medium-confidence subsidiaries without parent in HubSpot listed for manual review
+- **Company name fallback** -- When HubSpot `name` is empty, falls back to domain throughout the pipeline
 
 ### Changed
-- **Combined Amplemarket batch** -- Single batch with all unique domains (company domains for Track A + parent domains for Track B), smart routing at write time
-- **Update HubSpot rewritten as Code node** -- Dynamically builds PATCH payload based on which tracks apply. Uses `this.helpers.httpRequestWithAuthentication` for conditional property updates
-- **Parse Batch Results** -- Absorbed Check Resolved, Prepare Source, and Prepare Default. Now handles Track A (employeeCount) and Track B (groupEmployeeCount) in one node
+- **Combined Amplemarket batch** -- Single batch with all unique domains (company domains for Track A + parent domains for Track B). Parent domains skipped when parent already has employee count in HubSpot.
+- **Update HubSpot rewritten as Code node** -- Dynamically builds PATCH payload based on which tracks apply. Uses `this.helpers.httpRequestWithAuthentication` for conditional property updates. Track B writes only for HIGH confidence or MEDIUM validated by HubSpot.
+- **Parse Batch Results** -- Absorbed Check Resolved, Prepare Source, and Prepare Default. Smart merge with priority: HubSpot parent > Amplemarket parent. Tracks `groupSource` ("HubSpot" or "Amplemarket").
 - **Classification prompt rewrite** -- 4 evidence categories with confidence tiers (was 5 categories, no confidence). Removed domain-based rules (subdomains, TLDs). Only company name + Gemini knowledge.
-- **Merge Parent Results** -- Now passes `confidence` and `existingGroupEmployeeCount` through (was dropped in v3.0)
-- **Preserve Pre-Update / Preserve Result** -- Added confidence, groupEmployeeCount, updateEmployeeCount, updateGroupCount fields
-- **Format Summary** -- v4.0 format with Track A/B sections, confidence flags, review section
+- **Merge Parent Results** -- Now passes `confidence`, `existingGroupEmployeeCount`, and `parentEmployeeCount` through
+- **Preserve Pre-Update / Preserve Result** -- Added confidence, groupEmployeeCount, groupSource, updateEmployeeCount, updateGroupCount fields
+- **Format Summary** -- v4.0 format with Track A/B sections, shows data source (HubSpot/Amplemarket), review section for unvalidated medium-confidence items
 - **Fetch Companies Page** -- Added `group_number_of_employees` to fetched properties
-- **Prepare Company Data** -- Added `existingGroupEmployeeCount` field
+- **Prepare Company Data** -- Added `existingGroupEmployeeCount` field, name falls back to domain
 
 ### Removed
 - **Check Resolved** (`emp2-check-resolved`) -- Logic absorbed into Parse Batch Results
