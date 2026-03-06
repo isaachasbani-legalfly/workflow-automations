@@ -3,9 +3,9 @@
 Two-track nightly workflow that enriches HubSpot companies:
 
 - **Track A**: Enrich `numberofemployees` for companies with no value, using Amplemarket. Default to 5 if no data.
-- **Track B**: For subsidiaries, get parent/group-level employee count and write to `group_number_of_employees`.
+- **Track B**: For companies that HAVE employee count AND are subsidiaries, get parent/group-level employee count and write to `group_number_of_employees`. Only written if group count > company count.
 
-Gemini classifies companies as independent vs subsidiary with a two-tier confidence system. `numberofemployees` is NEVER overwritten by Track B.
+Track A and Track B are **mutually exclusive**. Gemini classifies companies as independent vs subsidiary with a two-tier confidence system. `numberofemployees` is NEVER overwritten by Track B.
 
 ### Confidence & Write Rules
 
@@ -31,11 +31,11 @@ Gemini classifies companies as independent vs subsidiary with a two-tier confide
 2. **Gemini batch classification** -- Single API call (gemini-2.5-pro) classifies all companies as independent or subsidiary with confidence (HIGH/MEDIUM)
 3. **Self-referencing block** -- Prevents a company from being classified as subsidiary of itself
 4. **Parent company lookup** -- Searches HubSpot for parent companies; fetches their `numberofemployees`. Sets `parent_company_name` as clickable HubSpot URL if found.
-5. **Route**: companies needing enrichment (no employee count OR is subsidiary) go to Amplemarket; others skip
+5. **Route**: companies needing enrichment (no employee count OR is subsidiary) go to Amplemarket; others skip. Track A and Track B are mutually exclusive per company.
 6. **Combined Amplemarket batch** -- Single POST with all unique domains. Parent domains skipped when parent already has employee count in HubSpot.
 7. **Smart merge** -- Maps results to the right property per company:
    - Track A: `numberofemployees` from company's own domain (Amplemarket, or default 5)
-   - Track B: `group_number_of_employees` with priority: HubSpot parent > Amplemarket parent
+   - Track B: `group_number_of_employees` with priority: HubSpot parent > Amplemarket parent. Only if group > company count.
 8. **Write back** to HubSpot (conditional -- Track B only for HIGH or MEDIUM validated by HubSpot)
 9. **Slack summary** with Track A + Track B sections, data source labels (HubSpot/Amplemarket), and review section for unvalidated medium-confidence items
 
@@ -83,5 +83,5 @@ Schedule (02:01 daily)
 - **Workflow ID**: `TxZMblqjvC86tHAu`
 - **URL**: https://legalfly.app.n8n.cloud/workflow/TxZMblqjvC86tHAu
 - **Error Workflow**: `TA6Iq4wMW0KYsCiH` (Error Handler -- Slack Notification)
-- **Status**: Inactive (Update HubSpot node disabled during testing)
+- **Status**: Active (production)
 - **v1.0 (rollback)**: `u9IcVLMFzBO6Idkw`

@@ -7,15 +7,15 @@ Two-track employee enrichment for HubSpot companies created **yesterday**:
 - **Track A**: Enrich `numberofemployees` for companies with no value (default to 5 if Amplemarket has no data)
 - **Track B**: For subsidiaries, get parent/group-level employee count and write to `group_number_of_employees`
 
-Track A and Track B are independent concerns. A company can be in both tracks (subsidiary with no employee count), one track, or neither. The key invariant: **`numberofemployees` is NEVER overwritten by Track B** -- group data goes to a separate property.
+Track A and Track B are **mutually exclusive**. A company without employee count goes to Track A (get its own count). A company with employee count that is a subsidiary goes to Track B (get group-level count). The key invariant: **`numberofemployees` is NEVER overwritten by Track B** -- group data goes to a separate property.
 
-Gemini classifies companies with a two-tier confidence system (HIGH/MEDIUM). Both tiers auto-write, but MEDIUM is flagged in Slack for manual review.
+Gemini classifies companies with a two-tier confidence system (HIGH/MEDIUM). HIGH always auto-writes. MEDIUM auto-writes only if parent exists in HubSpot (validated); otherwise skipped and flagged in Slack for manual review.
 
 Runs daily at 02:01 Europe/London. Uses cursor-based pagination to process all companies regardless of volume.
 
 **Workflow ID**: `TxZMblqjvC86tHAu`
 **n8n URL**: `https://legalfly.app.n8n.cloud/workflow/TxZMblqjvC86tHAu`
-**Status**: Inactive (Update HubSpot node disabled during testing)
+**Status**: Active (production)
 **Replaces**: v3.0 (in-place update; version history preserved as rollback)
 
 ### v4.0 Changes (from v3.0)
@@ -71,7 +71,7 @@ flowchart TD
     IncCounter --> Wait
 
     ParseBatch --> PreservePreUpdate["Preserve Pre-Update\nSnapshot all fields incl. confidence"]
-    PreservePreUpdate --> UpdateHS["Update HubSpot (DISABLED)\nCode node: conditional PATCH\nTrack A: numberofemployees + source\nTrack B: group_number_of_employees + is_subsidiary + parent"]
+    PreservePreUpdate --> UpdateHS["Update HubSpot\nCode node: conditional PATCH\nTrack A: numberofemployees + source\nTrack B: group_number_of_employees + is_subsidiary + parent"]
     UpdateHS --> PreserveResult["Preserve Result"]
     PreserveResult --> Aggregate["Aggregate Results"]
     Aggregate --> FormatSummary["Format Summary\nv4.0: Track A + Track B sections\n+ review section for medium confidence"]
@@ -184,7 +184,7 @@ flowchart TD
 #### Build Batch Request (`emp2-build-batch`)
 - **Type**: code v2
 - **Purpose**: Collect all unique domains into single batch payload
-- **v4.0 change**: Combined batch -- Track A company domains + Track B parent domains, de-duplicated. Adds `trackA`/`trackB` flags to each company.
+- **v4.0 change**: Combined batch -- Track A company domains + Track B parent domains, de-duplicated. Adds `trackA`/`trackB` flags (mutually exclusive) to each company. Parent domains skipped when parent already has employee count in HubSpot.
 
 #### Submit Batch (`emp2-amp-submit`)
 - **Type**: httpRequest v4.2
@@ -226,28 +226,28 @@ flowchart TD
 - **Purpose**: Smart merge -- maps Amplemarket results to the right property per company
 - **v4.0 change**: Absorbed Check Resolved, Prepare Source, and Prepare Default. Now handles:
   - Track A: employee count from company's own domain (Amplemarket or default 5)
-  - Track B: group employee count from parent domain
-  - Sets `updateEmployeeCount` and `updateGroupCount` flags
+  - Track B: group employee count from parent domain (HubSpot priority > Amplemarket). Only if group > company count.
+  - Sets `updateEmployeeCount` and `updateGroupCount` flags (mutually exclusive tracks)
 
 #### Preserve Pre-Update (`emp2-preserve-pre`)
 - **Type**: set v3.4
 - **Purpose**: Snapshot all fields before HubSpot write
-- **v4.0 change**: Added `confidence`, `groupEmployeeCount`, `updateEmployeeCount`, `updateGroupCount` fields
+- **v4.0 change**: Added `confidence`, `groupEmployeeCount`, `groupSource`, `updateEmployeeCount`, `updateGroupCount`, `existingEmployeeCount` fields
 
-#### Update HubSpot (`emp2-update-hs`) -- DISABLED
+#### Update HubSpot (`emp2-update-hs`)
 - **Type**: code v2 (was hubspot v2.2 in v3.0)
 - **Purpose**: Conditionally write properties to HubSpot based on track flags
 - **v4.0 change**: Rewritten as Code node using `this.helpers.httpRequestWithAuthentication` for conditional payload:
   - Track A: `numberofemployees` + `number-employees-enrichment-source` (only if `updateEmployeeCount`)
-  - Track B: `is_subsidiary` + `parent_company_name` + `group_number_of_employees` (only if `isSubsidiary` AND `confidence === 'high'`)
-  - Medium-confidence subsidiaries are skipped (not written to HubSpot)
+  - Track B: `is_subsidiary` + `parent_company_name` + `group_number_of_employees` (only if HIGH confidence OR MEDIUM validated by HubSpot, AND group > company count)
+  - Medium-confidence subsidiaries without HubSpot parent are skipped
   - Skips companies with nothing to update
-- **Status**: **DISABLED** for testing. Must be manually enabled after verification.
+- **Status**: **ENABLED** (production)
 
 #### Preserve Result (`emp2-preserve-result`)
 - **Type**: code v2
 - **Purpose**: Re-read from Preserve Pre-Update (HubSpot update overwrites context)
-- **v4.0 change**: Added confidence, groupEmployeeCount, updateEmployeeCount, updateGroupCount fields
+- **v4.0 change**: Added confidence, groupEmployeeCount, existingEmployeeCount, updateEmployeeCount, updateGroupCount fields
 
 #### Aggregate Results (`emp2-aggregate`)
 - **Type**: aggregate v1
@@ -273,16 +273,17 @@ flowchart TD
 | Track | Purpose | Trigger | HubSpot Property | Source |
 |-------|---------|---------|-----------------|--------|
 | A | Employee count for companies with none | `existingEmployeeCount <= 0` | `numberofemployees` | Company's own domain via Amplemarket (or default 5) |
-| B | Group-level employee count | `isSubsidiary === true` | `group_number_of_employees` | Parent domain via Amplemarket |
+| B | Group-level employee count | `existingEmployeeCount > 0 && isSubsidiary` | `group_number_of_employees` | Parent domain via HubSpot (priority) or Amplemarket. Only written if group > company count. |
 
-A company can be in both tracks (subsidiary with no employee count), one track, or neither.
+Track A and Track B are **mutually exclusive**. A company is in one track or neither, never both.
 
 ### Classification Confidence
 
 | Tier | Auto-write | Slack flag | Example |
 |------|-----------|------------|---------|
-| HIGH | Yes | No | KPMG Spain -> KPMG, Instagram -> Meta |
-| MEDIUM | No (skipped) | Yes (flagged for review) | Keepmoat Regeneration -> Keepmoat |
+| HIGH | Yes (always) | No | KPMG Spain -> KPMG, Instagram -> Meta |
+| MEDIUM + parent in HubSpot | Yes (validated) | No | Subsidiary with CRM-validated parent |
+| MEDIUM + no parent in HubSpot | No (skipped) | Yes (flagged for review) | Keepmoat Regeneration -> Keepmoat |
 
 ### Critical Invariant
 
@@ -307,11 +308,11 @@ A company can be in both tracks (subsidiary with no employee count), one track, 
 
 1. **Two separate properties** -- `numberofemployees` (company's own count) and `group_number_of_employees` (parent/group count) are independent. This prevents data destruction when enriching subsidiaries.
 2. **Combined Amplemarket batch** -- One batch with all unique domains (Track A + Track B) is simpler than two separate batches, and Amplemarket de-duplication handles overlaps.
-3. **Confidence tiers** -- HIGH = auto-write silently. MEDIUM = not written, flagged in Slack for manual review. Prevents uncertain classifications from polluting CRM data.
+3. **Confidence tiers** -- HIGH = always auto-write. MEDIUM + parent in HubSpot = auto-write (CRM validates the relationship). MEDIUM + no parent in HubSpot = skip, flagged in Slack for manual review.
 4. **Self-referencing block** -- Gemini sometimes classifies "Kotak Mahindra" as subsidiary of "Kotak Mahindra". Parse Classification catches and blocks this.
 5. **No domain-based rules** -- Subdomain/TLD patterns were unreliable and caused more errors than they prevented. Classification is purely name-based + Gemini knowledge.
 6. **Code node for HubSpot update** -- Conditional property payload (only set fields that need updating) requires dynamic logic that the native HubSpot node can't express.
-7. **Update HubSpot disabled** -- Node is disabled during testing to prevent accidental data writes. Must be manually enabled after verification.
+7. **Group > company check** -- `group_number_of_employees` is only written if the group count exceeds the company's own `numberofemployees`. Prevents writing misleadingly small group counts (e.g., Amplemarket returning 35 for a company with 80,000).
 8. **Airlines excluded** -- Even if owned by a group (Ita Airways by Lufthansa Group), they are independent for our purposes.
 9. **Default = 5** -- Non-zero value for CRM segmentation; tagged as "Estimated" so it can be identified.
 10. **Poll loop with max 20 iterations** -- 20 x 15s = 5 minutes max wait.
@@ -349,7 +350,7 @@ A company can be in both tracks (subsidiary with no employee count), one track, 
 | emp2-poll-inc | Increment Counter | code | 3 |
 | emp2-parse-batch | Parse Batch Results | code | 4 |
 | emp2-preserve-pre | Preserve Pre-Update | set | 4 |
-| emp2-update-hs | Update HubSpot | code (DISABLED) | 4 |
+| emp2-update-hs | Update HubSpot | code | 4 |
 | emp2-preserve-result | Preserve Result | code | 4 |
 | emp2-aggregate | Aggregate Results | aggregate | 4 |
 | emp2-format | Format Summary | code | 4 |

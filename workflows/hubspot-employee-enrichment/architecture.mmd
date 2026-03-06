@@ -20,7 +20,7 @@ flowchart TD
 
     MergeParentResults --> Route{Check Needs Enrichment\nno count OR isSubsidiary?}
 
-    Route -->|TRUE: needs enrichment| BuildBatch["Build Batch Request\nCombined: company domains (Track A)\n+ parent domains (Track B)\nDe-duplicated"]
+    Route -->|TRUE: needs enrichment| BuildBatch["Build Batch Request\nTrack A: company domains (no emp count)\nTrack B: parent domains (has count + subsidiary)\nMutually exclusive, de-duplicated"]
     Route -->|FALSE: already good| Skip["Skip Independent\nnoOp"]
 
     BuildBatch --> SubmitBatch["Submit Batch\nPOST /enrichment-requests"]
@@ -29,12 +29,12 @@ flowchart TD
     Wait --> Poll["Poll Status"]
     Poll --> MergePoll["Merge Poll State"]
     MergePoll --> CheckComplete{Check Complete?}
-    CheckComplete -->|TRUE| ParseBatch["Parse Batch Results\nSmart merge: Track A -> employeeCount\nTrack B -> groupEmployeeCount"]
+    CheckComplete -->|TRUE| ParseBatch["Parse Batch Results\nSmart merge: Track A -> employeeCount\nTrack B -> groupEmployeeCount (if > company)"]
     CheckComplete -->|FALSE| IncCounter["Increment Counter"]
     IncCounter --> Wait
 
     ParseBatch --> PreservePreUpdate["Preserve Pre-Update\nSnapshot all fields incl. confidence"]
-    PreservePreUpdate --> UpdateHS["Update HubSpot (DISABLED)\nCode node: conditional PATCH\nTrack A: numberofemployees + source\nTrack B: group_number_of_employees + is_subsidiary + parent"]
+    PreservePreUpdate --> UpdateHS["Update HubSpot\nCode node: conditional PATCH\nTrack A: numberofemployees + source\nTrack B: group_number_of_employees + is_subsidiary + parent"]
     UpdateHS --> PreserveResult["Preserve Result"]
     PreserveResult --> Aggregate["Aggregate Results"]
     Aggregate --> FormatSummary["Format Summary\nv4.0: Track A + Track B sections\n+ review section for medium confidence"]
