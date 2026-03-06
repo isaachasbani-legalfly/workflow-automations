@@ -87,7 +87,7 @@ Rules:
 | Tier | Auto-write | Slack flag | Example |
 |------|-----------|------------|---------|
 | HIGH | Yes | No | KPMG Spain -> KPMG, Instagram -> Meta |
-| MEDIUM | Yes | Yes (flagged for review) | Keepmoat Regeneration -> Keepmoat |
+| MEDIUM | No (skipped) | Yes (flagged for review) | Keepmoat Regeneration -> Keepmoat |
 
 ## Key Design Decisions
 
@@ -95,7 +95,7 @@ Rules:
 2. **Low temperature (0.2)** — Deterministic, consistent classification
 3. **Default to independent** — When uncertain, treat as standalone
 4. **No domain-based evidence** — Domain patterns (TLDs, subdomains) are NOT used. Only company name and Gemini's knowledge of corporate structures.
-5. **Two confidence tiers** — Both get written to HubSpot, but MEDIUM is flagged in Slack for manual review
+5. **Two confidence tiers** — HIGH auto-writes to HubSpot. MEDIUM is NOT written and is flagged in Slack for manual review
 6. **Self-referencing blocked** — A company cannot be a subsidiary of itself
 7. **Airlines excluded** — Even if owned by a group (Ita Airways owned by Lufthansa Group), they are independent for our purposes
 8. **Geography-in-brand-name excluded** — Berlin Brands Group, Swiss Life, etc.

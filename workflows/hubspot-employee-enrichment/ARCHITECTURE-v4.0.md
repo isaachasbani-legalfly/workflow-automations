@@ -22,7 +22,7 @@ Runs daily at 02:01 Europe/London. Uses cursor-based pagination to process all c
 
 1. **Two-track enrichment** -- Track A (employee count for missing) and Track B (group-level count for subsidiaries) are now separate concerns. `numberofemployees` is never touched by Track B.
 2. **New HubSpot property** -- `group_number_of_employees` stores parent/group-level employee count for subsidiaries.
-3. **Confidence tiers** -- Classification now returns HIGH or MEDIUM confidence. Both auto-write; MEDIUM flagged in Slack for review.
+3. **Confidence tiers** -- Classification now returns HIGH or MEDIUM confidence. HIGH auto-writes; MEDIUM is not written and flagged in Slack for manual review.
 4. **Self-referencing block** -- Parse Classification prevents a company from being classified as subsidiary of itself (Kotak Mahindra bug fix).
 5. **No domain-based classification rules** -- Removed subdomain and TLD-based rules. Classification is purely name-based + Gemini knowledge of corporate structures.
 6. **Combined Amplemarket batch** -- One batch with all unique domains (company domains for Track A + parent domains for Track B), smart routing at write time.
@@ -239,7 +239,8 @@ flowchart TD
 - **Purpose**: Conditionally write properties to HubSpot based on track flags
 - **v4.0 change**: Rewritten as Code node using `this.helpers.httpRequestWithAuthentication` for conditional payload:
   - Track A: `numberofemployees` + `number-employees-enrichment-source` (only if `updateEmployeeCount`)
-  - Track B: `is_subsidiary` + `parent_company_name` + `group_number_of_employees` (only if `isSubsidiary`)
+  - Track B: `is_subsidiary` + `parent_company_name` + `group_number_of_employees` (only if `isSubsidiary` AND `confidence === 'high'`)
+  - Medium-confidence subsidiaries are skipped (not written to HubSpot)
   - Skips companies with nothing to update
 - **Status**: **DISABLED** for testing. Must be manually enabled after verification.
 
@@ -281,7 +282,7 @@ A company can be in both tracks (subsidiary with no employee count), one track, 
 | Tier | Auto-write | Slack flag | Example |
 |------|-----------|------------|---------|
 | HIGH | Yes | No | KPMG Spain -> KPMG, Instagram -> Meta |
-| MEDIUM | Yes | Yes (flagged for review) | Keepmoat Regeneration -> Keepmoat |
+| MEDIUM | No (skipped) | Yes (flagged for review) | Keepmoat Regeneration -> Keepmoat |
 
 ### Critical Invariant
 
@@ -306,7 +307,7 @@ A company can be in both tracks (subsidiary with no employee count), one track, 
 
 1. **Two separate properties** -- `numberofemployees` (company's own count) and `group_number_of_employees` (parent/group count) are independent. This prevents data destruction when enriching subsidiaries.
 2. **Combined Amplemarket batch** -- One batch with all unique domains (Track A + Track B) is simpler than two separate batches, and Amplemarket de-duplication handles overlaps.
-3. **Confidence tiers** -- HIGH = auto-write silently. MEDIUM = auto-write + Slack flag. Avoids blocking enrichment while surfacing uncertain classifications.
+3. **Confidence tiers** -- HIGH = auto-write silently. MEDIUM = not written, flagged in Slack for manual review. Prevents uncertain classifications from polluting CRM data.
 4. **Self-referencing block** -- Gemini sometimes classifies "Kotak Mahindra" as subsidiary of "Kotak Mahindra". Parse Classification catches and blocks this.
 5. **No domain-based rules** -- Subdomain/TLD patterns were unreliable and caused more errors than they prevented. Classification is purely name-based + Gemini knowledge.
 6. **Code node for HubSpot update** -- Conditional property payload (only set fields that need updating) requires dynamic logic that the native HubSpot node can't express.

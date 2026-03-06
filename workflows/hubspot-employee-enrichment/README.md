@@ -5,7 +5,7 @@ Two-track nightly workflow that enriches HubSpot companies:
 - **Track A**: Enrich `numberofemployees` for companies with no value, using Amplemarket. Default to 5 if no data.
 - **Track B**: For subsidiaries, get parent/group-level employee count and write to `group_number_of_employees`.
 
-Gemini classifies companies as independent vs subsidiary with a two-tier confidence system (HIGH auto-write, MEDIUM auto-write + flagged for review). `numberofemployees` is NEVER overwritten by Track B.
+Gemini classifies companies as independent vs subsidiary with a two-tier confidence system (HIGH auto-write, MEDIUM not written + flagged in Slack for review). `numberofemployees` is NEVER overwritten by Track B.
 
 ## Current Version
 
