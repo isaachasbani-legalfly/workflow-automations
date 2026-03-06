@@ -1,11 +1,16 @@
 # HubSpot Employee Count Enrichment
 
-Nightly workflow that enriches HubSpot companies with employee counts using a two-stage pipeline: Gemini classifies companies as independent vs subsidiary, then Amplemarket provides batch employee data (using parent domains for subsidiaries). Companies Amplemarket can't resolve get a default of 5.
+Two-track nightly workflow that enriches HubSpot companies:
+
+- **Track A**: Enrich `numberofemployees` for companies with no value, using Amplemarket. Default to 5 if no data.
+- **Track B**: For subsidiaries, get parent/group-level employee count and write to `group_number_of_employees`.
+
+Gemini classifies companies as independent vs subsidiary with a two-tier confidence system (HIGH auto-write, MEDIUM auto-write + flagged for review). `numberofemployees` is NEVER overwritten by Track B.
 
 ## Current Version
 
-**v3.0** — Simplified: removed scrape fallback (6 nodes), rewrote classification prompt for 5-10% subsidiary rate.
-- v2.1 version history preserved in n8n as rollback.
+**v4.0** -- Two-track enrichment, confidence tiers, self-referencing block, no domain-based classification rules.
+- v3.0 version history preserved in n8n as rollback.
 - v1.0 (`u9IcVLMFzBO6Idkw`) kept as rollback.
 
 ## Trigger
@@ -14,44 +19,34 @@ Nightly workflow that enriches HubSpot companies with employee counts using a tw
 
 ## How It Works
 
-1. **Paginated fetch** — ALL HubSpot companies created yesterday (cursor-based, 200/page)
-2. **Gemini batch classification** — Single API call (gemini-2.5-pro) classifies all companies as independent or subsidiary/branch with strict rules (6 evidence categories only)
-3. **Parent company lookup** — Searches HubSpot for parent companies; sets `parent_company_name` as clickable HubSpot URL if found
-4. **3-way route**:
-   - (A) No employee count → needs enrichment
-   - (B) Has count BUT is subsidiary → needs re-enrichment with parent data
-   - (C) Has count AND is independent → skip
-5. **Batch Amplemarket** — Single POST with all companies needing enrichment, poll until complete
-   - For subsidiaries: uses parent domain instead of branch domain
-6. **Default** — Amplemarket has no data: assign 5 employees (tagged as "Estimated")
-7. **Write back** to HubSpot: `numberofemployees`, enrichment source, `is_subsidiary`, `parent_company_name`
-8. **Slack summary** with 3 categories: Amplemarket, Parent enriched, Default
+1. **Paginated fetch** -- ALL HubSpot companies created yesterday (cursor-based, 200/page)
+2. **Gemini batch classification** -- Single API call (gemini-2.5-pro) classifies all companies as independent or subsidiary with confidence (HIGH/MEDIUM)
+3. **Self-referencing block** -- Prevents a company from being classified as subsidiary of itself
+4. **Parent company lookup** -- Searches HubSpot for parent companies; sets `parent_company_name` as clickable HubSpot URL if found
+5. **Route**: companies needing enrichment (no employee count OR is subsidiary) go to Amplemarket; others skip
+6. **Combined Amplemarket batch** -- Single POST with all unique domains (company domains for Track A + parent domains for Track B)
+7. **Smart merge** -- Maps Amplemarket results to the right property per company:
+   - Track A: `numberofemployees` from company's own domain (or default 5)
+   - Track B: `group_number_of_employees` from parent domain
+8. **Write back** to HubSpot (conditional -- only writes fields that need updating)
+9. **Slack summary** with Track A + Track B sections, confidence flags, and review section for medium-confidence items
 
 ## Data Flow
 
 ```
 Schedule (02:01 daily)
-  → Paginated HubSpot fetch (ALL companies created yesterday)
-  → Gemini batch (gemini-2.5-pro): classify ALL as independent vs subsidiary
-  → Parent company HubSpot lookup (clickable URL if found)
-  → 3-way split:
-      (A) No employee count → needs enrichment
-      (B) Has count + subsidiary → re-enrich with parent data
-      (C) Has count + independent → skip
-  → For (A)+(B): replace branch domains with parent domain
-  → Batch Amplemarket enrichment (POST + poll loop)
-  → Amplemarket has data → use it. Doesn't → default to 5. Done.
-  → Update HubSpot (employee count + source + is_subsidiary + parent_company_name)
-  → Slack summary (3 categories)
+  -> Paginated HubSpot fetch (ALL companies created yesterday)
+  -> Gemini batch (gemini-2.5-pro): classify with confidence tiers
+  -> Self-referencing block (parent != self)
+  -> Parent company HubSpot lookup (clickable URL if found)
+  -> Route: no count OR subsidiary -> needs enrichment
+  -> Combined Amplemarket batch (company + parent domains, de-duped)
+  -> Smart merge:
+      Track A: own domain -> numberofemployees (or default 5)
+      Track B: parent domain -> group_number_of_employees
+  -> Conditional HubSpot update (only writes what's needed)
+  -> Slack summary (Track A + Track B + review section)
 ```
-
-## Enrichment Source Values
-
-| Value | Meaning |
-|-------|---------|
-| `Amplemarket` | Direct Amplemarket data, independent company |
-| `Amplemarket (parent: {name})` | Subsidiary; parent's Amplemarket data used |
-| `Estimated` | Default value (5); no data available |
 
 ## Credentials Required
 
@@ -64,17 +59,18 @@ Schedule (02:01 daily)
 
 ## HubSpot Properties
 
-| Property | Internal Name | Type | Notes |
-|----------|--------------|------|-------|
-| Employee Count | `numberofemployees` | Standard | Number |
-| Enrichment Source | `number-employees-enrichment-source` | Custom | Text (existing) |
-| Is Subsidiary | `is_subsidiary` | Custom | Checkbox |
-| Parent Company | `parent_company_name` | Custom | Text — clickable HubSpot URL if parent found |
+| Property | Internal Name | Type | Track | Notes |
+|----------|--------------|------|-------|-------|
+| Employee Count | `numberofemployees` | Standard | A | Only written when no existing value |
+| Enrichment Source | `number-employees-enrichment-source` | Custom | A | `Amplemarket` or `Estimated` |
+| Is Subsidiary | `is_subsidiary` | Custom | B | Checkbox |
+| Parent Company | `parent_company_name` | Custom | B | Clickable HubSpot URL if parent found |
+| Group Employee Count | `group_number_of_employees` | Custom | B | Parent/group-level count |
 
 ## n8n Instance
 
 - **Workflow ID**: `TxZMblqjvC86tHAu`
 - **URL**: https://legalfly.app.n8n.cloud/workflow/TxZMblqjvC86tHAu
-- **Error Workflow**: `TA6Iq4wMW0KYsCiH` (Error Handler — Slack Notification)
-- **Status**: Active
+- **Error Workflow**: `TA6Iq4wMW0KYsCiH` (Error Handler -- Slack Notification)
+- **Status**: Inactive (Update HubSpot node disabled during testing)
 - **v1.0 (rollback)**: `u9IcVLMFzBO6Idkw`

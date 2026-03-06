@@ -3,46 +3,39 @@ flowchart TD
 
     Start --> InitState["Initialize State\n{after: null, allCompanies: []}"]
     InitState --> PassState["Pass State"]
-    PassState --> FetchPage["Fetch Companies Page\nHubSpot API - createdate yesterday\nlimit 200 + cursor"]
+    PassState --> FetchPage["Fetch Companies Page\nHubSpot API - createdate yesterday\nlimit 200 + cursor\nprops: name, domain, numberofemployees, group_number_of_employees"]
     FetchPage --> Accumulate["Accumulate Results\nMerge pages"]
     Accumulate --> IfMore{IF Has More Pages\ncursor not empty?}
     IfMore -->|TRUE: loop back| PassState
     IfMore -->|FALSE: done| SplitAll["Split All Companies"]
 
-    SplitAll --> Prepare["Prepare Company Data\ncompanyId, name, domain, existingEmployeeCount"]
-    Prepare --> PrepClassify["Prepare Gemini Batch\nAll company names in single prompt"]
-    PrepClassify --> GeminiClassify["Gemini Classify\ngemini-2.5-pro temp 0.2\nindependent vs subsidiary"]
-    GeminiClassify --> ParseClassify["Parse Classification\nMerge results, replace branch domains"]
+    SplitAll --> Prepare["Prepare Company Data\ncompanyId, name, domain,\nexistingEmployeeCount, existingGroupEmployeeCount"]
+    Prepare --> PrepClassify["Prepare Gemini Batch\nConfidence tiers: HIGH/MEDIUM\nNo domain-based rules"]
+    PrepClassify --> GeminiClassify["Gemini Classify\ngemini-2.5-pro temp 0.2"]
+    GeminiClassify --> ParseClassify["Parse Classification\n+ self-referencing block\n+ confidence field"]
 
-    ParseClassify --> PrepParentLookup["Prep Parent Lookup\nExtract parent company names"]
+    ParseClassify --> PrepParentLookup["Prep Parent Lookup\nExtract parent domains"]
     PrepParentLookup --> SearchParentHS["Search Parent HubSpot\nFind parent companies in CRM"]
-    SearchParentHS --> MergeParentResults["Merge Parent Results\nSet parent_company_name as URL or plain text"]
+    SearchParentHS --> MergeParentResults["Merge Parent Results\nSet parentCompanyValue as URL or text\nPass confidence + existingGroupEmployeeCount"]
 
     MergeParentResults --> Route{Check Needs Enrichment\nno count OR isSubsidiary?}
 
-    Route -->|TRUE: needs enrichment| BuildBatch["Build Batch Request\nCollect companies + identifiers"]
+    Route -->|TRUE: needs enrichment| BuildBatch["Build Batch Request\nCombined: company domains (Track A)\n+ parent domains (Track B)\nDe-duplicated"]
     Route -->|FALSE: already good| Skip["Skip Independent\nnoOp"]
 
     BuildBatch --> SubmitBatch["Submit Batch\nPOST /enrichment-requests"]
-    SubmitBatch --> InitPoll["Init Poll State\nrequestId, pollCount=0"]
+    SubmitBatch --> InitPoll["Init Poll State"]
     InitPoll --> Wait["Wait 15s"]
-    Wait --> Poll["Poll Status\nGET /enrichment-requests/{id}"]
+    Wait --> Poll["Poll Status"]
     Poll --> MergePoll["Merge Poll State"]
-    MergePoll --> CheckComplete{Check Complete\nstatus=completed OR maxPolls?}
-    CheckComplete -->|TRUE| ParseBatch["Parse Batch Results\nMatch by domain"]
-    CheckComplete -->|FALSE| IncCounter["Increment Counter\npollCount++"]
+    MergePoll --> CheckComplete{Check Complete?}
+    CheckComplete -->|TRUE| ParseBatch["Parse Batch Results\nSmart merge: Track A -> employeeCount\nTrack B -> groupEmployeeCount"]
+    CheckComplete -->|FALSE| IncCounter["Increment Counter"]
     IncCounter --> Wait
 
-    ParseBatch --> CheckResolved{Check Resolved\nemployeeCount > 0?}
-    CheckResolved -->|TRUE| PrepSource["Prepare Source\nAmplemarket or Amplemarket (parent: X)"]
-    CheckResolved -->|FALSE| Default["Prepare Default\nemployeeCount=5, Estimated"]
-
-    PrepSource --> PreservePreUpdate
-    Default --> PreservePreUpdate
-
-    PreservePreUpdate["Preserve Pre-Update\nSnapshot all fields"]
-    PreservePreUpdate --> UpdateHS["Update HubSpot\nnumberofemployees + source + is_subsidiary + parent"]
+    ParseBatch --> PreservePreUpdate["Preserve Pre-Update\nSnapshot all fields incl. confidence"]
+    PreservePreUpdate --> UpdateHS["Update HubSpot (DISABLED)\nCode node: conditional PATCH\nTrack A: numberofemployees + source\nTrack B: group_number_of_employees + is_subsidiary + parent"]
     UpdateHS --> PreserveResult["Preserve Result"]
     PreserveResult --> Aggregate["Aggregate Results"]
-    Aggregate --> FormatSummary["Format Summary\nv3.0: 3 categories"]
+    Aggregate --> FormatSummary["Format Summary\nv4.0: Track A + Track B sections\n+ review section for medium confidence"]
     FormatSummary --> Slack["Send Slack\nChannel C0AG86U9927"]

@@ -1,5 +1,38 @@
 # Changelog
 
+## v4.0 - 2026-03-06
+
+Two-track enrichment: separate `numberofemployees` (Track A) from `group_number_of_employees` (Track B). Confidence tiers for classification. Critical fix: `numberofemployees` is never overwritten by subsidiary enrichment.
+
+### New
+- **Track B: Group-level employee count** -- New `group_number_of_employees` HubSpot property stores parent/group-level employee count for subsidiaries, separate from the company's own `numberofemployees`
+- **Confidence tiers** -- Classification returns HIGH (auto-write, silent) or MEDIUM (auto-write, flagged in Slack for review)
+- **Self-referencing block** -- Parse Classification prevents a company from being classified as subsidiary of itself (e.g., "Kotak Mahindra" -> "Kotak Mahindra")
+- **Slack review section** -- Medium-confidence subsidiaries listed separately for manual review
+
+### Changed
+- **Combined Amplemarket batch** -- Single batch with all unique domains (company domains for Track A + parent domains for Track B), smart routing at write time
+- **Update HubSpot rewritten as Code node** -- Dynamically builds PATCH payload based on which tracks apply. Uses `this.helpers.httpRequestWithAuthentication` for conditional property updates
+- **Parse Batch Results** -- Absorbed Check Resolved, Prepare Source, and Prepare Default. Now handles Track A (employeeCount) and Track B (groupEmployeeCount) in one node
+- **Classification prompt rewrite** -- 4 evidence categories with confidence tiers (was 5 categories, no confidence). Removed domain-based rules (subdomains, TLDs). Only company name + Gemini knowledge.
+- **Merge Parent Results** -- Now passes `confidence` and `existingGroupEmployeeCount` through (was dropped in v3.0)
+- **Preserve Pre-Update / Preserve Result** -- Added confidence, groupEmployeeCount, updateEmployeeCount, updateGroupCount fields
+- **Format Summary** -- v4.0 format with Track A/B sections, confidence flags, review section
+- **Fetch Companies Page** -- Added `group_number_of_employees` to fetched properties
+- **Prepare Company Data** -- Added `existingGroupEmployeeCount` field
+
+### Removed
+- **Check Resolved** (`emp2-check-resolved`) -- Logic absorbed into Parse Batch Results
+- **Prepare Source** (`emp2-prep-source`) -- Logic absorbed into Parse Batch Results
+- **Prepare Default** (`emp2-default`) -- Logic absorbed into Parse Batch Results
+
+### Architecture
+- 31 nodes (down from 34 in v3.0)
+- In-place update of workflow `TxZMblqjvC86tHAu`; v3.0 version history preserved as rollback
+- Update HubSpot node **DISABLED** during testing
+
+---
+
 ## v3.0 - 2026-03-05
 
 Simplified workflow: removed scrape fallback, rewrote classification prompt for much lower subsidiary rate.

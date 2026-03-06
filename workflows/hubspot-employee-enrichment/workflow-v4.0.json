@@ -1,0 +1,542 @@
+{
+  "id": "TxZMblqjvC86tHAu",
+  "name": "HubSpot Employee Count Enrichment v4.0",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "1 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "emp2-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-2864, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "return {\n  json: {\n    after: null,\n    allCompanies: []\n  }\n};"
+      },
+      "id": "emp2-init",
+      "name": "Initialize State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-2560, 400]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  json: {\n    after: $json.after || null,\n    allCompanies: $json.allCompanies || []\n  }\n};"
+      },
+      "id": "emp2-pass-state",
+      "name": "Pass State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-2272, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() - 1)).getTime()) }, { propertyName: 'createdate', operator: 'LT', value: String(new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate())).getTime()) }] }], properties: ['name', 'domain', 'linkedin_company_page', 'numberofemployees', 'group_number_of_employees'], limit: 200, ...($json.after ? { after: $json.after } : {}) }) }}",
+        "options": {}
+      },
+      "id": "emp2-fetch",
+      "name": "Fetch Companies Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-1968, 400],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const apiResponse = $json;\nconst passStateData = $('Pass State').item.json;\n\nconst prevCompanies = passStateData.allCompanies || [];\nconst newCompanies = apiResponse.results || [];\nconst cursor = apiResponse.paging?.next?.after || null;\n\nreturn {\n  json: {\n    after: cursor,\n    allCompanies: [...prevCompanies, ...newCompanies]\n  }\n};"
+      },
+      "id": "emp2-accumulate",
+      "name": "Accumulate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1664, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-more-check",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "leftValue": "={{ $json.after || '' }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "emp2-if-more",
+      "name": "IF Has More Pages",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-1360, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allCompanies = $input.first().json.allCompanies || [];\nreturn allCompanies.map(company => ({\n  json: {\n    id: String(company.id),\n    properties: company.properties || {}\n  }\n}));"
+      },
+      "id": "emp2-split",
+      "name": "Split All Companies",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1056, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "a1", "name": "companyId", "type": "string", "value": "={{ $json.id }}"},
+            {"id": "a2", "name": "companyName", "type": "string", "value": "={{ ($json.properties || {}).name || '' }}"},
+            {"id": "a3", "name": "domain", "type": "string", "value": "={{ ($json.properties || {}).domain || '' }}"},
+            {"id": "a4", "name": "linkedinUrl", "type": "string", "value": "={{ ($json.properties || {}).linkedin_company_page || '' }}"},
+            {"id": "a5", "name": "existingEmployeeCount", "type": "number", "value": "={{ parseInt(($json.properties || {}).numberofemployees) || 0 }}"},
+            {"id": "a6", "name": "existingGroupEmployeeCount", "type": "number", "value": "={{ parseInt(($json.properties || {}).group_number_of_employees) || 0 }}"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "emp2-prepare",
+      "name": "Prepare Company Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-752, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// See prompts/prompt-classify-batch.md for full prompt documentation\nconst items = $input.all();\nconst companies = items.map((item, index) => ({\n  index,\n  name: item.json.companyName,\n  domain: item.json.domain\n}));\n\nconst prompt = 'You are an expert at identifying corporate subsidiaries and group companies.\\n\\n'\n  + 'For each company below, determine if it is:\\n'\n  + '- INDEPENDENT (standalone business)\\n'\n  + '- SUBSIDIARY/BRANCH of a larger parent company or group\\n\\n'\n  + 'Classify as SUBSIDIARY only when you have strong evidence. Return a confidence level:\\n\\n'\n  + 'HIGH CONFIDENCE — unambiguous, well-known relationships:\\n\\n'\n  + '1. WELL-KNOWN GLOBAL FIRM + EXPLICIT GEOGRAPHY/REGION in the name:\\n'\n  + '   - \"KPMG Spain\" -> KPMG, \"Deloitte Netherlands\" -> Deloitte, \"PwC Austria\" -> PwC\\n'\n  + '   - The parent is the same brand without the geography\\n'\n  + '   - Must be a universally recognized global brand (Big 4, MBB, global law firms, etc.)\\n'\n  + '   - But \"KPMG\" alone (no geography) -> INDEPENDENT (could be the parent itself)\\n\\n'\n  + '2. SAME BRAND + OPERATIONAL SUFFIX in the name:\\n'\n  + '   - \"Weber-Stephen Products EMEA\" -> Weber-Stephen Products\\n'\n  + '   - \"Jones Bros Civil Engineering UK\" -> Jones Bros Civil Engineering\\n'\n  + '   - The base name is identical, only a region/division word is added\\n\\n'\n  + '3. UNIVERSALLY KNOWN OWNERSHIP — relationships that are common public knowledge:\\n'\n  + '   - Tech: Instagram -> Meta, YouTube -> Alphabet, WhatsApp -> Meta, LinkedIn -> Microsoft, GitHub -> Microsoft\\n'\n  + '   - Luxury: Louis Vuitton -> LVMH, Fendi -> LVMH, Dior -> LVMH, Gucci -> Kering, Balenciaga -> Kering\\n'\n  + '   - Industrial: Porsche -> Volkswagen Group\\n'\n  + '   - If you have to think twice about whether it is universally known, it is NOT universally known.\\n\\n'\n  + 'MEDIUM CONFIDENCE — likely but not universally famous:\\n\\n'\n  + '4. LIKELY DIVISION/BRAND of a parent company:\\n'\n  + '   - The name strongly suggests it is a division (e.g., \"Keepmoat Regeneration\" -> Keepmoat)\\n'\n  + '   - The parent relationship is plausible but not common knowledge\\n'\n  + '   - You are fairly confident but it is not a household-name relationship\\n\\n'\n  + 'ALWAYS INDEPENDENT — never classify these as subsidiaries:\\n'\n  + '- Government agencies, ministries, public authorities\\n'\n  + '- Universities, university hospitals, research institutes\\n'\n  + '- Non-profits, associations, foundations (e.V., Stiftung, Verband, Kuratorium)\\n'\n  + '- Airlines (e.g., Ita Airways, Vueling, Eurowings) — even if owned by a group\\n'\n  + '- Companies with geography in their BRAND NAME (e.g., Berlin Brands Group, Heidelberg Engineering, Swiss Life)\\n'\n  + '- Consumer email/cloud domains (icloud.com, me.com, gmail.com, outlook.com) — these are NOT company domains\\n'\n  + '- When the \"parent\" would be THE SAME ENTITY (e.g., \"Kotak Mahindra\" is NOT a subsidiary of \"Kotak Mahindra\")\\n'\n  + '- When in doubt -> INDEPENDENT. A wrong \"independent\" is harmless. A wrong \"subsidiary\" causes incorrect data.\\n\\n'\n  + 'COMPANIES TO CLASSIFY:\\n'\n  + companies.map(c => {\n    let line = '[' + c.index + '] \"' + c.name + '\" (domain: ' + (c.domain || 'none') + ')';\n    return line;\n  }).join('\\n')\n  + '\\n\\nNOTE: Only company name and domain are provided. Do NOT use domain patterns (TLDs, subdomains) as evidence of subsidiary relationships. Classification is based purely on company name and your knowledge of well-known corporate structures.\\n\\n'\n  + 'Return ONLY a valid JSON array (no markdown, no explanation):\\n'\n  + '[{\"index\": 0, \"isSubsidiary\": true, \"confidence\": \"high\", \"parentCompany\": \"KPMG\", \"parentDomain\": \"kpmg.com\"}]\\n\\n'\n  + 'Rules:\\n'\n  + '- For independent companies: isSubsidiary=false, confidence=null, parentCompany=null, parentDomain=null\\n'\n  + '- For high-confidence subsidiaries: isSubsidiary=true, confidence=\"high\", parentCompany=parent name, parentDomain=parent primary domain\\n'\n  + '- For medium-confidence subsidiaries: isSubsidiary=true, confidence=\"medium\", parentCompany=parent name, parentDomain=parent primary domain\\n'\n  + '- When unsure, ALWAYS default to independent (isSubsidiary=false)';\n\nconst companyData = items.map(item => item.json);\n\nreturn [{\n  json: {\n    prompt,\n    companyData: JSON.stringify(companyData),\n    companyCount: companies.length\n  }\n}];"
+      },
+      "id": "emp2-prep-classify",
+      "name": "Prepare Gemini Batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-464, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ contents: [{ parts: [{ text: $json.prompt }] }], generationConfig: { temperature: 0.2 } }) }}",
+        "options": { "timeout": 180000 }
+      },
+      "id": "emp2-gemini-classify",
+      "name": "Gemini Classify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-160, 400],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "QnUjlFnc4gypgplL",
+          "name": "Gemini"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\nconst prepData = $('Prepare Gemini Batch').first().json;\nconst companyData = JSON.parse(prepData.companyData);\n\nlet classifications = [];\ntry {\n  const text = geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text || '';\n  const cleaned = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\n  classifications = JSON.parse(cleaned);\n} catch (e) {\n  classifications = companyData.map((_, i) => ({\n    index: i,\n    isSubsidiary: false,\n    confidence: null,\n    parentCompany: null,\n    parentDomain: null\n  }));\n}\n\nreturn companyData.map((company, index) => {\n  const classification = classifications.find(c => c.index === index) || {\n    isSubsidiary: false,\n    confidence: null,\n    parentCompany: null,\n    parentDomain: null\n  };\n\n  // Block self-referencing: parent cannot be the same as the company\n  const isSelfRef = classification.isSubsidiary &&\n    classification.parentCompany &&\n    classification.parentCompany.toLowerCase().trim() === company.companyName.toLowerCase().trim();\n\n  if (isSelfRef) {\n    classification.isSubsidiary = false;\n    classification.confidence = null;\n    classification.parentCompany = null;\n    classification.parentDomain = null;\n  }\n\n  return {\n    json: {\n      companyId: company.companyId,\n      companyName: company.companyName,\n      domain: company.domain,\n      linkedinUrl: company.linkedinUrl,\n      existingEmployeeCount: company.existingEmployeeCount,\n      existingGroupEmployeeCount: company.existingGroupEmployeeCount || 0,\n      isSubsidiary: classification.isSubsidiary || false,\n      confidence: classification.confidence || null,\n      parentCompany: classification.parentCompany || null,\n      parentDomain: classification.parentDomain || null\n    }\n  };\n});"
+      },
+      "id": "emp2-parse-classify",
+      "name": "Parse Classification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [144, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst parentDomains = new Set();\nconst allCompanyData = [];\n\nfor (const item of items) {\n  const d = item.json;\n  allCompanyData.push(d);\n  if (d.isSubsidiary && d.parentDomain) {\n    parentDomains.add(d.parentDomain);\n  }\n}\n\nconst domains = [...parentDomains];\nlet searchBody;\nif (domains.length > 0) {\n  searchBody = {\n    filterGroups: [{ filters: [{ propertyName: 'domain', operator: 'IN', values: domains }] }],\n    properties: ['name', 'domain'],\n    limit: 100\n  };\n} else {\n  searchBody = {\n    filterGroups: [{ filters: [{ propertyName: 'domain', operator: 'EQ', value: '__no_parent_domains__' }] }],\n    properties: ['name', 'domain'],\n    limit: 1\n  };\n}\n\nreturn [{\n  json: {\n    parentDomains: domains,\n    allCompanyData: JSON.stringify(allCompanyData),\n    hasParents: domains.length > 0,\n    searchBody: JSON.stringify(searchBody)\n  }\n}];"
+      },
+      "id": "emp2-prep-parent-lookup",
+      "name": "Prep Parent Lookup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.searchBody }}",
+        "options": { "timeout": 15000 }
+      },
+      "id": "emp2-search-parent-hs",
+      "name": "Search Parent HubSpot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [912, 400],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst prepData = $('Prep Parent Lookup').first().json;\nconst allCompanyData = JSON.parse(prepData.allCompanyData);\n\nconst hsResults = input.results || [];\n\nconst domainToHsUrl = {};\nfor (const r of hsResults) {\n  const domain = (r.properties && r.properties.domain || '').toLowerCase();\n  const companyId = r.id;\n  if (domain && companyId) {\n    domainToHsUrl[domain] = 'https://app-eu1.hubspot.com/contacts/142047914/company/' + companyId;\n  }\n}\n\nreturn allCompanyData.map(company => {\n  let parentCompanyValue = '';\n  if (company.isSubsidiary && company.parentCompany) {\n    if (company.parentDomain && domainToHsUrl[company.parentDomain.toLowerCase()]) {\n      parentCompanyValue = domainToHsUrl[company.parentDomain.toLowerCase()];\n    } else {\n      parentCompanyValue = company.parentCompany;\n    }\n  }\n\n  return {\n    json: {\n      companyId: company.companyId,\n      companyName: company.companyName,\n      domain: company.domain,\n      linkedinUrl: company.linkedinUrl || '',\n      existingEmployeeCount: company.existingEmployeeCount || 0,\n      existingGroupEmployeeCount: company.existingGroupEmployeeCount || 0,\n      isSubsidiary: company.isSubsidiary || false,\n      confidence: company.confidence || null,\n      parentCompany: company.parentCompany || null,\n      parentDomain: company.parentDomain || null,\n      enrichmentDomain: company.enrichmentDomain || company.domain,\n      parentCompanyValue\n    }\n  };\n});"
+      },
+      "id": "emp2-merge-parent-results",
+      "name": "Merge Parent Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1232, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "operator": { "type": "number", "operation": "lte" },
+              "leftValue": "={{ $json.existingEmployeeCount }}",
+              "rightValue": 0
+            },
+            {
+              "id": "c2",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true },
+              "leftValue": "={{ $json.isSubsidiary }}"
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "emp2-route",
+      "name": "Check Needs Enrichment",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1536, 400]
+    },
+    {
+      "parameters": {},
+      "id": "emp2-skip",
+      "name": "Skip Independent",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [2032, 352]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst allCompanyData = [];\nconst domainSet = new Set();\n\nfor (const item of items) {\n  const d = item.json;\n  const needsEmployeeCount = d.existingEmployeeCount <= 0;\n  const isSubsidiary = d.isSubsidiary === true;\n\n  allCompanyData.push({\n    ...d,\n    needsEmployeeCount,\n    trackA: needsEmployeeCount,\n    trackB: isSubsidiary\n  });\n\n  // Track A: company's own domain\n  if (needsEmployeeCount && d.domain) {\n    domainSet.add(d.domain.toLowerCase());\n  }\n\n  // Track B: parent domain\n  if (isSubsidiary && d.parentDomain) {\n    domainSet.add(d.parentDomain.toLowerCase());\n  }\n}\n\nconst companies = [...domainSet].map(domain => ({ domain }));\n\nreturn [{\n  json: {\n    batchPayload: { companies },\n    allCompanyData: JSON.stringify(allCompanyData),\n    totalCompanies: allCompanyData.length,\n    batchSize: companies.length,\n    uniqueDomains: companies.length\n  }\n}];"
+      },
+      "id": "emp2-build-batch",
+      "name": "Build Batch Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2048, 80]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.amplemarket.com/companies/enrichment-requests",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.batchPayload) }}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "emp2-amp-submit",
+      "name": "Submit Batch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2352, 80],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jx7A2XtklZuWBopq",
+          "name": "amplemarket"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const submitResponse = $json;\nconst batchData = $('Build Batch Request').first().json;\n\nreturn {\n  json: {\n    requestId: submitResponse.id || submitResponse.request_id || submitResponse.data?.id || '',\n    pollCount: 0,\n    maxPolls: 20,\n    allCompanyData: batchData.allCompanyData,\n    totalCompanies: batchData.totalCompanies\n  }\n};"
+      },
+      "id": "emp2-init-poll",
+      "name": "Init Poll State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2656, 80]
+    },
+    {
+      "parameters": { "amount": 15 },
+      "id": "emp2-wait",
+      "name": "Wait 15s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2912, 304],
+      "webhookId": "0bacbdd9-e4d6-4a70-bfa1-2502a0489ae0"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://api.amplemarket.com/companies/enrichment-requests/' + $json.requestId + '?page[size]=200' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "timeout": 30000 }
+      },
+      "id": "emp2-amp-poll",
+      "name": "Poll Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3200, 304],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Jx7A2XtklZuWBopq",
+          "name": "amplemarket"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const apiResponse = $json;\nconst state = $('Wait 15s').item.json;\n\nconst isCompleted = apiResponse.status === 'completed' || apiResponse.data?.status === 'completed';\nconst pollCount = (state.pollCount || 0) + 1;\nconst maxReached = pollCount >= (state.maxPolls || 20);\n\nreturn {\n  json: {\n    pollResponse: apiResponse,\n    requestId: state.requestId,\n    pollCount,\n    maxPolls: state.maxPolls || 20,\n    allCompanyData: state.allCompanyData,\n    totalCompanies: state.totalCompanies,\n    isComplete: isCompleted || maxReached\n  }\n};"
+      },
+      "id": "emp2-merge-poll",
+      "name": "Merge Poll State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3504, 304]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "poll-complete",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true },
+              "leftValue": "={{ $json.isComplete }}"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "emp2-check-poll",
+      "name": "Check Complete",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [3808, 304]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  json: {\n    requestId: $json.requestId,\n    pollCount: $json.pollCount,\n    maxPolls: $json.maxPolls,\n    allCompanyData: $json.allCompanyData,\n    totalCompanies: $json.totalCompanies\n  }\n};"
+      },
+      "id": "emp2-poll-inc",
+      "name": "Increment Counter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3808, 608]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst pollResponse = input.pollResponse || input;\nconst allCompanyData = JSON.parse(input.allCompanyData || '[]');\nconst results = pollResponse.results || [];\n\n// Build domain lookup from Amplemarket results\nconst resultsByDomain = {};\nfor (const r of results) {\n  if (r.domain) {\n    const empCount = (r.result && typeof r.result === 'object')\n      ? (r.result.estimated_number_of_employees || 0)\n      : (r.estimated_number_of_employees || 0);\n    resultsByDomain[r.domain.toLowerCase()] = empCount;\n  }\n}\n\n// For each company, prepare the update payload\nreturn allCompanyData.map(company => {\n  const needsEmployeeCount = company.trackA;\n  const isSubsidiary = company.trackB;\n  \n  // Track A: employee count from company's own domain\n  let employeeCount = null;\n  let enrichmentSource = null;\n  if (needsEmployeeCount) {\n    const ownDomainCount = company.domain ? (resultsByDomain[company.domain.toLowerCase()] || 0) : 0;\n    if (ownDomainCount > 0) {\n      employeeCount = ownDomainCount;\n      enrichmentSource = 'Amplemarket';\n    } else {\n      employeeCount = 5;\n      enrichmentSource = 'Estimated';\n    }\n  }\n\n  // Track B: group employee count from parent domain\n  let groupEmployeeCount = null;\n  if (isSubsidiary && company.parentDomain) {\n    const parentDomainCount = resultsByDomain[company.parentDomain.toLowerCase()] || 0;\n    if (parentDomainCount > 0) {\n      groupEmployeeCount = parentDomainCount;\n    }\n  }\n\n  return {\n    json: {\n      companyId: company.companyId,\n      companyName: company.companyName,\n      domain: company.domain,\n      isSubsidiary: isSubsidiary,\n      confidence: company.confidence || null,\n      parentCompany: company.parentCompany || '',\n      parentCompanyValue: company.parentCompanyValue || '',\n      parentDomain: company.parentDomain || '',\n      employeeCount,\n      enrichmentSource,\n      groupEmployeeCount,\n      updateEmployeeCount: needsEmployeeCount,\n      updateGroupCount: isSubsidiary && groupEmployeeCount !== null\n    }\n  };\n});"
+      },
+      "id": "emp2-parse-batch",
+      "name": "Parse Batch Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4112, 304]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "f1", "name": "companyId", "type": "string", "value": "={{ $json.companyId }}"},
+            {"id": "f2", "name": "companyName", "type": "string", "value": "={{ $json.companyName }}"},
+            {"id": "f3", "name": "domain", "type": "string", "value": "={{ $json.domain || '' }}"},
+            {"id": "f4", "name": "isSubsidiary", "type": "boolean", "value": "={{ $json.isSubsidiary || false }}"},
+            {"id": "f5", "name": "confidence", "type": "string", "value": "={{ $json.confidence || '' }}"},
+            {"id": "f6", "name": "parentCompany", "type": "string", "value": "={{ $json.parentCompany || '' }}"},
+            {"id": "f7", "name": "parentCompanyValue", "type": "string", "value": "={{ $json.parentCompanyValue || '' }}"},
+            {"id": "f8", "name": "employeeCount", "type": "number", "value": "={{ $json.employeeCount || 0 }}"},
+            {"id": "f9", "name": "enrichmentSource", "type": "string", "value": "={{ $json.enrichmentSource || '' }}"},
+            {"id": "f10", "name": "groupEmployeeCount", "type": "number", "value": "={{ $json.groupEmployeeCount || 0 }}"},
+            {"id": "f11", "name": "updateEmployeeCount", "type": "boolean", "value": "={{ $json.updateEmployeeCount || false }}"},
+            {"id": "f12", "name": "updateGroupCount", "type": "boolean", "value": "={{ $json.updateGroupCount || false }}"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "emp2-preserve-pre",
+      "name": "Preserve Pre-Update",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [6096, 208]
+    },
+    {
+      "id": "emp2-update-hs",
+      "name": "Update HubSpot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [6384, 208],
+      "disabled": true,
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const d = $json;\nconst properties = {};\n\n// Track A: employee count\nif (d.updateEmployeeCount) {\n  properties.numberofemployees = String(d.employeeCount);\n  properties['number-employees-enrichment-source'] = d.enrichmentSource;\n}\n\n// Track B: group-level data\nif (d.isSubsidiary) {\n  properties.is_subsidiary = 'true';\n  properties.parent_company_name = d.parentCompanyValue || d.parentCompany || '';\n  if (d.updateGroupCount && d.groupEmployeeCount > 0) {\n    properties.group_number_of_employees = String(d.groupEmployeeCount);\n  }\n}\n\n// Skip if nothing to update\nif (Object.keys(properties).length === 0) {\n  return { json: { ...d, skipped: true } };\n}\n\nconst response = await this.helpers.httpRequestWithAuthentication.call(this, 'hubspotAppToken', {\n  method: 'PATCH',\n  url: `https://api.hubapi.com/crm/v3/objects/companies/${d.companyId}`,\n  body: { properties },\n  json: true\n});\n\nreturn { json: { ...d, hubspotResponse: response.id || 'updated' } };"
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const r = $('Preserve Pre-Update').item.json;\nreturn {\n  json: {\n    companyId: r.companyId,\n    companyName: r.companyName,\n    domain: r.domain,\n    isSubsidiary: r.isSubsidiary,\n    confidence: r.confidence || '',\n    parentCompany: r.parentCompany,\n    parentCompanyValue: r.parentCompanyValue || '',\n    employeeCount: r.employeeCount,\n    enrichmentSource: r.enrichmentSource,\n    groupEmployeeCount: r.groupEmployeeCount,\n    updateEmployeeCount: r.updateEmployeeCount,\n    updateGroupCount: r.updateGroupCount\n  }\n};"
+      },
+      "id": "emp2-preserve-result",
+      "name": "Preserve Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [6688, 208]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "emp2-aggregate",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [6992, 208]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const items = $json.data || [];\n\nif (items.length === 0) {\n  return { json: { message: 'No companies processed for employee enrichment today.' } };\n}\n\nconst today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });\nlet trackAAmplemarket = 0;\nlet trackAEstimated = 0;\nlet trackBHigh = 0;\nlet trackBMedium = 0;\nconst detailsA = [];\nconst detailsB = [];\nconst reviewItems = [];\n\nfor (const d of items) {\n  if (d.updateEmployeeCount) {\n    if (d.enrichmentSource === 'Estimated') {\n      trackAEstimated++;\n      detailsA.push('\\u26aa ' + d.companyName + ' \\u2192 5 employees (Estimated)');\n    } else {\n      trackAAmplemarket++;\n      detailsA.push('\\u2705 ' + d.companyName + ' \\u2192 ' + d.employeeCount + ' employees (Amplemarket)');\n    }\n  }\n\n  if (d.isSubsidiary) {\n    const parentLink = d.parentCompanyValue && d.parentCompanyValue.startsWith('https')\n      ? '<' + d.parentCompanyValue + '|' + d.parentCompany + '>'\n      : (d.parentCompany || 'unknown');\n    const conf = d.confidence === 'medium' ? ' \\u26a0\\ufe0f' : '';\n    if (d.confidence === 'medium') {\n      trackBMedium++;\n      reviewItems.push(d.companyName + ' \\u2192 ' + parentLink);\n    } else {\n      trackBHigh++;\n    }\n    if (d.updateGroupCount) {\n      detailsB.push('\\ud83c\\udfe2' + conf + ' ' + d.companyName + ' \\u2192 ' + d.groupEmployeeCount + ' group employees (parent: ' + parentLink + ')');\n    } else {\n      detailsB.push('\\ud83c\\udfe2' + conf + ' ' + d.companyName + ' \\u2192 no group data (parent: ' + parentLink + ')');\n    }\n  }\n}\n\nconst totalA = trackAAmplemarket + trackAEstimated;\nconst totalB = trackBHigh + trackBMedium;\n\nlet message = '*Employee Count Enrichment v4.0 \\u2014 ' + today + '*\\n\\n';\n\nif (totalA > 0) {\n  message += '*Track A \\u2014 Employee Count:* ' + totalA + ' companies\\n'\n    + '\\u2705 Amplemarket: ' + trackAAmplemarket + '\\n'\n    + '\\u26aa Estimated: ' + trackAEstimated + '\\n';\n  if (detailsA.length > 0) {\n    message += detailsA.slice(0, 30).join('\\n') + '\\n';\n  }\n  message += '\\n';\n}\n\nif (totalB > 0) {\n  message += '*Track B \\u2014 Group Level:* ' + totalB + ' subsidiaries\\n'\n    + '\\u2705 High confidence: ' + trackBHigh + '\\n'\n    + '\\u26a0\\ufe0f Medium confidence: ' + trackBMedium + '\\n';\n  if (detailsB.length > 0) {\n    message += detailsB.slice(0, 30).join('\\n') + '\\n';\n  }\n}\n\nif (reviewItems.length > 0) {\n  message += '\\n*\\u26a0\\ufe0f Review needed:*\\n' + reviewItems.join('\\n') + '\\n';\n}\n\nif (totalA === 0 && totalB === 0) {\n  message += 'No enrichments needed today (all companies already had data and were independent).';\n}\n\nreturn { json: { message } };"
+      },
+      "id": "emp2-format",
+      "name": "Format Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [7296, 208]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0AG86U9927",
+          "mode": "id"
+        },
+        "text": "={{ $json.message }}",
+        "otherOptions": {}
+      },
+      "id": "emp2-slack",
+      "name": "Send Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.4,
+      "position": [7584, 208],
+      "credentials": {
+        "slackApi": {
+          "id": "lYs0WHzWk4c7z9Kk",
+          "name": "Slack"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {"main": [[{"node": "Initialize State", "type": "main", "index": 0}]]},
+    "Initialize State": {"main": [[{"node": "Pass State", "type": "main", "index": 0}]]},
+    "Pass State": {"main": [[{"node": "Fetch Companies Page", "type": "main", "index": 0}]]},
+    "Fetch Companies Page": {"main": [[{"node": "Accumulate Results", "type": "main", "index": 0}]]},
+    "Accumulate Results": {"main": [[{"node": "IF Has More Pages", "type": "main", "index": 0}]]},
+    "IF Has More Pages": {"main": [[{"node": "Pass State", "type": "main", "index": 0}], [{"node": "Split All Companies", "type": "main", "index": 0}]]},
+    "Split All Companies": {"main": [[{"node": "Prepare Company Data", "type": "main", "index": 0}]]},
+    "Prepare Company Data": {"main": [[{"node": "Prepare Gemini Batch", "type": "main", "index": 0}]]},
+    "Prepare Gemini Batch": {"main": [[{"node": "Gemini Classify", "type": "main", "index": 0}]]},
+    "Gemini Classify": {"main": [[{"node": "Parse Classification", "type": "main", "index": 0}]]},
+    "Parse Classification": {"main": [[{"node": "Prep Parent Lookup", "type": "main", "index": 0}]]},
+    "Prep Parent Lookup": {"main": [[{"node": "Search Parent HubSpot", "type": "main", "index": 0}]]},
+    "Search Parent HubSpot": {"main": [[{"node": "Merge Parent Results", "type": "main", "index": 0}]]},
+    "Merge Parent Results": {"main": [[{"node": "Check Needs Enrichment", "type": "main", "index": 0}]]},
+    "Check Needs Enrichment": {"main": [[{"node": "Build Batch Request", "type": "main", "index": 0}], [{"node": "Skip Independent", "type": "main", "index": 0}]]},
+    "Build Batch Request": {"main": [[{"node": "Submit Batch", "type": "main", "index": 0}]]},
+    "Submit Batch": {"main": [[{"node": "Init Poll State", "type": "main", "index": 0}]]},
+    "Init Poll State": {"main": [[{"node": "Wait 15s", "type": "main", "index": 0}]]},
+    "Wait 15s": {"main": [[{"node": "Poll Status", "type": "main", "index": 0}]]},
+    "Poll Status": {"main": [[{"node": "Merge Poll State", "type": "main", "index": 0}]]},
+    "Merge Poll State": {"main": [[{"node": "Check Complete", "type": "main", "index": 0}]]},
+    "Check Complete": {"main": [[{"node": "Parse Batch Results", "type": "main", "index": 0}], [{"node": "Increment Counter", "type": "main", "index": 0}]]},
+    "Increment Counter": {"main": [[{"node": "Wait 15s", "type": "main", "index": 0}]]},
+    "Parse Batch Results": {"main": [[{"node": "Preserve Pre-Update", "type": "main", "index": 0}]]},
+    "Preserve Pre-Update": {"main": [[{"node": "Update HubSpot", "type": "main", "index": 0}]]},
+    "Update HubSpot": {"main": [[{"node": "Preserve Result", "type": "main", "index": 0}]]},
+    "Preserve Result": {"main": [[{"node": "Aggregate Results", "type": "main", "index": 0}]]},
+    "Aggregate Results": {"main": [[{"node": "Format Summary", "type": "main", "index": 0}]]},
+    "Format Summary": {"main": [[{"node": "Send Slack", "type": "main", "index": 0}]]}
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/London",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "errorWorkflow": "TA6Iq4wMW0KYsCiH",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "tags": []
+}
