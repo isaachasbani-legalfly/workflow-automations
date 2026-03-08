@@ -59,7 +59,7 @@
         "nodeCredentialType": "hubspotAppToken",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(new Date(new Date().setUTCHours(0,0,0,0) - 86400000).getTime()) }, { propertyName: 'createdate', operator: 'LT', value: String(new Date(new Date().setUTCHours(0,0,0,0)).getTime()) }] }], properties: ['name', 'domain', 'linkedin_company_page', 'numberofemployees', 'group_number_of_employees'], limit: 200, ...($json.after ? { after: $json.after } : {}) }) }}",
+        "jsonBody": "={{ JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(new Date(new Date().setUTCHours(0,0,0,0) - 86400000).getTime()) }, { propertyName: 'createdate', operator: 'LT', value: String(new Date(new Date().setUTCHours(0,0,0,0)).getTime()) }] }], properties: ['name', 'domain', 'linkedin_company_page', 'numberofemployees', 'parent_company_number_of_employees'], limit: 200, ...($json.after ? { after: $json.after } : {}) }) }}",
         "options": {}
       },
       "id": "emp2-fetch",
@@ -175,7 +175,7 @@
               "id": "a6",
               "name": "existingGroupEmployeeCount",
               "type": "number",
-              "value": "={{ parseInt(($json.properties || {}).group_number_of_employees) || 0 }}"
+              "value": "={{ parseInt(($json.properties || {}).parent_company_number_of_employees) || 0 }}"
             }
           ]
         },
@@ -585,8 +585,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5216,
-        304
+        5792,
+        320
       ]
     },
     {
@@ -599,8 +599,8 @@
       "type": "n8n-nodes-base.aggregate",
       "typeVersion": 1,
       "position": [
-        5520,
-        304
+        6096,
+        320
       ]
     },
     {
@@ -613,18 +613,14 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        5824,
-        304
+        6400,
+        320
       ]
     },
     {
       "parameters": {
         "select": "channel",
-        "channelId": {
-          "__rl": true,
-          "value": "C0AG86U9927",
-          "mode": "id"
-        },
+        "channelId": "C0AFSAD1E5A",
         "text": "={{ $json.message }}",
         "otherOptions": {}
       },
@@ -633,8 +629,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
       "position": [
-        6112,
-        304
+        6688,
+        320
       ],
       "webhookId": "aa215038-bfe7-4350-bc6c-4a1efe3f3932",
       "credentials": {
@@ -701,17 +697,77 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "const d = $json;\nconst properties = {};\n\n// Track A: employee count\nif (d.updateEmployeeCount) {\n  properties.numberofemployees = String(d.employeeCount);\n  properties['number-employees-enrichment-source'] = d.enrichmentSource;\n}\n\n// Track B: group-level data\n// Write if HIGH confidence, or MEDIUM confidence with parent validated by HubSpot\nconst writeTrackB = d.isSubsidiary && (\n  d.confidence === 'high' ||\n  (d.confidence === 'medium' && d.groupSource === 'HubSpot')\n);\n\nif (writeTrackB) {\n  properties.is_subsidiary = 'true';\n  properties.parent_company_name = d.parentCompanyValue || d.parentCompany || '';\n  if (d.updateGroupCount && d.groupEmployeeCount > 0) {\n    properties.group_number_of_employees = String(d.groupEmployeeCount);\n  }\n}\n\n// Skip if nothing to update\nif (Object.keys(properties).length === 0) {\n  return { json: { ...d, skipped: true } };\n}\n\nconst response = await this.helpers.httpRequestWithAuthentication.call(this, 'hubspotAppToken', {\n  method: 'PATCH',\n  url: `https://api.hubapi.com/crm/v3/objects/companies/${d.companyId}`,\n  body: { properties },\n  json: true\n});\n\nreturn { json: { ...d, hubspotResponse: response.id || 'updated' } };"
+        "jsCode": "const d = $json;\nconst properties = {};\n\n// Track A: employee count\nif (d.updateEmployeeCount) {\n  properties.numberofemployees = String(d.employeeCount);\n  properties.numberemployeesernichmentsource = d.enrichmentSource;\n}\n\n// Track B: group-level data\nconst writeTrackB = d.isSubsidiary && (\n  d.confidence === 'high' ||\n  (d.confidence === 'medium' && d.groupSource === 'HubSpot')\n);\n\nif (writeTrackB) {\n  properties.is_subsidiary = 'true';\n  properties.parent_company_name = d.parentCompanyValue || d.parentCompany || '';\n  if (d.updateGroupCount && d.groupEmployeeCount > 0) {\n    properties.parent_company_number_of_employees = String(d.groupEmployeeCount);\n  }\n}\n\nconst hasUpdates = Object.keys(properties).length > 0;\n\nreturn {\n  json: {\n    ...d,\n    properties,\n    hasUpdates\n  }\n};"
       },
       "id": "emp2-update-hs",
-      "name": "Update HubSpot",
+      "name": "Prepare HubSpot Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         4912,
         304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.hasUpdates }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "emp2-if-updates",
+      "name": "IF Has Updates",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        5216,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/companies/{{ $json.companyId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ properties: $json.properties }) }}",
+        "options": {}
+      },
+      "id": "emp2-patch-hs",
+      "name": "PATCH HubSpot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5552,
+        144
       ],
-      "disabled": false
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      },
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -1037,14 +1093,43 @@
       "main": [
         [
           {
-            "node": "Update HubSpot",
+            "node": "Prepare HubSpot Payload",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Update HubSpot": {
+    "Prepare HubSpot Payload": {
+      "main": [
+        [
+          {
+            "node": "IF Has Updates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Has Updates": {
+      "main": [
+        [
+          {
+            "node": "PATCH HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preserve Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PATCH HubSpot": {
       "main": [
         [
           {
@@ -1070,9 +1155,9 @@
   "staticData": null,
   "meta": null,
   "pinData": {},
-  "versionId": "551b2f10-4311-49c5-bea8-5f13b0658cea",
+  "versionId": "1cda08d7-2e74-4f7e-920d-9ee36c29c4cc",
   "activeVersionId": null,
-  "versionCounter": 48,
+  "versionCounter": 56,
   "triggerCount": 0,
   "shared": [
     {

@@ -2,13 +2,13 @@
 
 ## v4.0 - 2026-03-06
 
-Two-track enrichment: separate `numberofemployees` (Track A) from `group_number_of_employees` (Track B). Confidence tiers for classification. Critical fix: `numberofemployees` is never overwritten by subsidiary enrichment.
+Two-track enrichment: separate `numberofemployees` (Track A) from `parent_company_number_of_employees` (Track B). Confidence tiers for classification. Critical fix: `numberofemployees` is never overwritten by subsidiary enrichment.
 
 ### New
-- **Track B: Group-level employee count** -- New `group_number_of_employees` HubSpot property stores parent/group-level employee count for subsidiaries, separate from the company's own `numberofemployees`
+- **Track B: Group-level employee count** -- New `parent_company_number_of_employees` HubSpot property stores parent/group-level employee count for subsidiaries, separate from the company's own `numberofemployees`
 - **Confidence tiers** -- Classification returns HIGH or MEDIUM confidence. HIGH always auto-writes. MEDIUM auto-writes only if parent exists in HubSpot (validated). Otherwise skipped + flagged in Slack.
 - **Track A/B mutual exclusivity** -- No employee count = Track A only (enrich own count). Has employee count + subsidiary = Track B only (enrich group level). Never both.
-- **Group > company check** -- `group_number_of_employees` only written if group count exceeds the company's own `numberofemployees`
+- **Group > company check** -- `parent_company_number_of_employees` only written if group count exceeds the company's own `numberofemployees`
 - **Self-referencing block** -- Parse Classification prevents a company from being classified as subsidiary of itself (e.g., "Kotak Mahindra" -> "Kotak Mahindra")
 - **Parent employee count from HubSpot** -- Search Parent HubSpot now fetches `numberofemployees`. If parent exists in CRM with employee count, use it directly instead of Amplemarket (better data, fewer API calls).
 - **Slack review section** -- Medium-confidence subsidiaries without parent in HubSpot listed for manual review
@@ -22,7 +22,7 @@ Two-track enrichment: separate `numberofemployees` (Track A) from `group_number_
 - **Merge Parent Results** -- Now passes `confidence`, `existingGroupEmployeeCount`, and `parentEmployeeCount` through
 - **Preserve Pre-Update / Preserve Result** -- Added confidence, groupEmployeeCount, groupSource, existingEmployeeCount, updateEmployeeCount, updateGroupCount fields
 - **Format Summary** -- v4.0 format with Track A/B sections, shows data source (HubSpot/Amplemarket), review section for unvalidated medium-confidence items
-- **Fetch Companies Page** -- Added `group_number_of_employees` to fetched properties
+- **Fetch Companies Page** -- Added `parent_company_number_of_employees` to fetched properties
 - **Prepare Company Data** -- Added `existingGroupEmployeeCount` field, name falls back to domain
 
 ### Removed

@@ -3,7 +3,7 @@
 Two-track nightly workflow that enriches HubSpot companies:
 
 - **Track A**: Enrich `numberofemployees` for companies with no value, using Amplemarket. Default to 5 if no data.
-- **Track B**: For companies that HAVE employee count AND are subsidiaries, get parent/group-level employee count and write to `group_number_of_employees`. Only written if group count > company count.
+- **Track B**: For companies that HAVE employee count AND are subsidiaries, get parent/group-level employee count and write to `parent_company_number_of_employees`. Only written if group count > company count.
 
 Track A and Track B are **mutually exclusive**. Gemini classifies companies as independent vs subsidiary with a two-tier confidence system. `numberofemployees` is NEVER overwritten by Track B.
 
@@ -76,7 +76,7 @@ Schedule (02:01 daily)
 | Enrichment Source | `number-employees-enrichment-source` | Custom | A | `Amplemarket` or `Estimated` |
 | Is Subsidiary | `is_subsidiary` | Custom | B | Checkbox |
 | Parent Company | `parent_company_name` | Custom | B | Clickable HubSpot URL if parent found |
-| Group Employee Count | `group_number_of_employees` | Custom | B | Parent/group-level count (from HubSpot or Amplemarket) |
+| Parent Company Employee Count | `parent_company_number_of_employees` | Custom | B | Parent/group-level count (from HubSpot or Amplemarket) |
 
 ## n8n Instance
 

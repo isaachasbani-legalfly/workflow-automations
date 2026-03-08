@@ -5,7 +5,7 @@
 Two-track employee enrichment for HubSpot companies created **yesterday**:
 
 - **Track A**: Enrich `numberofemployees` for companies with no value (default to 5 if Amplemarket has no data)
-- **Track B**: For subsidiaries, get parent/group-level employee count and write to `group_number_of_employees`
+- **Track B**: For subsidiaries, get parent/group-level employee count and write to `parent_company_number_of_employees`
 
 Track A and Track B are **mutually exclusive**. A company without employee count goes to Track A (get its own count). A company with employee count that is a subsidiary goes to Track B (get group-level count). The key invariant: **`numberofemployees` is NEVER overwritten by Track B** -- group data goes to a separate property.
 
@@ -21,7 +21,7 @@ Runs daily at 02:01 Europe/London. Uses cursor-based pagination to process all c
 ### v4.0 Changes (from v3.0)
 
 1. **Two-track enrichment** -- Track A (employee count for missing) and Track B (group-level count for subsidiaries) are now separate concerns. `numberofemployees` is never touched by Track B.
-2. **New HubSpot property** -- `group_number_of_employees` stores parent/group-level employee count for subsidiaries.
+2. **New HubSpot property** -- `parent_company_number_of_employees` stores parent/group-level employee count for subsidiaries.
 3. **Confidence tiers** -- Classification now returns HIGH or MEDIUM confidence. HIGH auto-writes; MEDIUM is not written and flagged in Slack for manual review.
 4. **Self-referencing block** -- Parse Classification prevents a company from being classified as subsidiary of itself (Kotak Mahindra bug fix).
 5. **No domain-based classification rules** -- Removed subdomain and TLD-based rules. Classification is purely name-based + Gemini knowledge of corporate structures.
@@ -40,7 +40,7 @@ flowchart TD
 
     Start --> InitState["Initialize State\n{after: null, allCompanies: []}"]
     InitState --> PassState["Pass State"]
-    PassState --> FetchPage["Fetch Companies Page\nHubSpot API - createdate yesterday\nlimit 200 + cursor\nprops: name, domain, numberofemployees, group_number_of_employees"]
+    PassState --> FetchPage["Fetch Companies Page\nHubSpot API - createdate yesterday\nlimit 200 + cursor\nprops: name, domain, numberofemployees, parent_company_number_of_employees"]
     FetchPage --> Accumulate["Accumulate Results\nMerge pages"]
     Accumulate --> IfMore{IF Has More Pages\ncursor not empty?}
     IfMore -->|TRUE: loop back| PassState
@@ -71,7 +71,7 @@ flowchart TD
     IncCounter --> Wait
 
     ParseBatch --> PreservePreUpdate["Preserve Pre-Update\nSnapshot all fields incl. confidence"]
-    PreservePreUpdate --> UpdateHS["Update HubSpot\nCode node: conditional PATCH\nTrack A: numberofemployees + source\nTrack B: group_number_of_employees + is_subsidiary + parent"]
+    PreservePreUpdate --> UpdateHS["Update HubSpot\nCode node: conditional PATCH\nTrack A: numberofemployees + source\nTrack B: parent_company_number_of_employees + is_subsidiary + parent"]
     UpdateHS --> PreserveResult["Preserve Result"]
     PreserveResult --> Aggregate["Aggregate Results"]
     Aggregate --> FormatSummary["Format Summary\nv4.0: Track A + Track B sections\n+ review section for medium confidence"]
@@ -102,10 +102,10 @@ flowchart TD
 - **Type**: httpRequest v4.2
 - **Purpose**: Search HubSpot for companies created yesterday
 - **Config**: POST `https://api.hubapi.com/crm/v3/objects/companies/search`
-- **Properties**: `name`, `domain`, `linkedin_company_page`, `numberofemployees`, `group_number_of_employees`
+- **Properties**: `name`, `domain`, `linkedin_company_page`, `numberofemployees`, `parent_company_number_of_employees`
 - **Limit**: 200 per page, cursor-based pagination
 - **Auth**: hubspotAppToken
-- **v4.0 change**: Added `group_number_of_employees` to fetched properties
+- **v4.0 change**: Added `parent_company_number_of_employees` to fetched properties
 
 #### Accumulate Results (`emp2-accumulate`)
 - **Type**: code v2 (runOnceForEachItem)
@@ -239,7 +239,7 @@ flowchart TD
 - **Purpose**: Conditionally write properties to HubSpot based on track flags
 - **v4.0 change**: Rewritten as Code node using `this.helpers.httpRequestWithAuthentication` for conditional payload:
   - Track A: `numberofemployees` + `number-employees-enrichment-source` (only if `updateEmployeeCount`)
-  - Track B: `is_subsidiary` + `parent_company_name` + `group_number_of_employees` (only if HIGH confidence OR MEDIUM validated by HubSpot, AND group > company count)
+  - Track B: `is_subsidiary` + `parent_company_name` + `parent_company_number_of_employees` (only if HIGH confidence OR MEDIUM validated by HubSpot, AND group > company count)
   - Medium-confidence subsidiaries without HubSpot parent are skipped
   - Skips companies with nothing to update
 - **Status**: **ENABLED** (production)
@@ -273,7 +273,7 @@ flowchart TD
 | Track | Purpose | Trigger | HubSpot Property | Source |
 |-------|---------|---------|-----------------|--------|
 | A | Employee count for companies with none | `existingEmployeeCount <= 0` | `numberofemployees` | Company's own domain via Amplemarket (or default 5) |
-| B | Group-level employee count | `existingEmployeeCount > 0 && isSubsidiary` | `group_number_of_employees` | Parent domain via HubSpot (priority) or Amplemarket. Only written if group > company count. |
+| B | Group-level employee count | `existingEmployeeCount > 0 && isSubsidiary` | `parent_company_number_of_employees` | Parent domain via HubSpot (priority) or Amplemarket. Only written if group > company count. |
 
 Track A and Track B are **mutually exclusive**. A company is in one track or neither, never both.
 
@@ -287,7 +287,7 @@ Track A and Track B are **mutually exclusive**. A company is in one track or nei
 
 ### Critical Invariant
 
-**`numberofemployees` is NEVER overwritten by Track B.** Track B only writes to `group_number_of_employees`. This prevents the v3.0 data destruction bug where subsidiaries like Kotak Mahindra (201 employees), Keepmoat Regeneration (496), and XXXLutz Deutschland (750) had their real employee counts overwritten.
+**`numberofemployees` is NEVER overwritten by Track B.** Track B only writes to `parent_company_number_of_employees`. This prevents the v3.0 data destruction bug where subsidiaries like Kotak Mahindra (201 employees), Keepmoat Regeneration (496), and XXXLutz Deutschland (750) had their real employee counts overwritten.
 
 ---
 
@@ -306,13 +306,13 @@ Track A and Track B are **mutually exclusive**. A company is in one track or nei
 
 ## Design Decisions
 
-1. **Two separate properties** -- `numberofemployees` (company's own count) and `group_number_of_employees` (parent/group count) are independent. This prevents data destruction when enriching subsidiaries.
+1. **Two separate properties** -- `numberofemployees` (company's own count) and `parent_company_number_of_employees` (parent/group count) are independent. This prevents data destruction when enriching subsidiaries.
 2. **Combined Amplemarket batch** -- One batch with all unique domains (Track A + Track B) is simpler than two separate batches, and Amplemarket de-duplication handles overlaps.
 3. **Confidence tiers** -- HIGH = always auto-write. MEDIUM + parent in HubSpot = auto-write (CRM validates the relationship). MEDIUM + no parent in HubSpot = skip, flagged in Slack for manual review.
 4. **Self-referencing block** -- Gemini sometimes classifies "Kotak Mahindra" as subsidiary of "Kotak Mahindra". Parse Classification catches and blocks this.
 5. **No domain-based rules** -- Subdomain/TLD patterns were unreliable and caused more errors than they prevented. Classification is purely name-based + Gemini knowledge.
 6. **Code node for HubSpot update** -- Conditional property payload (only set fields that need updating) requires dynamic logic that the native HubSpot node can't express.
-7. **Group > company check** -- `group_number_of_employees` is only written if the group count exceeds the company's own `numberofemployees`. Prevents writing misleadingly small group counts (e.g., Amplemarket returning 35 for a company with 80,000).
+7. **Group > company check** -- `parent_company_number_of_employees` is only written if the group count exceeds the company's own `numberofemployees`. Prevents writing misleadingly small group counts (e.g., Amplemarket returning 35 for a company with 80,000).
 8. **Airlines excluded** -- Even if owned by a group (Ita Airways by Lufthansa Group), they are independent for our purposes.
 9. **Default = 5** -- Non-zero value for CRM segmentation; tagged as "Estimated" so it can be identified.
 10. **Poll loop with max 20 iterations** -- 20 x 15s = 5 minutes max wait.
@@ -368,7 +368,7 @@ Track A and Track B are **mutually exclusive**. A company is in one track or nei
 | Enrichment Source | `number-employees-enrichment-source` | Custom | A | `Amplemarket` or `Estimated` |
 | Is Subsidiary | `is_subsidiary` | Custom | B | Checkbox/boolean |
 | Parent Company | `parent_company_name` | Custom | B | Clickable HubSpot URL if parent exists in CRM |
-| Group Employee Count | `group_number_of_employees` | Custom | B | Parent/group-level employee count from Amplemarket |
+| Group Employee Count | `parent_company_number_of_employees` | Custom | B | Parent/group-level employee count from Amplemarket |
 
 ---
 
