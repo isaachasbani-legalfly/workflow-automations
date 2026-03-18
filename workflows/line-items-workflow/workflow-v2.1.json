@@ -1,0 +1,207 @@
+{
+  "name": "Line Items to Company Property",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "line-items-closed-won",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Webhook: Deal Closed Won",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [192, 208],
+      "webhookId": "7396fc20-77c1-4f86-a5d4-f2306a636e03"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst dealId = item.body?.dealId || item.dealId;\n\nif (!dealId) {\n  throw new Error('No dealId found in webhook payload');\n}\n\nreturn [{\n  json: {\n    dealId: String(dealId)\n  }\n}];"
+      },
+      "id": "normalize-webhook",
+      "name": "Normalize Webhook Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [688, 208]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.hubapi.com/crm/v3/objects/deals/{{ $json.dealId }}?properties=pipeline,deal_currency_code,closedate&associations=line_items,companies",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "options": {}
+      },
+      "id": "get-deal",
+      "name": "Get Deal + Associations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1200, 208],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.flatMap(item => {\n  const deal = item.json;\n  const assoc = deal.associations || {};\n  const lineItemIds = (assoc['line items']?.results || assoc['line_items']?.results || []).map(a => a.id);\n  const companyId = (assoc['companies']?.results || [])[0]?.id;\n\n  if (!companyId || lineItemIds.length === 0) return []; // skip silently\n\n  return [{\n    json: {\n      dealId: deal.id,\n      closedate: deal.properties.closedate,\n      currency: deal.properties.deal_currency_code || 'EUR',\n      pipeline: deal.properties.pipeline,\n      companyId: companyId,\n      lineItemIds: lineItemIds\n    }\n  }];\n});"
+      },
+      "id": "extract-deal-data",
+      "name": "Extract Deal Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1600, 208]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/line_items/batch/read",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ properties: ['name', 'amount', 'quantity', 'hs_line_item_currency_code'], inputs: $json.lineItemIds.map(id => ({ id })) }) }}",
+        "options": {}
+      },
+      "id": "batch-line-items",
+      "name": "Batch Read Line Items",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [2000, 208],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst extractedItems = $('Extract Deal Data').all();\n\nconst currencySymbols = {\n  'EUR': '\\u20ac',\n  'USD': '$',\n  'GBP': '\\u00a3',\n  'CAD': 'CA$'\n};\nconst pipelineLabels = {\n  'default': 'New Business',\n  '3585124587': 'Expansion'\n};\n\nreturn items.flatMap((item, index) => {\n  const batchResponse = item.json;\n  const lineItems = batchResponse.results || [];\n  if (lineItems.length === 0) return [];\n\n  const dealData = extractedItems[index].json;\n  const currency = dealData.currency || 'EUR';\n  const symbol = currencySymbols[currency] || currency + ' ';\n  const pipelineLabel = pipelineLabels[dealData.pipeline] || dealData.pipeline;\n\n  const closeDate = new Date(dealData.closedate);\n  const day = String(closeDate.getDate()).padStart(2, '0');\n  const month = String(closeDate.getMonth() + 1).padStart(2, '0');\n  const year = closeDate.getFullYear();\n  const formattedDate = day + '/' + month + '/' + year;\n\n  const header = '[' + formattedDate + ' \\u00b7 ' + pipelineLabel + ']';\n\n  const lines = lineItems.map(li => {\n    const name = li.properties.name || 'Unknown Product';\n    const qty = li.properties.quantity || '1';\n    const amount = parseFloat(li.properties.amount || '0');\n    const amountStr = symbol + amount.toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ',');\n    return name + ' \\u00d7 ' + qty + ' \\u2014 ' + amountStr;\n  });\n\n  // Detect product flags from raw line item names (case-insensitive substring match)\n  const hasSSO = lineItems.some(li => (li.properties.name || '').toLowerCase().includes('sso'));\n  const hasLegalRadar = lineItems.some(li => (li.properties.name || '').toLowerCase().includes('legal radar'));\n  const isNewBusiness = dealData.pipeline === 'default';\n\n  return [{ json: { companyId: dealData.companyId, newLineItems: header + '\\n' + lines.join('\\n'), hasSSO, hasLegalRadar, isNewBusiness } }];\n});"
+      },
+      "id": "format-line-items",
+      "name": "Format Line Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2400, 208]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst grouped = {};\n\nfor (const item of items) {\n  const companyId = item.json.companyId;\n  if (!grouped[companyId]) {\n    grouped[companyId] = { lineItemsArr: [], hasSSO: false, hasLegalRadar: false, isNewBusiness: false };\n  }\n  grouped[companyId].lineItemsArr.push(item.json.newLineItems);\n  grouped[companyId].hasSSO = grouped[companyId].hasSSO || item.json.hasSSO;\n  grouped[companyId].hasLegalRadar = grouped[companyId].hasLegalRadar || item.json.hasLegalRadar;\n  grouped[companyId].isNewBusiness = grouped[companyId].isNewBusiness || item.json.isNewBusiness;\n}\n\nreturn Object.entries(grouped).map(([companyId, data]) => ({\n  json: {\n    companyId: companyId,\n    newLineItems: data.lineItemsArr.join('\\n\\n'),\n    hasSSO: data.hasSSO,\n    hasLegalRadar: data.hasLegalRadar,\n    isNewBusiness: data.isNewBusiness\n  }\n}));"
+      },
+      "id": "group-by-company",
+      "name": "Group by Company",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2800, 208]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.hubapi.com/crm/v3/objects/companies/{{ $json.companyId }}?properties=productpurchased,name,lifecyclestage",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "options": {}
+      },
+      "id": "get-company",
+      "name": "Get Company Current Value",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [3200, 208],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst groupedItems = $('Group by Company').all();\n\nconst results = [];\nfor (let i = 0; i < items.length; i++) {\n  const company = items[i].json;\n  const formatData = groupedItems[i].json;\n\n  const existingValue = company.properties?.productpurchased || '';\n  const existingLines = existingValue.trim() ? existingValue.trim().split('\\n') : [];\n  const newLines = formatData.newLineItems.split('\\n');\n\n  // Preserve blank lines (used as group separators), deduplicate only content lines\n  const linesToAdd = newLines.filter(line => line === '' || !existingLines.includes(line));\n\n  let updatedValue;\n  if (existingLines.length > 0 && linesToAdd.length > 0) {\n    updatedValue = existingLines.join('\\n') + '\\n\\n' + linesToAdd.join('\\n');\n  } else if (existingLines.length > 0) {\n    updatedValue = existingLines.join('\\n');\n  } else {\n    updatedValue = linesToAdd.join('\\n');\n  }\n\n  results.push({\n    json: {\n      companyId: company.id,\n      companyName: company.properties?.name || 'Unknown',\n      updatedProductPurchased: updatedValue,\n      hasSSO: formatData.hasSSO,\n      hasLegalRadar: formatData.hasLegalRadar,\n      isNewBusiness: formatData.isNewBusiness\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "append-prepare",
+      "name": "Append & Prepare Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3600, 208]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/companies/{{ $json.companyId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ properties: Object.assign({ productpurchased: $json.updatedProductPurchased }, $json.isNewBusiness ? { has_sso: $json.hasSSO ? 'Yes' : 'No', has_legal_radar: $json.hasLegalRadar ? 'true' : 'false' } : Object.assign({}, $json.hasSSO ? { has_sso: 'Yes' } : {}, $json.hasLegalRadar ? { has_legal_radar: 'true' } : {})) }) }}",
+        "options": {}
+      },
+      "id": "update-company",
+      "name": "Update Company",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [4000, 208],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook: Deal Closed Won": {
+      "main": [[{"node": "Normalize Webhook Data", "type": "main", "index": 0}]]
+    },
+    "Normalize Webhook Data": {
+      "main": [[{"node": "Get Deal + Associations", "type": "main", "index": 0}]]
+    },
+    "Get Deal + Associations": {
+      "main": [[{"node": "Extract Deal Data", "type": "main", "index": 0}]]
+    },
+    "Extract Deal Data": {
+      "main": [[{"node": "Batch Read Line Items", "type": "main", "index": 0}]]
+    },
+    "Batch Read Line Items": {
+      "main": [[{"node": "Format Line Items", "type": "main", "index": 0}]]
+    },
+    "Format Line Items": {
+      "main": [[{"node": "Group by Company", "type": "main", "index": 0}]]
+    },
+    "Group by Company": {
+      "main": [[{"node": "Get Company Current Value", "type": "main", "index": 0}]]
+    },
+    "Get Company Current Value": {
+      "main": [[{"node": "Append & Prepare Update", "type": "main", "index": 0}]]
+    },
+    "Append & Prepare Update": {
+      "main": [[{"node": "Update Company", "type": "main", "index": 0}]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "errorWorkflow": "TA6Iq4wMW0KYsCiH"
+  },
+  "versionId": "9bcb3126-50ff-4ba5-8a09-a242cdf58d0f",
+  "meta": {
+    "instanceId": "1c614ffbaa74dc7b329196566d86f2ebdc830e7ef4cc70cc01f324f4043c7c50"
+  },
+  "id": "TQHGk5e2V0XL8D4f",
+  "tags": []
+}

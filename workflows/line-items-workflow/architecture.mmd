@@ -3,11 +3,11 @@ flowchart TD
     NW --> GD["Get Deal + Associations\nGET deal props + line_items + companies"]
     GD --> EDD["Extract Deal Data\ndealId, closedate, currency, companyId, lineItemIds\nskip if no company or no line items"]
     EDD --> BLI["Batch Read Line Items\nname, amount, qty, currency"]
-    BLI --> FLI["Format Line Items\n[DD/MM/YYYY · Pipeline]\nProduct × Qty — €Price"]
-    FLI --> GBC["Group by Company\nMerge multiple deals per company"]
+    BLI --> FLI["Format Line Items\n[DD/MM/YYYY · Pipeline]\nProduct × Qty — €Price\n+ detect hasSSO / hasLegalRadar"]
+    FLI --> GBC["Group by Company\nMerge deals per company\nOR product flags across deals"]
     GBC --> GC["Get Company Current Value\nproductpurchased, name"]
-    GC --> AP["Append & Prepare Update\nDeduplicate + append with blank line separator"]
-    AP --> UC["Update Company\nPATCH productpurchased"]
+    GC --> AP["Append & Prepare Update\nDeduplicate + append\nPass through product flags"]
+    AP --> UC["Update Company\nPATCH productpurchased\n+ has_SSO + has_legal_radar"]
 
     style WH fill:#e1f5fe
     style NW fill:#e8eaf6

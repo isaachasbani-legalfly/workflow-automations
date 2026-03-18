@@ -1,6 +1,6 @@
 # Line Items to Company Property
 
-Automatically captures what products a company purchased, at what price, and when — by extracting line items from closed-won deals and appending them to a company property in HubSpot.
+Automatically captures what products a company purchased, at what price, and when — by extracting line items from closed-won deals and appending them to a company property in HubSpot. Also detects SSO and Legal Radar products and sets the corresponding company flags (`has_sso`, `has_legal_radar`).
 
 ## Why it exists
 
@@ -12,21 +12,36 @@ Triggered via webhook when a HubSpot internal workflow detects a deal moving to 
 
 ## What it does, step by step
 
-1. **Webhook** receives a POST with `{"dealId": "<id>"}` from a HubSpot internal workflow
-2. **Normalize** extracts the deal ID from the payload
-3. **Get Deal + Associations** — fetches deal properties (pipeline, currency, close date) and associated line item IDs + company ID in a single API call
-4. **Extract Deal Data** — structures the deal metadata; silently skips deals with no line items or no associated company
-5. **Batch Read Line Items** — fetches all line item details (name, net price after discounts, quantity, currency) in one batch call
-6. **Format Line Items** — formats each deal as:
+1. **Webhook** receives a POST with `{"dealId": "<id>"}` from a HubSpot internal workflow when a deal moves to Closed Won
+2. **Normalize Webhook Data** extracts the deal ID from the payload (handles both `body.dealId` and root `dealId` formats)
+3. **Get Deal + Associations** fetches deal properties (pipeline, currency, close date) and associated line item IDs + company ID in a single API call
+4. **Extract Deal Data** structures the deal metadata (deal ID, close date, currency, pipeline, company ID, line item IDs). Silently skips deals with no line items or no associated company — no error thrown
+5. **Batch Read Line Items** fetches all line item details (name, net price after discounts, quantity, currency) in one batch call
+6. **Format Line Items** formats each deal's line items into a readable block with a date/pipeline header:
    ```
    [03/03/2026 · New Business]
    Contract License × 2 — €10,000.00
    Implementation Services × 1 — €3,500.00
    ```
-7. **Group by Company** — merges multiple deal blocks for the same company (separated by blank line)
-8. **Get Company Current Value** — reads the company's existing `productpurchased` property
-9. **Append & Prepare** — appends new content to existing value with deduplication (prevents double-writes if webhook fires twice)
-10. **Update Company** — writes the updated `productpurchased` value back to HubSpot
+   Also scans the raw line item names (case-insensitive substring match) to detect product flags:
+   - Line item name contains **"sso"** → `hasSSO = true`
+   - Line item name contains **"legal radar"** → `hasLegalRadar = true`
+   - Pipeline is Sales Pipeline (`default`) → `isNewBusiness = true`
+7. **Group by Company** merges multiple deal blocks for the same company (separated by blank lines). ORs all flags across deals — if any deal has the product, the flag is true
+8. **Get Company Current Value** reads the company's existing `productpurchased` property from HubSpot
+9. **Append & Prepare Update** appends new line item content to the existing value with deduplication (prevents double-writes if the webhook fires twice for the same deal). Passes through all product flags and the pipeline context
+10. **Update Company** writes the updated properties back to HubSpot in a single PATCH call:
+    - `productpurchased` — always updated with the formatted line items text
+    - `has_sso` and `has_legal_radar` — set based on pipeline type:
+
+    | Pipeline | Product found | Action |
+    |----------|--------------|--------|
+    | **New Business** | Yes | Set to Yes/true |
+    | **New Business** | No | Set to No/false |
+    | **Expansion** | Yes | Set to Yes/true |
+    | **Expansion** | No | Not touched (preserves existing value) |
+
+    This ensures new clients get both flags set explicitly, while expansion deals only upgrade flags to Yes — never downgrade an existing Yes back to No.
 
 ## Output Format
 
@@ -74,9 +89,9 @@ Workflow errors send a Slack alert via the shared **Error Handler - Slack Notifi
 | File | Purpose |
 |------|---------|
 | `README.md` | This file — overview, setup, credentials |
-| `ARCHITECTURE-v2.0.md` | Full technical reference: nodes, routing, design decisions |
+| `ARCHITECTURE-v2.1.md` | Full technical reference: nodes, routing, design decisions |
 | `architecture.mmd` | Mermaid diagram source |
-| `workflow-v2.0.json` | n8n workflow export — source of truth |
+| `workflow-v2.1.json` | n8n workflow export — source of truth |
 | `CHANGELOG.md` | Version history |
 
 ## n8n Instance

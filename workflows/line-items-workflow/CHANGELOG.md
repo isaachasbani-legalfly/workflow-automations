@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.1.0] - 2026-03-18
+
+### Added
+- **Product flag detection**: Line items containing "sso" (case-insensitive) set company property `has_sso` to "Yes"; line items containing "legal radar" set `has_legal_radar` to "true"
+- **Pipeline-aware flag logic**: New Business deals set both flags explicitly (Yes/No or true/false). Expansion deals only set flags to Yes when found — never downgrade an existing Yes from a prior deal
+- Detection uses case-insensitive substring match on raw line item names for resilience against naming variations
+- Flags OR across multiple deals for the same company (if any deal has the product, the flag is set)
+- No new nodes or API calls — flags are detected in Format Line Items, flow through Group by Company and Append & Prepare, and are included in the existing Update Company PATCH call
+
+### Changed
+- **Format Line Items**: Now outputs `hasSSO`, `hasLegalRadar`, and `isNewBusiness` boolean flags alongside existing `companyId` and `newLineItems`
+- **Group by Company**: ORs `hasSSO`, `hasLegalRadar`, and `isNewBusiness` flags across multiple deals for the same company
+- **Append & Prepare Update**: Passes through `hasSSO`, `hasLegalRadar`, and `isNewBusiness` from grouped data
+- **Update Company**: PATCH body includes `has_sso` and `has_legal_radar` based on pipeline context — New Business sets both explicitly, Expansion only sets when product is found. Respects each property's HubSpot enumeration values (`has_sso`: "Yes"/"No", `has_legal_radar`: "true"/"false")
+
+**Workflow ID**: `TQHGk5e2V0XL8D4f`
+
+---
+
 ## [2.0.0] - 2026-03-03
 
 ### Changed
