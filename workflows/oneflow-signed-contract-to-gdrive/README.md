@@ -1,7 +1,12 @@
 # Oneflow Signed Contract to Google Drive + HubSpot
 
-Automatically downloads signed contract PDFs from Oneflow and:
-1. Uploads them to a Google Drive folder
+Automatically downloads signed contract PDFs from Oneflow and routes based on workspace:
+
+**NDA contracts** (workspace 544451):
+1. Uploads PDF to a dedicated NDA Google Drive folder as `{Company Name}, NDA.pdf`
+
+**Regular contracts** (all other workspaces):
+1. Uploads PDF to the contracts Google Drive folder as `{Company Name} - {YYYY-MM-DD}.pdf`
 2. Attaches the PDF to the HubSpot deal's `signed_contract` file property
 3. Sets the `contract_signed_date` on the deal
 
@@ -12,14 +17,17 @@ Oneflow webhook event: `contract:sign` -- fires when all parties have signed a c
 ## Workflow Steps
 
 1. **Oneflow Webhook** -- Receives POST from Oneflow at `/webhook/oneflow-signed-contracts`
-2. **Get Full Contract** -- Calls Oneflow API `GET /v1/contracts/{id}` to get the full contract including `data_fields` (with HubSpot deal name) and `parties`
-3. **Extract Contract Data** -- Code node extracts `dealName`, `counterpartyName`, `contractId`, and `signingDate`
+2. **Get Full Contract** -- Calls Oneflow API `GET /v1/contracts/{id}` to get the full contract including `data_fields`, `parties`, and `_private.workspace_id`
+3. **Extract Contract Data** -- Code node extracts `dealName`, `counterpartyName`, `contractId`, `signingDate`, and `workspaceId`
 4. **Get Contract Files** -- Calls Oneflow API `GET /v1/contracts/{id}/files` to retrieve file list
 5. **Download Contract PDF** -- Downloads the PDF binary using HAL `_links.self.href` with `?download=true`
-6. **Upload to Google Drive** -- Uploads as `{Company Name} - {YYYY-MM-DD}.pdf` (parallel branch 1)
-7. **Upload to HubSpot Files** -- Uploads PDF to HubSpot File Manager `/signed-contracts/` folder (parallel branch 2)
-8. **Search HubSpot Deal** -- Finds the deal by exact name match using `hs_deal_dealname` from Oneflow data fields
-9. **Update Deal** -- Sets `signed_contract` (file URL) and `contract_signed_date` (YYYY-MM-DD)
+6. **Is NDA?** -- Routes based on workspace ID:
+   - **NDA (workspace 544451)**: Upload to NDA Google Drive folder as `{Company Name}, NDA.pdf` -- workflow ends
+   - **Regular**: Continues to steps 7-10
+7. **Upload to Google Drive** -- Uploads as `{Company Name} - {YYYY-MM-DD}.pdf` (parallel branch 1)
+8. **Upload to HubSpot Files** -- Uploads PDF to HubSpot File Manager `/signed-contracts/` folder (parallel branch 2)
+9. **Search HubSpot Deal** -- Finds the deal by exact name match using `hs_deal_dealname` from Oneflow data fields
+10. **Update Deal** -- Sets `signed_contract` (file URL) and `contract_signed_date` (YYYY-MM-DD)
 
 ## Credentials Required
 
@@ -36,7 +44,9 @@ Oneflow webhook event: `contract:sign` -- fires when all parties have signed a c
 
 ## Configuration
 
-- **Google Drive Folder ID**: `1Z4j_Y_8RURFbG_rVHn2inU2LOwIaCC9c`
+- **Google Drive Contracts Folder ID**: `1I9R0bHc_teD5v1hNlb_1h9rOZSMy1ke4`
+- **Google Drive NDA Folder ID**: `1X1oWqRPxQEEZvK8MYLVLAHO_HHIeU2s4`
+- **NDA Workspace ID**: `544451`
 - **HubSpot File Folder**: `/signed-contracts/`
 - **HubSpot File Access**: `PUBLIC_NOT_INDEXABLE` (required for file property display)
 - **Oneflow API Base URL**: `https://api.oneflow.com/v1`

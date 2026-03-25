@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.1 - 2026-03-24
+
+- **Feature**: Added NDA workspace routing -- contracts from Oneflow workspace `544451` (NDAs) are uploaded to a dedicated NDA Google Drive folder and skip HubSpot entirely
+- **Feature**: Added "Is NDA?" IF node after Download PDF to route by `_private.workspace_id`
+- **Feature**: Added "Upload NDA to Google Drive" node -- uploads to NDA folder as `{Company Name}, NDA.pdf`
+- **Feature**: Extract Contract Data now also extracts `workspaceId` from `contract._private.workspace_id`
+- **Changed**: Updated Google Drive folder ID for regular contracts from `1Z4j_Y_8RURFbG_rVHn2inU2LOwIaCC9c` to `1I9R0bHc_teD5v1hNlb_1h9rOZSMy1ke4`
+- Node count increased from 9 to 11
+
 ## v2.0 - 2026-03-06
 
 - **Feature**: Added HubSpot integration -- uploads signed PDF to HubSpot File Manager and attaches to deal's `signed_contract` file property
