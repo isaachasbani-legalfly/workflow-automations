@@ -1,192 +1,143 @@
-# n8n Workflow Automation Project
+# n8n Workflow Automation
 
-Build and deploy n8n automations using **natural language** with Claude AI and n8n MCP tools.
+Build and deploy n8n workflows using natural language with Claude Code and n8n-MCP tools. Describe what you want, approve the architecture, and Claude builds, validates, and deploys it.
 
-## Quick Start
+---
 
-Create your first workflow in 10 minutes:
+## Setup
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18+)
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed globally:
+  ```bash
+  npm install -g @anthropic-ai/claude-code
+  ```
+
+### 1. Clone and configure MCP
+
+```bash
+git clone <repo-url> && cd workflows
+cp .mcp.json.example .mcp.json
+```
+
+Open `.mcp.json` and replace `<your-n8n-api-key>` with your API key. Ask Isaac for the key.
+
+### 2. Install the n8n-MCP skills plugin
+
+From inside the repo, run:
 
 ```bash
 claude
-> "Create workflow: When [trigger], [action]"
+/add-plugin n8n-mcp-skills
 ```
 
-Example:
+This adds the `n8n-mcp-skills` plugin which provides validation, expression syntax, workflow patterns, and code node expertise.
+
+### 3. Verify
+
 ```bash
+claude
+> "Run n8n health check"
+```
+
+Claude should confirm the connection to `legalfly.app.n8n.cloud`. If it fails, double-check your API key in `.mcp.json`.
+
+> **Note:** `.claude/settings.local.json` is already committed with the correct project permissions. You don't need to configure permissions manually.
+
+---
+
+## How it works
+
+Workflows are created in two phases:
+
+1. **Phase 1 — Architecture:** You describe what you want in plain English. Claude searches n8n's 2,700+ templates, designs the workflow, and presents an architecture document with a diagram for your approval.
+2. **Phase 2 — Build:** Once approved, Claude builds the workflow, validates every node and connection, deploys it to the n8n instance, and saves all artifacts to this repo.
+
+The full process reference is in [CLAUDE.md](CLAUDE.md).
+
+---
+
+## Project structure
+
+```
+.
+├── .claude/
+│   └── settings.local.json            # Claude Code project permissions (committed)
+├── docs/
+│   ├── QUICK_REFERENCE.md             # Command examples and tips
+│   └── DEVELOPMENT.md                 # Detailed development guide
+├── workflows/
+│   ├── hubspot-industry-categorization/   # Reference implementation
+│   ├── hubspot-country-enrichment/
+│   ├── hubspot-employee-enrichment/
+│   ├── line-items-workflow/
+│   ├── n8n-error-handler/
+│   ├── oneflow-signed-contract-to-gdrive/
+│   └── billing/                           # Spec only — not yet built
+├── .mcp.json.example                   # MCP config template (copy to .mcp.json)
+├── .gitignore
+├── CLAUDE.md                           # Claude Code project instructions
+└── README.md
+```
+
+### Workflow directory convention
+
+Each workflow lives in its own folder under `workflows/` and follows this structure:
+
+```
+workflows/[workflow-name]/
+├── README.md                   # Overview, credentials, n8n workflow ID & URL
+├── ARCHITECTURE-v{X.Y}.md     # Full technical reference (versioned)
+├── architecture.mmd            # Mermaid diagram source
+├── workflow-v{X.Y}.json       # n8n workflow export — source of truth (versioned)
+├── CHANGELOG.md                # Version history
+└── prompts/                    # Only if the workflow uses AI prompts
+    └── prompt-{name}.md
+```
+
+See `workflows/hubspot-industry-categorization/` as the reference implementation.
+
+---
+
+## Active workflows
+
+| Workflow | Description | Version |
+|----------|-------------|---------|
+| [hubspot-industry-categorization](workflows/hubspot-industry-categorization/) | Classifies new HubSpot companies into 16 industry categories using Gemini | v3.3 |
+| [hubspot-country-enrichment](workflows/hubspot-country-enrichment/) | Enriches HubSpot companies with country data | v2.2 |
+| [hubspot-employee-enrichment](workflows/hubspot-employee-enrichment/) | Enriches HubSpot companies with employee count data | v4.0 |
+| [line-items-workflow](workflows/line-items-workflow/) | Processes HubSpot deal line items | v2.1 |
+| [oneflow-signed-contract-to-gdrive](workflows/oneflow-signed-contract-to-gdrive/) | Saves signed Oneflow contracts to Google Drive | v2.1 |
+| [n8n-error-handler](workflows/n8n-error-handler/) | Global error handler for n8n workflows | — |
+| [billing](workflows/billing/) | Billing automation (spec phase, not yet built) | — |
+
+---
+
+## Quick start
+
+```bash
+claude
 > "Create workflow: When a new deal is created in HubSpot,
    send a notification to Slack #sales with deal details"
 ```
 
-Claude will:
-1. **Design** the workflow (ARCHITECTURE.md)
-2. **Get your approval**
-3. **Build and deploy** to n8n
-4. **Save all artifacts** to git
-
-See [docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md) for more examples.
+Claude will design the architecture, ask for your approval, then build and deploy it. See [docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md) for more examples and commands.
 
 ---
 
 ## Documentation
 
-- **[docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md)** - Quick reference for creating workflows
-- **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Detailed development workflow guide
-- **[workflows/README.md](workflows/README.md)** - Workflow structure and file reference
-- **[claude.md](claude.md)** - Complete n8n-MCP tool reference
+| Document | What it covers |
+|----------|---------------|
+| [docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md) | Command examples, workflow creation tips, troubleshooting |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Detailed development process, review checklists, patterns |
+| [CLAUDE.md](CLAUDE.md) | Full n8n-MCP tool reference and project conventions |
 
 ---
 
-## Project Structure
+## n8n instance
 
-```
-├── docs/                        # Documentation
-│   ├── QUICK_REFERENCE.md      # Quick reference guide
-│   └── DEVELOPMENT.md          # Development workflow
-├── workflows/                  # All n8n workflows
-│   ├── _templates/            # Reusable templates
-│   ├── README.md              # Workflow directory guide
-│   ├── slack-help-bot/        # Example: Slack help bot
-│   └── [workflow-name]/       # Your workflows
-├── .mcp.json                  # MCP configuration
-├── claude.md                  # n8n-MCP tool reference
-└── README.md                  # This file
-```
+**URL:** [https://legalfly.app.n8n.cloud](https://legalfly.app.n8n.cloud)
 
----
-
-## Two-Phase Workflow Creation
-
-### Phase 1: Architecture (Design)
-You describe what you want, Claude designs it.
-
-```bash
-> "Create workflow: [your requirement]"
-```
-
-Claude generates:
-- **ARCHITECTURE.md** - Full design document
-- **architecture.mmd** - Visual diagram
-- **test-data/** - Sample test files
-
-✅ **Review and approve** before proceeding to Phase 2
-
-### Phase 2: Build (Implementation)
-Once approved, Claude builds and deploys automatically.
-
-**Output:**
-- **workflow.json** - n8n workflow (deployed)
-- **deployment.json** - Deployment metadata
-- **CHANGELOG.md** - Version history
-- Commit to git
-
-**Total time:** ~10 minutes from idea to live workflow
-
----
-
-## Example Workflows
-
-### 1. Slack Help Auto-Reply Workflow
-
-A simple workflow that listens for "Help" in Slack DMs and replies with an encouraging message.
-
-**Status**: Currently active in n8n instance
-**Location**: `workflows/slack-help-bot/`
-
-To create this workflow with natural language:
-
-```bash
-> "Create workflow: Listen for 'Help' in Slack DMs
-   and reply with 'hang in there you'll make it'"
-```
-
-### Workflow Diagram
-
-See [workflow.mmd](workflow.mmd) for the Mermaid diagram, or view it below:
-
-```mermaid
-flowchart LR
-    A["Slack Trigger\n(new message in DM)"] --> B{"IF\ntext == 'Help'"}
-    B -- True --> C["Slack\nSend Message:\n'hang in there you'll make it'"]
-    B -- False --> D["No action"]
-```
-
----
-
-## Getting Started
-
-### 1. Create Your First Workflow
-
-```bash
-claude
-> "Create workflow: [describe what you want]"
-```
-
-### 2. Review the Architecture
-
-Claude will present:
-- Overview and purpose
-- Visual diagram (Mermaid)
-- Node-by-node breakdown
-- Configuration requirements
-- Error handling strategy
-
-### 3. Approve or Request Changes
-
-```bash
-> "Looks good, build it!"
-# or
-> "Can you change X to Y?"
-```
-
-### 4. Automated Deployment
-
-Claude will:
-- Build the workflow
-- Validate everything
-- Deploy to n8n
-- Save all artifacts
-- Commit to git
-
-### 5. Test and Iterate
-
-Once deployed, test the workflow:
-```bash
-> "Test the workflow with [sample data]"
-```
-
-Request updates:
-```bash
-> "Update the workflow: [change]"
-```
-
----
-
-## Guides
-
-### For First-Time Users
-Start with [docs/QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md)
-- Command reference
-- Workflow examples
-- Common requests
-
-### For Detailed Learning
-Read [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
-- Complete development workflow
-- Architecture review checklist
-- Best practices
-- Common patterns
-- Troubleshooting
-
-### For Workflow Structure
-See [workflows/README.md](workflows/README.md)
-- Directory organization
-- File reference
-- Naming conventions
-- Git strategy
-
-### For n8n-MCP Reference
-Check [claude.md](claude.md)
-- Complete tool reference
-- Validation strategies
-- Connection syntax
-- Advanced patterns
+All workflows deploy to this shared instance. Each workflow's README contains its specific workflow ID and direct link.

@@ -10,9 +10,8 @@ claude
 > "Create workflow: [describe what you want]"
 ```
 Claude generates:
-- ARCHITECTURE.md (full design document)
+- ARCHITECTURE-v{X.Y}.md (full design document)
 - architecture.mmd (visual diagram)
-- test-data/ templates
 
 **Your job**: Review and approve (or request changes)
 
@@ -168,14 +167,13 @@ After workflow is created:
 ```
 workflows/
 └── [workflow-name]/
-    ├── ARCHITECTURE.md          ← Design document
-    ├── architecture.mmd         ← Visual diagram
-    ├── workflow.json            ← n8n workflow (deployed)
-    ├── deployment.json          ← Metadata
-    ├── CHANGELOG.md             ← Version history
-    └── test-data/
-        ├── sample-request.json
-        └── expected-response.json
+    ├── README.md                    ← Overview, credentials, n8n workflow ID & URL
+    ├── ARCHITECTURE-v{X.Y}.md      ← Full technical reference (versioned)
+    ├── architecture.mmd             ← Mermaid diagram source
+    ├── workflow-v{X.Y}.json        ← n8n workflow export (versioned)
+    ├── CHANGELOG.md                 ← Version history
+    └── prompts/                     ← Only if AI prompts used
+        └── prompt-{name}.md
 ```
 
 ---
@@ -250,8 +248,7 @@ workflows/
 - [ ] Deployment starting
 
 ### Deployed
-- ✅ workflow.json saved
-- ✅ deployment.json created
+- ✅ workflow-v{X.Y}.json saved
 - ✅ Committed to git
 - ✅ Live in n8n
 

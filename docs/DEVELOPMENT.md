@@ -123,8 +123,9 @@ Once you approve, Claude will:
    - Save deployment metadata
 
 5. **Save Artifacts**
-   - workflow.json (n8n export)
-   - deployment.json (metadata)
+   - README.md (overview, credentials, n8n workflow ID & URL)
+   - ARCHITECTURE-v{X.Y}.md (full technical reference)
+   - workflow-v{X.Y}.json (n8n export)
    - CHANGELOG.md (version history)
    - Commit to git
 
@@ -138,9 +139,9 @@ Once you approve, Claude will:
 - Status: Active
 
 Files Saved:
-✓ workflows/[name]/ARCHITECTURE.md
-✓ workflows/[name]/workflow.json
-✓ workflows/[name]/deployment.json
+✓ workflows/[name]/README.md
+✓ workflows/[name]/ARCHITECTURE-v1.0.md
+✓ workflows/[name]/workflow-v1.0.json
 ✓ workflows/[name]/CHANGELOG.md
 
 Ready to test with real data.
