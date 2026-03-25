@@ -29,10 +29,10 @@ From inside the repo, run:
 
 ```bash
 claude
-/add-plugin n8n-mcp-skills
+/plugin install czlonkowski/n8n-skills
 ```
 
-This adds the `n8n-mcp-skills` plugin which provides validation, expression syntax, workflow patterns, and code node expertise.
+This adds the `n8n-mcp-skills` plugin which provides validation, expression syntax, workflow patterns, and code node expertise. Skills activate automatically when relevant queries are detected.
 
 ### 3. Verify
 
