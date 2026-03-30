@@ -1,0 +1,10 @@
+flowchart TD
+    Start([Schedule Trigger\n1st of month, 8:00 AM])
+
+    Start --> CalcDates["Fetch Renewing Companies\nCode node - compute month date range"]
+    CalcDates --> FetchPage["Fetch Companies Page\nHubSpot Search API\nrenewal_date within current month\n+ lifecyclestage EQ customer"]
+    FetchPage --> IfResults{"IF Has Results\nresults.length > 0?"}
+    IfResults -->|"TRUE"| FormatMsg["Format Message\nCode node - sorted list with dates + links"]
+    IfResults -->|"FALSE"| SilentEnd(["Silent End"])
+    FormatMsg --> SlackReminder["Send Slack Reminder\nChannel C0APNNQAN5B"]
+    SlackReminder --> Complete(["Workflow Complete"])

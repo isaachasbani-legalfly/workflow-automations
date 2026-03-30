@@ -54,6 +54,8 @@ View Execution
 |----------|----|
 | HubSpot Company Industry Categorization v3.3 | `8DM3CwXLxOT3G8B7` |
 | Line Items to Company Property v2.0 | `TQHGk5e2V0XL8D4f` |
+| HubSpot Days Until Renewal Calculator v1.0 | `CXKaD0HuoP9G5wDM` |
+| HubSpot Monthly Renewal Reminder v1.0 | `BKMGY6W4ZHwawdeG` |
 
 To link this error handler to a new workflow, set the `errorWorkflow` field in that workflow's settings to `TA6Iq4wMW0KYsCiH`.
 

@@ -1,0 +1,14 @@
+flowchart TD
+    Start([Schedule Trigger\n12:05 AM daily])
+
+    Start --> InitState["Initialize State\nCode node - {after: null, allCompanies: []}"]
+    InitState --> PassState["Pass State\nCode node - forward cursor + companies"]
+    PassState --> FetchPage["Fetch Companies Page\nHubSpot Search API\nfilter: renewal_date HAS_PROPERTY\n+ lifecyclestage EQ customer\nlimit 200 + cursor"]
+    FetchPage --> Accumulate["Accumulate Results\nCode node - merge pages"]
+    Accumulate --> IfMore{"IF Has More Pages\nafter cursor not empty?"}
+    IfMore -->|"TRUE - loop back"| PassState
+    IfMore -->|"FALSE - all fetched"| SplitCalc["Split & Calculate\nCode node\ndays = ceil((renewal - today) / 86400000)\nOverdue if negative"]
+
+    SplitCalc --> PrepareBatches["Prepare Batches\nCode node - groups of 100"]
+    PrepareBatches --> BatchUpdate["Batch Update HubSpot\nPOST /companies/batch/update\nwrites days_until_next_renewal"]
+    BatchUpdate --> Complete(["Workflow Complete"])

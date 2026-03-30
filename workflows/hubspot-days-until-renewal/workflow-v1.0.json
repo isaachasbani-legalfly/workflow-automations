@@ -1,0 +1,223 @@
+{
+  "name": "HubSpot Days Until Renewal Calculator v1.0",
+  "nodes": [
+    {
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-1600, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "5 0 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "init-pagination",
+      "name": "Initialize State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1340, 300],
+      "parameters": {
+        "jsCode": "return {\n  json: {\n    after: null,\n    allCompanies: []\n  }\n};"
+      }
+    },
+    {
+      "id": "pass-state",
+      "name": "Pass State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1060, 300],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  json: {\n    after: $json.after || null,\n    allCompanies: $json.allCompanies || []\n  }\n};"
+      }
+    },
+    {
+      "id": "fetch-page",
+      "name": "Fetch Companies Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-780, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'contract___renewal_date', operator: 'HAS_PROPERTY' }, { propertyName: 'lifecyclestage', operator: 'EQ', value: 'customer' }] }], properties: ['name', 'contract___renewal_date', 'days_until_next_renewal', 'lifecyclestage'], limit: 200, ...($json.after ? { after: $json.after } : {}) }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      }
+    },
+    {
+      "id": "accumulate-results",
+      "name": "Accumulate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-480, 300],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const apiResponse = $json;\nconst passStateData = $('Pass State').item.json;\n\nconst prevCompanies = passStateData.allCompanies || [];\nconst newCompanies = apiResponse.results || [];\nconst cursor = apiResponse.paging?.next?.after || null;\n\nreturn {\n  json: {\n    after: cursor,\n    allCompanies: [...prevCompanies, ...newCompanies]\n  }\n};"
+      }
+    },
+    {
+      "id": "if-has-more",
+      "name": "IF Has More Pages",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-100, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-more-check",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              },
+              "leftValue": "={{ $json.after || '' }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "split-calculate",
+      "name": "Split & Calculate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 400],
+      "parameters": {
+        "jsCode": "const allCompanies = $input.first().json.allCompanies || [];\nconst now = new Date();\nconst todayMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));\nconst MS_PER_DAY = 86400000;\n\nif (allCompanies.length === 0) {\n  return [{ json: { empty: true, message: 'No companies with renewal dates found' } }];\n}\n\nreturn allCompanies.map(company => {\n  const renewalDateStr = company.properties?.contract___renewal_date;\n  let renewalDate;\n  if (/^\\d+$/.test(renewalDateStr)) {\n    renewalDate = new Date(Number(renewalDateStr));\n  } else {\n    renewalDate = new Date(renewalDateStr);\n  }\n  \n  const diffMs = renewalDate.getTime() - todayMidnight.getTime();\n  const days = Math.ceil(diffMs / MS_PER_DAY);\n  const value = days < 0 ? 'Overdue' : String(days);\n\n  return {\n    json: {\n      id: String(company.id),\n      name: company.properties?.name || 'Unknown',\n      renewalDate: renewalDateStr,\n      daysUntilRenewal: days,\n      value: value\n    }\n  };\n});"
+      }
+    },
+    {
+      "id": "prepare-batches",
+      "name": "Prepare Batches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 400],
+      "parameters": {
+        "jsCode": "const items = $input.all().map(i => i.json);\n\nif (items.length === 1 && items[0].empty) {\n  return [{ json: { skip: true, message: items[0].message } }];\n}\n\nconst BATCH_SIZE = 100;\nconst batches = [];\n\nfor (let i = 0; i < items.length; i += BATCH_SIZE) {\n  const chunk = items.slice(i, i + BATCH_SIZE);\n  batches.push({\n    json: {\n      inputs: chunk.map(c => ({\n        id: c.id,\n        properties: { days_until_next_renewal: c.value }\n      })),\n      batchIndex: Math.floor(i / BATCH_SIZE),\n      batchCount: chunk.length\n    }\n  });\n}\n\nreturn batches;"
+      }
+    },
+    {
+      "id": "batch-update",
+      "name": "Batch Update HubSpot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/companies/batch/update",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ inputs: $json.inputs }) }}",
+        "options": {}
+      },
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "5ww8XNGf4HTQu4UI",
+          "name": "hubspot"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "sticky-pagination",
+      "name": "Sticky: Pagination",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-1640, 100],
+      "parameters": {
+        "content": "## Pagination Loop\nFetches ALL companies where:\n- `contract___renewal_date` is set\n- `lifecyclestage` = customer\n\n200 companies per page, cursor-based pagination.",
+        "width": 700,
+        "height": 120
+      }
+    },
+    {
+      "id": "sticky-calculation",
+      "name": "Sticky: Calculation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [200, 220],
+      "parameters": {
+        "content": "## Date Calculation\n`days = ceil((renewal_date - today_midnight_UTC) / 86400000)`\n\n- Positive number = days until renewal\n- `Overdue` = renewal date has passed",
+        "width": 400,
+        "height": 120
+      }
+    },
+    {
+      "id": "sticky-batch",
+      "name": "Sticky: Batch Update",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [800, 220],
+      "parameters": {
+        "content": "## Batch Update\nGroups companies into batches of 100.\nWrites `days_until_next_renewal` to HubSpot.\nUses `/companies/batch/update` API for speed.",
+        "width": 400,
+        "height": 120
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{"node": "Initialize State", "type": "main", "index": 0}]]
+    },
+    "Initialize State": {
+      "main": [[{"node": "Pass State", "type": "main", "index": 0}]]
+    },
+    "Pass State": {
+      "main": [[{"node": "Fetch Companies Page", "type": "main", "index": 0}]]
+    },
+    "Fetch Companies Page": {
+      "main": [[{"node": "Accumulate Results", "type": "main", "index": 0}]]
+    },
+    "Accumulate Results": {
+      "main": [[{"node": "IF Has More Pages", "type": "main", "index": 0}]]
+    },
+    "IF Has More Pages": {
+      "main": [
+        [{"node": "Pass State", "type": "main", "index": 0}],
+        [{"node": "Split & Calculate", "type": "main", "index": 0}]
+      ]
+    },
+    "Split & Calculate": {
+      "main": [[{"node": "Prepare Batches", "type": "main", "index": 0}]]
+    },
+    "Prepare Batches": {
+      "main": [[{"node": "Batch Update HubSpot", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "UTC",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "errorWorkflow": "TA6Iq4wMW0KYsCiH"
+  }
+}
