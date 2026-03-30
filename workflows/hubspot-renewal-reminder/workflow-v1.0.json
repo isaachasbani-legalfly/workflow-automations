@@ -106,7 +106,9 @@
           "value": "C0APNNQAN5B"
         },
         "text": "={{ $json.message }}",
-        "otherOptions": {}
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
       },
       "credentials": {
         "slackApi": {
