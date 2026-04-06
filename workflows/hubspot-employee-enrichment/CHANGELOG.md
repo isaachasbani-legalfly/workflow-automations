@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.0.1 - 2026-04-06
+
+### Fixed
+- **Empty batch guard** -- Added "IF Has Batch Items" node between "Build Batch Request" and "Submit Batch". When no companies need Amplemarket enrichment (batchSize = 0), the workflow now skips the API call instead of sending an empty `companies` array that triggers a 400 error.
+- **Slack node missing operation** -- Explicitly set `operation: "post"` on "Send Slack" node. Was relying on runtime default, which the validator flagged as invalid.
+
 ## v4.0 - 2026-03-06
 
 Two-track enrichment: separate `numberofemployees` (Track A) from `parent_company_number_of_employees` (Track B). Confidence tiers for classification. Critical fix: `numberofemployees` is never overwritten by subsidiary enrichment.
