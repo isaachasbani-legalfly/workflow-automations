@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.1 — 2026-04-08
+
+- Changed trigger from HubSpot Trigger node to Webhook node (Private App webhook subscription)
+- Added Extract Event node to parse HubSpot event array
+- Fixed AE name resolution (now references Fetch Deal Details node for hubspot_owner_id)
+- Changed dedup from deprecated `issueSearch` to Linear `attachments` API (searches by HubSpot link URL)
+- Added Find Existing Ticket node to filter attachment results to Solutions Engineering team
+- Connected error handler workflow (TA6Iq4wMW0KYsCiH)
+- Added `crm.objects.owners.read` scope requirement for HubSpot Private App
+
 ## v1.0 — 2026-04-08
 
 - Initial implementation

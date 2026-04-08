@@ -4,18 +4,22 @@ Automatically creates a Linear ticket in the Solutions Engineering backlog when 
 
 ## Trigger
 
-HubSpot webhook: `deal.propertyChange` on `solutions_engineer`
+Webhook: `POST /hubspot-se-assignment`
+
+HubSpot Private App webhook subscription configured manually to send `deal.propertyChange` events for the `solutions_engineer` property to the n8n webhook URL.
 
 ## How It Works
 
-1. **HubSpot Trigger** fires when `solutions_engineer` property changes on any deal
-2. **SE Empty Guard** skips processing if the SE was removed (value cleared)
-3. **Fetch Deal Details** retrieves deal properties (name, stage, amount, close date, AE owner)
-4. **Resolve SE/AE Names** looks up HubSpot owner names for the SE and AE
-5. **Map SE → Linear User** matches the SE to a Linear user by HubSpot ID
-6. **Search Linear** checks if a ticket already exists for this deal (`hs-deal-id:` tag)
-7. **Branch**:
-   - **No ticket** → Creates Linear issue in Backlog + adds HubSpot link
+1. **HubSpot Webhook** receives the POST from HubSpot when `solutions_engineer` changes on any deal
+2. **Extract Event** parses the HubSpot event array (takes first event), extracts objectId, propertyValue, portalId
+3. **SE Empty Guard** skips processing if the SE was removed (value cleared)
+4. **Fetch Deal Details** retrieves deal properties (name, stage, amount, close date, AE owner)
+5. **Resolve SE/AE Names** looks up HubSpot owner names for the SE and AE (AE resolved via `Fetch Deal Details` node reference for `hubspot_owner_id`)
+6. **Map SE → Linear User** matches the SE to a Linear user by HubSpot ID
+7. **Search Linear** queries Linear GraphQL `attachments` API to find issues with an attachment URL containing the deal ID
+8. **Find Existing Ticket** filters attachment results to the Solutions Engineering team
+9. **Branch**:
+   - **No ticket** → Creates Linear issue in Backlog + adds HubSpot link as attachment
    - **Ticket exists** → Updates assignee + adds reassignment comment
 
 ## SE → Linear User Mappings
@@ -30,10 +34,14 @@ HubSpot webhook: `deal.propertyChange` on `solutions_engineer`
 
 | Service | Credential Type | Used By |
 |---|---|---|
-| HubSpot | hubspotDeveloperApi | Trigger node |
-| HubSpot | hubspotAppToken | HTTP Request nodes (deal + owner API calls) |
-| Linear | linearApi (API token) | Create/Update/Comment nodes |
-| Linear | linearApi (predefined) | GraphQL search HTTP Request |
+| HubSpot | hubspotAppToken (`5ww8XNGf4HTQu4UI` / "hubspot") | HTTP Request nodes (deal + owner API calls) |
+| Linear | linearApi (`Hy0y7IGsd1kE4waU` / "Linear account") | Linear nodes + GraphQL search HTTP Request |
+
+**Required HubSpot scope**: `crm.objects.owners.read` (for Resolve SE Name / Resolve AE Name API calls)
+
+## Error Handling
+
+Error handler workflow connected: `TA6Iq4wMW0KYsCiH`. All unhandled errors in this workflow are forwarded to the error handler for alerting.
 
 ## n8n Instance
 

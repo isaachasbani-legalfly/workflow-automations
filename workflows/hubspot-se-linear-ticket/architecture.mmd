@@ -1,18 +1,22 @@
 flowchart TD
-    Trigger([HubSpot Trigger\ndeal.propertyChange:\nsolutions_engineer]) --> Guard{SE value empty?}
+    Webhook([HubSpot Webhook\nPOST /hubspot-se-assignment]) --> Extract[Extract Event\nParse event array]
+
+    Extract --> Guard{SE value empty?}
 
     Guard -->|Empty: ignore| Stop([No Op])
-    Guard -->|Has value| FetchDeal[HTTP Request\nGET HubSpot Deal\nproperties: dealname, dealstage,\namount, potential_amount,\nclosedate, hubspot_owner_id]
+    Guard -->|Has value| FetchDeal[HTTP Request\nGET HubSpot Deal]
 
     FetchDeal --> ResolveSE[HTTP Request\nGET HubSpot Owner\nResolve SE ID → name]
 
     ResolveSE --> ResolveAE[HTTP Request\nGET HubSpot Owner\nResolve AE ID → name]
 
-    ResolveAE --> MapLinearUser[Code Node\nMatch SE name → Linear user\nby HubSpot ID lookup]
+    ResolveAE --> MapLinearUser[Code Node\nMatch SE → Linear user\nby HubSpot ID lookup]
 
-    MapLinearUser --> SearchLinear[HTTP Request\nLinear GraphQL\nSearch: hs-deal-id:dealId\nin Solutions Engineering]
+    MapLinearUser --> SearchLinear[HTTP Request\nLinear GraphQL\nSearch attachments by\nHubSpot deal URL]
 
-    SearchLinear --> Exists{Ticket exists?}
+    SearchLinear --> FindTicket[Find Existing Ticket\nFilter to Solutions\nEngineering team]
+
+    FindTicket --> Exists{Ticket exists?}
 
     Exists -->|No| BuildData[Code Node\nBuild title + description]
     BuildData --> CreateIssue[Linear Node\nCreate Issue\nTeam: Solutions Engineering\nState: Backlog\nAssignee: matched SE]
