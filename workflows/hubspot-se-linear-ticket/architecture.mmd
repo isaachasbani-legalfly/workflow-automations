@@ -1,0 +1,22 @@
+flowchart TD
+    Trigger([HubSpot Trigger\ndeal.propertyChange:\nsolutions_engineer]) --> Guard{SE value empty?}
+
+    Guard -->|Empty: ignore| Stop([No Op])
+    Guard -->|Has value| FetchDeal[HTTP Request\nGET HubSpot Deal\nproperties: dealname, dealstage,\namount, potential_amount,\nclosedate, hubspot_owner_id]
+
+    FetchDeal --> ResolveSE[HTTP Request\nGET HubSpot Owner\nResolve SE ID → name]
+
+    ResolveSE --> ResolveAE[HTTP Request\nGET HubSpot Owner\nResolve AE ID → name]
+
+    ResolveAE --> MapLinearUser[Code Node\nMatch SE name → Linear user\nby HubSpot ID lookup]
+
+    MapLinearUser --> SearchLinear[HTTP Request\nLinear GraphQL\nSearch: hs-deal-id:dealId\nin Solutions Engineering]
+
+    SearchLinear --> Exists{Ticket exists?}
+
+    Exists -->|No| BuildData[Code Node\nBuild title + description]
+    BuildData --> CreateIssue[Linear Node\nCreate Issue\nTeam: Solutions Engineering\nState: Backlog\nAssignee: matched SE]
+    CreateIssue --> AddLink[Linear Node\nAdd Link\nHubSpot deal URL]
+
+    Exists -->|Yes| UpdateIssue[Linear Node\nUpdate Issue\nChange assignee to new SE]
+    UpdateIssue --> AddComment[Linear Node\nAdd Comment\nSE reassigned: X → Y]

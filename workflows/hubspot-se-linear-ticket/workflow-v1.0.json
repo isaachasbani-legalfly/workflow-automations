@@ -1,0 +1,285 @@
+{
+  "name": "HubSpot SE Assignment → Linear Ticket v1.0",
+  "nodes": [
+    {
+      "id": "hs-trigger",
+      "name": "HubSpot Trigger",
+      "type": "n8n-nodes-base.hubspotTrigger",
+      "typeVersion": 1,
+      "position": [0, 300],
+      "parameters": {
+        "eventsUi": {
+          "eventValues": [
+            {
+              "name": "deal.propertyChange",
+              "property": "solutions_engineer"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "guard-se-empty",
+      "name": "SE Empty Guard",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [260, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "se-not-empty",
+              "operator": { "type": "string", "operation": "notEmpty" },
+              "leftValue": "={{ $json.propertyValue }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "stop-no-op",
+      "name": "Stop",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [520, 480],
+      "parameters": {}
+    },
+    {
+      "id": "fetch-deal",
+      "name": "Fetch Deal Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [520, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.hubapi.com/crm/v3/objects/deals/{{ $json.objectId }}?properties=dealname,dealstage,amount,potential_amount,closedate,hubspot_owner_id,solutions_engineer",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "options": {}
+      },
+      "credentials": {
+        "hubspotAppToken": { "id": "5ww8XNGf4HTQu4UI", "name": "hubspot" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "resolve-se",
+      "name": "Resolve SE Name",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [780, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.hubapi.com/crm/v3/owners/{{ $json.properties.solutions_engineer }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "options": {}
+      },
+      "credentials": {
+        "hubspotAppToken": { "id": "5ww8XNGf4HTQu4UI", "name": "hubspot" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "resolve-ae",
+      "name": "Resolve AE Name",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1040, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.hubapi.com/crm/v3/owners/{{ $json.hubspot_owner_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "hubspotAppToken",
+        "options": {}
+      },
+      "credentials": {
+        "hubspotAppToken": { "id": "5ww8XNGf4HTQu4UI", "name": "hubspot" }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "map-linear-user",
+      "name": "Map SE → Linear User",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 300],
+      "parameters": {
+        "jsCode": "const trigger = $('SE Empty Guard').first().json;\nconst deal = $('Fetch Deal Details').first().json;\nconst se = $('Resolve SE Name').first().json;\nconst ae = $input.first().json;\n\nconst seName = `${se.firstName} ${se.lastName}`.trim();\nconst aeName = `${ae.firstName} ${ae.lastName}`.trim();\nconst seHubSpotId = String(deal.properties.solutions_engineer);\n\nconst SE_MAP = {\n  '1891381453': { linearId: '127d293c-86a5-439d-be0e-31e59022e840', name: 'Harry Day' },\n  '29995860':   { linearId: '633f0c0d-c45d-4fa1-b75d-0cced134efe3', name: 'Anastasia Screve' },\n  '32163999':   { linearId: '1f66b0f0-3476-43dc-8c99-1899dcf4f79a', name: 'Stephanie Adriaens' }\n};\n\nconst match = SE_MAP[seHubSpotId];\nconst linearUserId = match ? match.linearId : null;\n\nif (!match) {\n  console.log('WARNING: No Linear user mapping for SE ' + seName + ' (HubSpot ID: ' + seHubSpotId + ')');\n}\n\nconst amount = Number(deal.properties.amount || 0);\nconst potentialAmount = Number(deal.properties.potential_amount || 0);\nconst formatCurrency = (v) => v >= 1000 ? '€' + (v / 1000).toFixed(0) + 'K' : '€' + v;\nconst formatFull = (v) => '€' + v.toLocaleString('en-IE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });\n\nconst closedate = deal.properties.closedate\n  ? new Date(deal.properties.closedate).toLocaleDateString('en-IE', { day: 'numeric', month: 'short', year: 'numeric' })\n  : 'Not set';\n\nconst dealStage = deal.properties.dealstage || 'Unknown';\n\nreturn [{\n  json: {\n    dealId: deal.id,\n    dealName: deal.properties.dealname,\n    dealStage: dealStage,\n    amount: amount,\n    amountAbbr: formatCurrency(amount),\n    amountFormatted: formatFull(amount),\n    potentialAmount: potentialAmount,\n    potentialFormatted: formatFull(potentialAmount),\n    closeDate: closedate,\n    seName: seName,\n    seHubSpotId: seHubSpotId,\n    linearUserId: linearUserId,\n    aeName: aeName,\n    portalId: '142047914',\n    objectId: trigger.objectId\n  }\n}];"
+      }
+    },
+    {
+      "id": "search-linear",
+      "name": "Search Linear for Ticket",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1560, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linear.app/graphql",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "linearApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ query: '{ issueSearch(query: \"hs-deal-id:' + $json.dealId + '\", filter: { team: { id: { eq: \"fa68a3c7-fcbe-407e-8d66-94b572c31522\" } } }) { nodes { id identifier title assignee { id name } } } }' }) }}",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "id": "ticket-exists",
+      "name": "Ticket Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1820, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "has-results",
+              "operator": { "type": "number", "operation": "gt" },
+              "leftValue": "={{ $json.data.issueSearch.nodes.length }}",
+              "rightValue": 0
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "build-issue-data",
+      "name": "Build Issue Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2080, 420],
+      "parameters": {
+        "jsCode": "const prev = $('Map SE → Linear User').first().json;\n\nconst title = prev.dealName + ' (' + prev.amountAbbr + ') — SE support';\n\nconst description = '**Deal**: ' + prev.dealName + '\\n' +\n  '**Stage**: ' + prev.dealStage + '\\n' +\n  '**Amount**: ' + prev.amountFormatted + '\\n' +\n  '**Potential**: ' + prev.potentialFormatted + '\\n' +\n  '**Close Date**: ' + prev.closeDate + '\\n' +\n  '**AE Owner**: ' + prev.aeName + '\\n\\n' +\n  '🔗 [View in HubSpot](https://app.hubspot.com/contacts/' + prev.portalId + '/deal/' + prev.dealId + ')\\n\\n' +\n  '---\\n' +\n  '*hs-deal-id:' + prev.dealId + '*';\n\nreturn [{\n  json: {\n    title: title,\n    description: description,\n    linearUserId: prev.linearUserId,\n    dealId: prev.dealId,\n    portalId: prev.portalId\n  }\n}];"
+      }
+    },
+    {
+      "id": "create-issue",
+      "name": "Create Linear Issue",
+      "type": "n8n-nodes-base.linear",
+      "typeVersion": 1.1,
+      "position": [2340, 420],
+      "parameters": {
+        "authentication": "apiToken",
+        "resource": "issue",
+        "operation": "create",
+        "teamId": "fa68a3c7-fcbe-407e-8d66-94b572c31522",
+        "title": "={{ $json.title }}",
+        "additionalFields": {
+          "assigneeId": "={{ $json.linearUserId }}",
+          "description": "={{ $json.description }}",
+          "stateId": "3a018a5f-a622-41f6-b989-f63dfc3a9d99"
+        }
+      }
+    },
+    {
+      "id": "add-link",
+      "name": "Add HubSpot Link",
+      "type": "n8n-nodes-base.linear",
+      "typeVersion": 1.1,
+      "position": [2600, 420],
+      "parameters": {
+        "authentication": "apiToken",
+        "resource": "issue",
+        "operation": "addLink",
+        "issueId": "={{ $json.id }}",
+        "link": "=https://app.hubspot.com/contacts/{{ $node[\"Build Issue Data\"].json.portalId }}/deal/{{ $node[\"Build Issue Data\"].json.dealId }}"
+      }
+    },
+    {
+      "id": "update-issue",
+      "name": "Update Linear Issue",
+      "type": "n8n-nodes-base.linear",
+      "typeVersion": 1.1,
+      "position": [2080, 180],
+      "parameters": {
+        "authentication": "apiToken",
+        "resource": "issue",
+        "operation": "update",
+        "issueId": "={{ $json.data.issueSearch.nodes[0].id }}",
+        "updateFields": {
+          "assigneeId": "={{ $node[\"Map SE → Linear User\"].json.linearUserId }}"
+        }
+      }
+    },
+    {
+      "id": "add-comment",
+      "name": "Add Reassignment Comment",
+      "type": "n8n-nodes-base.linear",
+      "typeVersion": 1.1,
+      "position": [2340, 180],
+      "parameters": {
+        "authentication": "apiToken",
+        "resource": "comment",
+        "operation": "addComment",
+        "issueId": "={{ $node[\"Ticket Exists?\"].json.data.issueSearch.nodes[0].id }}",
+        "comment": "=SE reassigned: {{ $node[\"Ticket Exists?\"].json.data.issueSearch.nodes[0].assignee ? $node[\"Ticket Exists?\"].json.data.issueSearch.nodes[0].assignee.name : 'Unassigned' }} → {{ $node[\"Map SE → Linear User\"].json.seName }} (updated from HubSpot)"
+      }
+    },
+    {
+      "id": "note-overview",
+      "name": "Workflow Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-60, 60],
+      "parameters": {
+        "content": "## HubSpot SE Assignment → Linear Ticket\n\nWhen a Solutions Engineer is assigned to a HubSpot deal via the `solutions_engineer` property:\n- **New deal**: Creates a Linear ticket in Solutions Engineering backlog\n- **Existing ticket**: Updates the assignee and adds a reassignment comment\n\n**Portal ID**: 142047914\n**Linear Team**: Solutions Engineering"
+      }
+    },
+    {
+      "id": "note-credentials",
+      "name": "Credentials Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-60, 500],
+      "parameters": {
+        "content": "## Credentials Required\n\n1. **HubSpot Developer API** → Trigger node\n2. **HubSpot App Token** → HTTP Request nodes (already set)\n3. **Linear API** → Linear nodes + GraphQL search\n\n⚠️ Select credentials on the trigger, Linear nodes, and Search Linear node after import."
+      }
+    }
+  ],
+  "connections": {
+    "HubSpot Trigger": { "main": [[{ "node": "SE Empty Guard", "type": "main", "index": 0 }]] },
+    "SE Empty Guard": { "main": [[{ "node": "Fetch Deal Details", "type": "main", "index": 0 }], [{ "node": "Stop", "type": "main", "index": 0 }]] },
+    "Fetch Deal Details": { "main": [[{ "node": "Resolve SE Name", "type": "main", "index": 0 }]] },
+    "Resolve SE Name": { "main": [[{ "node": "Resolve AE Name", "type": "main", "index": 0 }]] },
+    "Resolve AE Name": { "main": [[{ "node": "Map SE → Linear User", "type": "main", "index": 0 }]] },
+    "Map SE → Linear User": { "main": [[{ "node": "Search Linear for Ticket", "type": "main", "index": 0 }]] },
+    "Search Linear for Ticket": { "main": [[{ "node": "Ticket Exists?", "type": "main", "index": 0 }]] },
+    "Ticket Exists?": { "main": [[{ "node": "Update Linear Issue", "type": "main", "index": 0 }], [{ "node": "Build Issue Data", "type": "main", "index": 0 }]] },
+    "Build Issue Data": { "main": [[{ "node": "Create Linear Issue", "type": "main", "index": 0 }]] },
+    "Create Linear Issue": { "main": [[{ "node": "Add HubSpot Link", "type": "main", "index": 0 }]] },
+    "Update Linear Issue": { "main": [[{ "node": "Add Reassignment Comment", "type": "main", "index": 0 }]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  }
+}
