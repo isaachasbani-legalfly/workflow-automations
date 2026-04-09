@@ -1,4 +1,4 @@
-# HubSpot Deal Sales Closed -> SE Linear Ticket Reminder
+# HubSpot Deal Closed -> SE Linear Ticket Reminder
 
 When a HubSpot deal moves to **06_Sales Closed** in the Sales Pipeline with a Solutions Engineer assigned, this workflow checks if the SE-Linear workflow created a Linear ticket for that deal. If found, it posts a Slack message reminding the SE to update the ticket and move it to Done.
 
@@ -14,21 +14,30 @@ HubSpot internal workflow triggers when a deal enters stage **06_Sales Closed** 
 2. **Normalize**: Extract deal ID from webhook payload
 3. **Fetch deal**: Get deal properties including `solutions_engineer`
 4. **Guard**: Stop if no SE is assigned
-5. **Resolve SE name**: Look up the SE's first/last name via HubSpot Owners API
-6. **Search Linear**: GraphQL query on Linear's attachments API to find a ticket linked to this deal (same dedup pattern as the SE-Linear workflow)
-7. **Filter to SE team**: Only match tickets in the Solutions Engineering team
-8. **Guard**: Stop if no Linear ticket found
-9. **Post Slack message**: Send a message to the channel with the deal name, SE name, Linear ticket link, and a CTA to update the ticket and move it to Done
+5. **Resolve SE name**: Look up the SE's first/last name and email via HubSpot Owners API
+6. **Lookup SE in Slack**: Find the SE's Slack user ID via `users.lookupByEmail` API (enables dynamic `<@U...>` tagging)
+7. **Search Linear**: GraphQL query on Linear's attachments API to find a ticket linked to this deal (same dedup pattern as the SE-Linear workflow)
+8. **Filter to SE team**: Only match tickets in the Solutions Engineering team
+9. **Guard**: Stop if no Linear ticket found
+10. **Post Slack message**: Send a "Deal Closed!" message to the channel with the deal name, SE Slack tag, Linear ticket link, and a CTA to update the ticket and move it to Done
 
-## SE Mapping
+## Nodes (13)
 
-Uses the same SE HubSpot owner IDs as the SE-Linear workflow:
-
-| SE Name | HubSpot Owner ID |
-|---------|-----------------|
-| Harry Day | `1891381453` |
-| Anastasia Screve | `29995860` |
-| Stephanie Adriaens | `32163999` |
+| # | Node | Type |
+|---|------|------|
+| 1 | Webhook: Deal Sales Closed | n8n-nodes-base.webhook |
+| 2 | Normalize Webhook Data | n8n-nodes-base.code |
+| 3 | Fetch Deal Details | n8n-nodes-base.httpRequest |
+| 4 | SE Assigned? | n8n-nodes-base.if |
+| 5 | Stop (No SE) | n8n-nodes-base.noOp |
+| 6 | Resolve SE Name | n8n-nodes-base.httpRequest |
+| 7 | Lookup SE in Slack | n8n-nodes-base.httpRequest |
+| 8 | Search Linear for Ticket | n8n-nodes-base.httpRequest |
+| 9 | Find Existing Ticket | n8n-nodes-base.code |
+| 10 | Linear Ticket Found? | n8n-nodes-base.if |
+| 11 | Stop (No Ticket) | n8n-nodes-base.noOp |
+| 12 | Build Slack Message | n8n-nodes-base.code |
+| 13 | Post to Slack | n8n-nodes-base.slack |
 
 ## Credentials
 
@@ -36,7 +45,12 @@ Uses the same SE HubSpot owner IDs as the SE-Linear workflow:
 |---------|----------------|-----|----------|
 | HubSpot | hubspot | `5ww8XNGf4HTQu4UI` | Deal details, SE name resolution |
 | Linear | Linear account | `Hy0y7IGsd1kE4waU` | Ticket search via GraphQL |
-| Slack | Slack | `lYs0WHzWk4c7z9Kk` | Post message to channel |
+| Slack | Slack | `lYs0WHzWk4c7z9Kk` | Post message to channel, SE user lookup |
+
+## Slack Scopes Required
+
+- `chat:write` -- Post messages to channel
+- `users:read.email` -- Look up Slack user by email (`users.lookupByEmail`)
 
 ## n8n Instance
 

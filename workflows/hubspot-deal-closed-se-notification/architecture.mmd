@@ -4,7 +4,8 @@ flowchart TD
     FetchDeal --> CheckSE{SE Assigned?<br/>solutions_engineer<br/>not empty}
     CheckSE -->|No| Stop1([No Op])
     CheckSE -->|Yes| ResolveSE[Resolve SE Name<br/>GET /owners]
-    ResolveSE --> SearchLinear[Search Linear for Ticket<br/>GraphQL attachment search]
+    ResolveSE --> SlackLookup[Lookup SE in Slack<br/>users.lookupByEmail]
+    SlackLookup --> SearchLinear[Search Linear for Ticket<br/>GraphQL attachment search]
     SearchLinear --> FindTicket[Find Existing Ticket<br/>Filter to SE team]
     FindTicket --> HasTicket{Linear Ticket Found?}
     HasTicket -->|No| Stop2([No Op])

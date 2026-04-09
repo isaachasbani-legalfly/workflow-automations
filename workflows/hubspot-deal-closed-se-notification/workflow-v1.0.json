@@ -7,6 +7,7 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [-144, 304],
+      "webhookId": "a1b2c3d4-deal-closed-se-webhook",
       "parameters": {
         "httpMethod": "POST",
         "path": "hubspot-deal-closed-se",
@@ -50,20 +51,10 @@
       "position": [640, 288],
       "parameters": {
         "conditions": {
-          "options": {
-            "version": 2,
-            "leftValue": "",
-            "caseSensitive": true,
-            "typeValidation": "strict"
-          },
+          "options": { "version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
           "combinator": "and",
           "conditions": [
-            {
-              "id": "se-assigned",
-              "operator": { "type": "string", "operation": "notEmpty" },
-              "leftValue": "={{ $json.properties.solutions_engineer }}",
-              "rightValue": ""
-            }
+            { "id": "se-assigned", "operator": { "type": "string", "operation": "notEmpty" }, "leftValue": "={{ $json.properties.solutions_engineer }}", "rightValue": "" }
           ]
         },
         "options": {}
@@ -97,11 +88,27 @@
       }
     },
     {
+      "id": "slack-lookup",
+      "name": "Lookup SE in Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1024, 288],
+      "parameters": {
+        "url": "=https://slack.com/api/users.lookupByEmail?email={{ $json.email }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "slackApi",
+        "options": {}
+      },
+      "credentials": {
+        "slackApi": { "id": "lYs0WHzWk4c7z9Kk", "name": "Slack" }
+      }
+    },
+    {
       "id": "search-linear",
       "name": "Search Linear for Ticket",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1152, 288],
+      "position": [1280, 288],
       "parameters": {
         "method": "POST",
         "url": "https://api.linear.app/graphql",
@@ -124,9 +131,9 @@
       "name": "Find Existing Ticket",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1408, 288],
+      "position": [1536, 288],
       "parameters": {
-        "jsCode": "const result = $input.first().json;\nconst teamId = 'fa68a3c7-fcbe-407e-8d66-94b572c31522';\n\nconst attachments = result.data && result.data.attachments && result.data.attachments.nodes\n  ? result.data.attachments.nodes\n  : [];\n\n// Find attachment whose issue belongs to Solutions Engineering team\nconst match = attachments.find(a => \n  a.issue && a.issue.team && a.issue.team.id === teamId\n);\n\nreturn [{\n  json: {\n    existingIssue: match ? match.issue : null,\n    found: !!match\n  }\n}];"
+        "jsCode": "const result = $input.first().json;\nconst teamId = 'fa68a3c7-fcbe-407e-8d66-94b572c31522';\n\nconst attachments = result.data && result.data.attachments && result.data.attachments.nodes\n  ? result.data.attachments.nodes\n  : [];\n\nconst match = attachments.find(a => \n  a.issue && a.issue.team && a.issue.team.id === teamId\n);\n\nreturn [{\n  json: {\n    existingIssue: match ? match.issue : null,\n    found: !!match\n  }\n}];"
       }
     },
     {
@@ -134,27 +141,13 @@
       "name": "Linear Ticket Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1664, 288],
+      "position": [1792, 288],
       "parameters": {
         "conditions": {
-          "options": {
-            "version": 2,
-            "leftValue": "",
-            "caseSensitive": true,
-            "typeValidation": "strict"
-          },
+          "options": { "version": 2, "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
           "combinator": "and",
           "conditions": [
-            {
-              "id": "has-ticket",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              },
-              "leftValue": "={{ $json.found }}",
-              "rightValue": ""
-            }
+            { "id": "has-ticket", "operator": { "type": "boolean", "operation": "true", "singleValue": true }, "leftValue": "={{ $json.found }}", "rightValue": "" }
           ]
         },
         "options": {}
@@ -165,7 +158,7 @@
       "name": "Stop (No Ticket)",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [1920, 480],
+      "position": [2048, 480],
       "parameters": {}
     },
     {
@@ -173,9 +166,9 @@
       "name": "Build Slack Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1920, 288],
+      "position": [2048, 288],
       "parameters": {
-        "jsCode": "const deal = $('Fetch Deal Details').first().json;\nconst se = $('Resolve SE Name').first().json;\nconst ticket = $('Find Existing Ticket').first().json.existingIssue;\n\nconst seName = `${se.firstName} ${se.lastName}`.trim();\nconst dealName = deal.properties.dealname;\nconst dealId = deal.id;\nconst portalId = '142047914';\n\nconst amount = Number(deal.properties.amount || 0);\nconst formatCurrency = (v) => v >= 1000 ? '\u20ac' + (v / 1000).toFixed(0) + 'K' : '\u20ac' + v;\n\nconst dealUrl = `https://app.hubspot.com/contacts/${portalId}/deal/${dealId}`;\nconst ticketIdentifier = ticket.identifier;\nconst ticketTitle = ticket.title;\n\n// Linear URL format: https://linear.app/legalfly/issue/{identifier}\nconst ticketUrl = `https://linear.app/legalfly/issue/${ticketIdentifier}`;\n\nconst message = `:tada: *Deal Sales Closed!*\\n\\n` +\n  `*<${dealUrl}|${dealName}>* (${formatCurrency(amount)}) just closed! :rocket:\\n\\n` +\n  `${seName} \u2014 please update your Linear ticket *<${ticketUrl}|${ticketIdentifier}>* (${ticketTitle}):\\n` +\n  `\u2022 Document what you worked on and the outcome\\n` +\n  `\u2022 Move the ticket to *Done*\\n\\n` +\n  `Thanks! :raised_hands:`;\n\nreturn [{\n  json: {\n    message: message\n  }\n}];"
+        "jsCode": "const deal = $('Fetch Deal Details').first().json;\nconst se = $('Resolve SE Name').first().json;\nconst slackResult = $('Lookup SE in Slack').first().json;\nconst ticket = $('Find Existing Ticket').first().json.existingIssue;\n\nconst seName = `${se.firstName} ${se.lastName}`.trim();\nconst slackTag = (slackResult.ok && slackResult.user && slackResult.user.id) ? `<@${slackResult.user.id}>` : seName;\nconst dealName = deal.properties.dealname;\nconst dealId = deal.id;\nconst portalId = '142047914';\n\nconst amount = Number(deal.properties.amount || 0);\nconst formatCurrency = (v) => v >= 1000 ? '\u20ac' + (v / 1000).toFixed(0) + 'K' : '\u20ac' + v;\n\nconst dealUrl = `https://app.hubspot.com/contacts/${portalId}/deal/${dealId}`;\nconst ticketIdentifier = ticket.identifier;\nconst ticketTitle = ticket.title;\nconst ticketUrl = `https://linear.app/legalfly/issue/${ticketIdentifier}`;\n\nconst message = `:tada: *Deal Closed!*\\n\\n` +\n  `*<${dealUrl}|${dealName}>* (${formatCurrency(amount)}) just closed! :rocket:\\n\\n` +\n  `${slackTag} \u2014 please update your Linear ticket *<${ticketUrl}|${ticketIdentifier}>* (${ticketTitle}):\\n` +\n  `\u2022 Document what you worked on and the outcome\\n` +\n  `\u2022 Move the ticket to *Done*\\n\\n` +\n  `Thanks! :raised_hands:`;\n\nreturn [{\n  json: {\n    message: message\n  }\n}];"
       }
     },
     {
@@ -183,19 +176,14 @@
       "name": "Post to Slack",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [2176, 288],
+      "position": [2304, 288],
       "parameters": {
         "resource": "message",
         "operation": "post",
         "select": "channel",
-        "channelId": {
-          "mode": "id",
-          "value": "C0AFSAD1E5A"
-        },
+        "channelId": { "mode": "id", "value": "C0AFSAD1E5A" },
         "text": "={{ $json.message }}",
-        "otherOptions": {
-          "includeLinkToWorkflow": false
-        }
+        "otherOptions": { "includeLinkToWorkflow": false }
       },
       "credentials": {
         "slackApi": { "id": "lYs0WHzWk4c7z9Kk", "name": "Slack" }
@@ -203,39 +191,16 @@
     }
   ],
   "connections": {
-    "Webhook: Deal Sales Closed": {
-      "main": [[{ "node": "Normalize Webhook Data", "type": "main", "index": 0 }]]
-    },
-    "Normalize Webhook Data": {
-      "main": [[{ "node": "Fetch Deal Details", "type": "main", "index": 0 }]]
-    },
-    "Fetch Deal Details": {
-      "main": [[{ "node": "SE Assigned?", "type": "main", "index": 0 }]]
-    },
-    "SE Assigned?": {
-      "main": [
-        [{ "node": "Resolve SE Name", "type": "main", "index": 0 }],
-        [{ "node": "Stop (No SE)", "type": "main", "index": 0 }]
-      ]
-    },
-    "Resolve SE Name": {
-      "main": [[{ "node": "Search Linear for Ticket", "type": "main", "index": 0 }]]
-    },
-    "Search Linear for Ticket": {
-      "main": [[{ "node": "Find Existing Ticket", "type": "main", "index": 0 }]]
-    },
-    "Find Existing Ticket": {
-      "main": [[{ "node": "Linear Ticket Found?", "type": "main", "index": 0 }]]
-    },
-    "Linear Ticket Found?": {
-      "main": [
-        [{ "node": "Build Slack Message", "type": "main", "index": 0 }],
-        [{ "node": "Stop (No Ticket)", "type": "main", "index": 0 }]
-      ]
-    },
-    "Build Slack Message": {
-      "main": [[{ "node": "Post to Slack", "type": "main", "index": 0 }]]
-    }
+    "Webhook: Deal Sales Closed": { "main": [[{ "node": "Normalize Webhook Data", "type": "main", "index": 0 }]] },
+    "Normalize Webhook Data": { "main": [[{ "node": "Fetch Deal Details", "type": "main", "index": 0 }]] },
+    "Fetch Deal Details": { "main": [[{ "node": "SE Assigned?", "type": "main", "index": 0 }]] },
+    "SE Assigned?": { "main": [[{ "node": "Resolve SE Name", "type": "main", "index": 0 }], [{ "node": "Stop (No SE)", "type": "main", "index": 0 }]] },
+    "Resolve SE Name": { "main": [[{ "node": "Lookup SE in Slack", "type": "main", "index": 0 }]] },
+    "Lookup SE in Slack": { "main": [[{ "node": "Search Linear for Ticket", "type": "main", "index": 0 }]] },
+    "Search Linear for Ticket": { "main": [[{ "node": "Find Existing Ticket", "type": "main", "index": 0 }]] },
+    "Find Existing Ticket": { "main": [[{ "node": "Linear Ticket Found?", "type": "main", "index": 0 }]] },
+    "Linear Ticket Found?": { "main": [[{ "node": "Build Slack Message", "type": "main", "index": 0 }], [{ "node": "Stop (No Ticket)", "type": "main", "index": 0 }]] },
+    "Build Slack Message": { "main": [[{ "node": "Post to Slack", "type": "main", "index": 0 }]] }
   },
   "settings": {
     "executionOrder": "v1",

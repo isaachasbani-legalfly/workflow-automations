@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.2 — 2026-04-09
+
+- Added SE Work Summary template with interactive checkboxes to Linear ticket descriptions (engagement type: Custom demo, Free trial support, Bootcamp, Meeting support; free-text fields: What you did, Notes for CS team)
+- Removed deprecated `hs-deal-id` tag from ticket description (dedup now uses Linear attachments API)
+
 ## v1.1 — 2026-04-08
 
 - Changed trigger from HubSpot Trigger node to Webhook node (Private App webhook subscription)
