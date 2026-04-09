@@ -1,14 +1,12 @@
 flowchart TD
-    Webhook([HubSpot Webhook<br/>POST /hubspot-deal-closed-se]) --> Extract[Extract Event]
-    Extract --> FilterStage{Is Sales Closed?<br/>stage = 2406692058}
-    FilterStage -->|No| Stop1([No Op])
-    FilterStage -->|Yes| FetchDeal[Fetch Deal Details<br/>GET /deals + properties]
+    Webhook([Webhook: Deal Sales Closed<br/>POST /hubspot-deal-closed-se]) --> Normalize[Normalize Webhook Data<br/>Extract dealId]
+    Normalize --> FetchDeal[Fetch Deal Details<br/>GET /deals + properties]
     FetchDeal --> CheckSE{SE Assigned?<br/>solutions_engineer<br/>not empty}
-    CheckSE -->|No| Stop2([No Op])
+    CheckSE -->|No| Stop1([No Op])
     CheckSE -->|Yes| ResolveSE[Resolve SE Name<br/>GET /owners]
     ResolveSE --> SearchLinear[Search Linear for Ticket<br/>GraphQL attachment search]
     SearchLinear --> FindTicket[Find Existing Ticket<br/>Filter to SE team]
     FindTicket --> HasTicket{Linear Ticket Found?}
-    HasTicket -->|No| Stop3([No Op])
+    HasTicket -->|No| Stop2([No Op])
     HasTicket -->|Yes| BuildMsg[Build Slack Message]
     BuildMsg --> PostSlack[Post to Slack<br/>Channel C0AFSAD1E5A]

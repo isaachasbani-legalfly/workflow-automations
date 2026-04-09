@@ -3,7 +3,7 @@
   "nodes": [
     {
       "id": "webhook-trigger",
-      "name": "HubSpot Webhook",
+      "name": "Webhook: Deal Sales Closed",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [-144, 304],
@@ -14,58 +14,23 @@
       }
     },
     {
-      "id": "extract-event",
-      "name": "Extract Event",
+      "id": "normalize-data",
+      "name": "Normalize Webhook Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [64, 304],
+      "position": [128, 304],
       "parameters": {
-        "jsCode": "// HubSpot sends an array of events \u2014 take the first one\nconst events = $input.first().json.body;\nconst event = Array.isArray(events) ? events[0] : events;\n\nreturn [{\n  json: {\n    objectId: String(event.objectId),\n    propertyName: event.propertyName,\n    propertyValue: event.propertyValue || '',\n    portalId: String(event.portalId || '142047914'),\n    changeSource: event.changeSource || 'UNKNOWN'\n  }\n}];"
+        "jsCode": "const item = $input.first().json;\nconst dealId = item.body?.dealId || item.dealId;\n\nif (!dealId) {\n  throw new Error('No dealId found in webhook payload');\n}\n\nreturn [{ json: { dealId: String(dealId) } }];"
       }
-    },
-    {
-      "id": "filter-sales-closed",
-      "name": "Is Sales Closed?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [272, 304],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "version": 2,
-            "leftValue": "",
-            "caseSensitive": true,
-            "typeValidation": "strict"
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "is-sales-closed",
-              "operator": { "type": "string", "operation": "equals" },
-              "leftValue": "={{ $json.propertyValue }}",
-              "rightValue": "2406692058"
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "stop-not-sales-closed",
-      "name": "Stop (Not Sales Closed)",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [528, 480],
-      "parameters": {}
     },
     {
       "id": "fetch-deal",
       "name": "Fetch Deal Details",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [528, 288],
+      "position": [384, 288],
       "parameters": {
-        "url": "=https://api.hubapi.com/crm/v3/objects/deals/{{ $json.objectId }}?properties=dealname,dealstage,amount,potential_amount,closedate,hubspot_owner_id,solutions_engineer",
+        "url": "=https://api.hubapi.com/crm/v3/objects/deals/{{ $json.dealId }}?properties=dealname,dealstage,amount,potential_amount,closedate,hubspot_owner_id,solutions_engineer",
         "authentication": "predefinedCredentialType",
         "nodeCredentialType": "hubspotAppToken",
         "options": {}
@@ -82,7 +47,7 @@
       "name": "SE Assigned?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [784, 288],
+      "position": [640, 288],
       "parameters": {
         "conditions": {
           "options": {
@@ -109,7 +74,7 @@
       "name": "Stop (No SE)",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [1040, 480],
+      "position": [896, 480],
       "parameters": {}
     },
     {
@@ -117,7 +82,7 @@
       "name": "Resolve SE Name",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1040, 288],
+      "position": [896, 288],
       "parameters": {
         "url": "=https://api.hubapi.com/crm/v3/owners/{{ $json.properties.solutions_engineer }}",
         "authentication": "predefinedCredentialType",
@@ -136,7 +101,7 @@
       "name": "Search Linear for Ticket",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1296, 288],
+      "position": [1152, 288],
       "parameters": {
         "method": "POST",
         "url": "https://api.linear.app/graphql",
@@ -159,7 +124,7 @@
       "name": "Find Existing Ticket",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1552, 288],
+      "position": [1408, 288],
       "parameters": {
         "jsCode": "const result = $input.first().json;\nconst teamId = 'fa68a3c7-fcbe-407e-8d66-94b572c31522';\n\nconst attachments = result.data && result.data.attachments && result.data.attachments.nodes\n  ? result.data.attachments.nodes\n  : [];\n\n// Find attachment whose issue belongs to Solutions Engineering team\nconst match = attachments.find(a => \n  a.issue && a.issue.team && a.issue.team.id === teamId\n);\n\nreturn [{\n  json: {\n    existingIssue: match ? match.issue : null,\n    found: !!match\n  }\n}];"
       }
@@ -169,7 +134,7 @@
       "name": "Linear Ticket Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
-      "position": [1808, 288],
+      "position": [1664, 288],
       "parameters": {
         "conditions": {
           "options": {
@@ -200,7 +165,7 @@
       "name": "Stop (No Ticket)",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
-      "position": [2064, 480],
+      "position": [1920, 480],
       "parameters": {}
     },
     {
@@ -208,7 +173,7 @@
       "name": "Build Slack Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2064, 288],
+      "position": [1920, 288],
       "parameters": {
         "jsCode": "const deal = $('Fetch Deal Details').first().json;\nconst se = $('Resolve SE Name').first().json;\nconst ticket = $('Find Existing Ticket').first().json.existingIssue;\n\nconst seName = `${se.firstName} ${se.lastName}`.trim();\nconst dealName = deal.properties.dealname;\nconst dealId = deal.id;\nconst portalId = '142047914';\n\nconst amount = Number(deal.properties.amount || 0);\nconst formatCurrency = (v) => v >= 1000 ? '\u20ac' + (v / 1000).toFixed(0) + 'K' : '\u20ac' + v;\n\nconst dealUrl = `https://app.hubspot.com/contacts/${portalId}/deal/${dealId}`;\nconst ticketIdentifier = ticket.identifier;\nconst ticketTitle = ticket.title;\n\n// Linear URL format: https://linear.app/legalfly/issue/{identifier}\nconst ticketUrl = `https://linear.app/legalfly/issue/${ticketIdentifier}`;\n\nconst message = `:tada: *Deal Sales Closed!*\\n\\n` +\n  `*<${dealUrl}|${dealName}>* (${formatCurrency(amount)}) just closed! :rocket:\\n\\n` +\n  `${seName} \u2014 please update your Linear ticket *<${ticketUrl}|${ticketIdentifier}>* (${ticketTitle}):\\n` +\n  `\u2022 Document what you worked on and the outcome\\n` +\n  `\u2022 Move the ticket to *Done*\\n\\n` +\n  `Thanks! :raised_hands:`;\n\nreturn [{\n  json: {\n    message: message\n  }\n}];"
       }
@@ -218,7 +183,7 @@
       "name": "Post to Slack",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.4,
-      "position": [2320, 288],
+      "position": [2176, 288],
       "parameters": {
         "resource": "message",
         "operation": "post",
@@ -238,17 +203,11 @@
     }
   ],
   "connections": {
-    "HubSpot Webhook": {
-      "main": [[{ "node": "Extract Event", "type": "main", "index": 0 }]]
+    "Webhook: Deal Sales Closed": {
+      "main": [[{ "node": "Normalize Webhook Data", "type": "main", "index": 0 }]]
     },
-    "Extract Event": {
-      "main": [[{ "node": "Is Sales Closed?", "type": "main", "index": 0 }]]
-    },
-    "Is Sales Closed?": {
-      "main": [
-        [{ "node": "Fetch Deal Details", "type": "main", "index": 0 }],
-        [{ "node": "Stop (Not Sales Closed)", "type": "main", "index": 0 }]
-      ]
+    "Normalize Webhook Data": {
+      "main": [[{ "node": "Fetch Deal Details", "type": "main", "index": 0 }]]
     },
     "Fetch Deal Details": {
       "main": [[{ "node": "SE Assigned?", "type": "main", "index": 0 }]]

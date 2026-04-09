@@ -4,14 +4,14 @@ When a HubSpot deal moves to **06_Sales Closed** in the Sales Pipeline with a So
 
 ## Trigger
 
-HubSpot Private App webhook subscription on `deal.propertyChange` for the `dealstage` property. Filters for stage `2406692058` (06_Sales Closed).
+HubSpot internal workflow triggers when a deal enters stage **06_Sales Closed** (`2406692058`). The HubSpot workflow sends a webhook with the deal ID to this n8n workflow.
 
 **Webhook path**: `/webhook/hubspot-deal-closed-se`
 
 ## How It Works
 
-1. HubSpot webhook fires when any deal's stage changes
-2. **Filter**: Only proceed if the new stage is `2406692058` (06_Sales Closed)
+1. HubSpot workflow sends deal ID when a deal enters 06_Sales Closed
+2. **Normalize**: Extract deal ID from webhook payload
 3. **Fetch deal**: Get deal properties including `solutions_engineer`
 4. **Guard**: Stop if no SE is assigned
 5. **Resolve SE name**: Look up the SE's first/last name via HubSpot Owners API

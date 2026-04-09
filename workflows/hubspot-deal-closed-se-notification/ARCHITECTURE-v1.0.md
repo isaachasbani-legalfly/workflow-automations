@@ -8,39 +8,32 @@ When a deal moves to "06_Sales Closed" in the Sales Pipeline with a Solutions En
 
 ```mermaid
 flowchart TD
-    Webhook([HubSpot Webhook]) --> Extract[Extract Event]
-    Extract --> FilterStage{Is Sales Closed?}
-    FilterStage -->|No| Stop1([No Op])
-    FilterStage -->|Yes| FetchDeal[Fetch Deal Details]
+    Webhook([Webhook: Deal Sales Closed]) --> Normalize[Normalize Webhook Data]
+    Normalize --> FetchDeal[Fetch Deal Details]
     FetchDeal --> CheckSE{SE Assigned?}
-    CheckSE -->|No| Stop2([No Op])
+    CheckSE -->|No| Stop1([No Op])
     CheckSE -->|Yes| ResolveSE[Resolve SE Name]
     ResolveSE --> SearchLinear[Search Linear for Ticket]
     SearchLinear --> FindTicket[Find Existing Ticket]
     FindTicket --> HasTicket{Linear Ticket Found?}
-    HasTicket -->|No| Stop3([No Op])
+    HasTicket -->|No| Stop2([No Op])
     HasTicket -->|Yes| BuildMsg[Build Slack Message]
     BuildMsg --> PostSlack[Post to Slack]
 ```
 
 ## Node Reference
 
-### HubSpot Webhook (`webhook-trigger`)
+### Webhook: Deal Sales Closed (`webhook-trigger`)
 - **Type**: n8n-nodes-base.webhook v2.1
-- **Purpose**: Receives POST from HubSpot when `dealstage` changes on a deal
+- **Purpose**: Receives POST from HubSpot internal workflow when a deal enters 06_Sales Closed
 - **Path**: `/hubspot-deal-closed-se`
-- **Mode**: Respond immediately (200 OK on receive)
+- **Payload**: `{ "dealId": "123456" }`
 
-### Extract Event (`extract-event`)
+### Normalize Webhook Data (`normalize-data`)
 - **Type**: n8n-nodes-base.code v2
-- **Purpose**: HubSpot sends events as an array -- extracts the first event
-- **Output**: `objectId`, `propertyName`, `propertyValue`, `portalId`, `changeSource`
-- **Reused from**: SE-Linear workflow (identical code)
-
-### Is Sales Closed? (`filter-sales-closed`)
-- **Type**: n8n-nodes-base.if v2.3
-- **Condition**: `propertyValue` equals `2406692058` (06_Sales Closed stage in Sales Pipeline)
-- **TRUE** -> Fetch Deal Details | **FALSE** -> Stop
+- **Purpose**: Extracts deal ID from webhook payload (handles both `body.dealId` and `dealId` formats)
+- **Output**: `{ dealId }`
+- **Reused from**: Line-items workflow (same pattern)
 
 ### Fetch Deal Details (`fetch-deal`)
 - **Type**: n8n-nodes-base.httpRequest v4.4

@@ -4,8 +4,8 @@
 
 Initial implementation.
 
-- HubSpot webhook trigger on `dealstage` property change
-- Filter for 06_Sales Closed stage (`2406692058`) in Sales Pipeline
+- HubSpot internal workflow triggers webhook when deal enters 06_Sales Closed
+- Normalize webhook payload to extract deal ID (same pattern as line-items workflow)
 - Fetch deal details and check for SE assignment
 - Resolve SE name via HubSpot Owners API
 - Search Linear for existing ticket linked to deal (attachment-based dedup, same as SE-Linear workflow)
