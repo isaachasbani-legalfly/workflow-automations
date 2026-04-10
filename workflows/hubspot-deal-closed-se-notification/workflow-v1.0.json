@@ -21,7 +21,7 @@
       "typeVersion": 2,
       "position": [128, 304],
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst dealId = item.body?.dealId || item.dealId;\n\nif (!dealId) {\n  throw new Error('No dealId found in webhook payload');\n}\n\nreturn [{ json: { dealId: String(dealId) } }];"
+        "jsCode": "const item = $input.first().json;\nconst dealId = item.body?.dealId || item.body?.DealID || item.dealId || item.DealID;\n\nif (!dealId) {\n  throw new Error('No dealId found in webhook payload');\n}\n\nreturn [{ json: { dealId: String(dealId) } }];"
       }
     },
     {
