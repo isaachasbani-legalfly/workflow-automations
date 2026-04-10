@@ -19,8 +19,18 @@ HubSpot Private App webhook subscription configured manually to send `deal.prope
 7. **Search Linear** queries Linear GraphQL `attachments` API to find issues with an attachment URL containing the deal ID
 8. **Find Existing Ticket** filters attachment results to the Solutions Engineering team
 9. **Branch**:
-   - **No ticket** → Creates Linear issue in Backlog + adds HubSpot link as attachment
-   - **Ticket exists** → Updates assignee + adds reassignment comment
+   - **No ticket** → Creates Linear issue in Backlog + adds HubSpot link as attachment + sends Slack notification
+   - **Ticket exists** → Updates assignee + adds reassignment comment (no Slack notification)
+
+### Slack Notification (new ticket only)
+
+After a new Linear ticket is created and the HubSpot link is attached, the workflow sends a Slack notification to channel `C09QT2RFSBW`:
+
+10. **Lookup SE in Slack** resolves the SE's email to a Slack user ID via `users.lookupByEmail`
+11. **Build Slack Message** composes a message tagging the SE and @dm (`U043SB6G5C5`) with the deal link and Linear ticket link
+12. **Post to Slack** sends the message to the channel
+
+This notification only fires on new ticket creation, not on reassignment of existing tickets.
 
 ## SE → Linear User Mappings
 
@@ -36,8 +46,11 @@ HubSpot Private App webhook subscription configured manually to send `deal.prope
 |---|---|---|
 | HubSpot | hubspotAppToken (`5ww8XNGf4HTQu4UI` / "hubspot") | HTTP Request nodes (deal + owner API calls) |
 | Linear | linearApi (`Hy0y7IGsd1kE4waU` / "Linear account") | Linear nodes + GraphQL search HTTP Request |
+| Slack | slackApi (`lYs0WHzWk4c7z9Kk` / "Slack") | SE user lookup + post notification to channel |
 
 **Required HubSpot scope**: `crm.objects.owners.read` (for Resolve SE Name / Resolve AE Name API calls)
+
+**Required Slack scopes**: `chat:write` (post messages to channel), `users:read.email` (look up Slack user by email)
 
 ## Error Handling
 

@@ -98,7 +98,7 @@ flowchart TD
 
 ### Post to Slack (`post-slack`)
 - **Type**: n8n-nodes-base.slack v2.4
-- **Channel**: `C0AFSAD1E5A`
+- **Channel**: `C09QT2RFSBW`
 - **Text**: Dynamic from Build Slack Message node
 
 ## Routing Logic

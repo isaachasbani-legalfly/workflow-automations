@@ -181,7 +181,7 @@
         "resource": "message",
         "operation": "post",
         "select": "channel",
-        "channelId": { "mode": "id", "value": "C0AFSAD1E5A" },
+        "channelId": { "mode": "id", "value": "C09QT2RFSBW" },
         "text": "={{ $json.message }}",
         "otherOptions": { "includeLinkToWorkflow": false }
       },

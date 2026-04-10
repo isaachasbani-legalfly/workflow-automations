@@ -57,7 +57,7 @@ HubSpot internal workflow triggers when a deal enters stage **06_Sales Closed** 
 - **Workflow ID**: `WGDJgIZwuuv15uf4`
 - **URL**: https://legalfly.app.n8n.cloud/workflow/WGDJgIZwuuv15uf4
 - **Error handler**: `TA6Iq4wMW0KYsCiH`
-- **Slack channel**: `C0AFSAD1E5A`
+- **Slack channel**: `C09QT2RFSBW`
 
 ## Related Workflows
 
